@@ -8,21 +8,22 @@ use Log::Report 'couch-db';
 
 use Couch::DB::Util   qw(flat);
 use Couch::DB::Client ();
+use Couch::DB::Node   ();
 
 use Scalar::Util      qw(blessed);
 use List::Util        qw(first);
 use DateTime          ();
+use DateTime::Format::Mail    ();
+use DateTime::Format::ISO8601 ();
 use URI               ();
+use JSON              ();
+use Storable          qw/dclone/;
 
 use constant
 {	DEFAULT_SERVER => 'http://127.0.0.1:5984',
 };
 
-my %default_converters =   # sub ($couch, $name, $datum) returns value/object
-(	version   => sub { version->parse($_[2]) },
-	epoch     => sub { DateTime->from_epoch(epoch => $_[2]) },
-	uri       => sub { URI->new($_[2]) },
-);
+my (%default_toperl, %default_tojson);
 
 =chapter NAME
 
@@ -87,8 +88,13 @@ Used to login to the default server.
 
 =option  to_perl HASH
 =default to_perl C<< +{ } >>
-A table with converter name and CODE, to override/add the default JSON->PERL
+A table with converter name and CODE, to override/add the default JSON to PERL
 object conversions for M<value()>.
+
+=option  to_json HASH
+=default to_json C<< +{ } >>
+A table with converter name and CODE, to override/add the default PERL to JSON
+object conversions for sending structures.
 =cut
 
 sub new(%)
@@ -115,8 +121,8 @@ sub init($)
 			username => $username, password => $password);
 	}
 
-	my $converters   = delete $args->{to_perl} || {};
-	$self->{CD_conv} = +{ %default_converters, %$converters };
+	$self->{CD_toperl} = +{ %default_toperl, %{delete $args->{to_perl} || {}} };
+	$self->{CD_tojson} = +{ %default_tojson, %{delete $args->{to_json} || {}} };
 
 	$self;
 }
@@ -206,14 +212,33 @@ A function (sub) which transforms the data of the CouchDB answer into useful Per
 values and objects.  See M<Couch::DB::toPerl()>.
 =cut
 
+my %surpress_depr;
 sub __couchdb_version($)
 {	my $v = shift or return;
 	version->parse($v =~ /^\d+\.\d+$/ ? "$v.0" : $v);  # sometime without 3rd
 }
-my %surpress_depr;
+
+my %to_query = (
+	'JSON::PP::Boolean' => sub { $_[0] ? 'true' : 'false' },
+	'Couch::DB::Node'   => sub { $_[0]->name },
+);
 
 sub call($$%)
 {	my ($self, $method, $path, %args) = @_;
+	$args{method} = $method;
+	$args{path}   = $path;
+
+	if(my $query = delete $args{query}) 
+	{	# Cleanup the query
+		my %query = %$query;
+
+		foreach my $key (keys %$query)
+		{	my $conv = $to_query{ref $query{$key}} or next;
+			$query{$key} = $conv->($query{$key});
+		}
+
+		$args{query} = \%query;
+	}
 
 	### On this level, we pick a client.  Extensions implement the transport.
 
@@ -249,7 +274,7 @@ sub call($$%)
 		! $introduced || $introduced <= $client->version
 			or next CLIENT;  # server release too old
 
-		$self->_callClient($result, $client, $method, $path, %args)
+		$self->_callClient($result, $client, %args)
 			and last;
 	}
 
@@ -258,6 +283,11 @@ sub call($$%)
 }
 
 sub _callClient { ... }
+
+sub _resultsConfig($)
+{	my ($self, $args) = @_;
+	map +($_ => delete $args->{$_}), qw/delay client clients/;
+}
 
 #-------------
 =section Database
@@ -270,17 +300,308 @@ sub createDatabase($%)
 {	my ($self, $name, %args) = @_;
 }
 
+=method searchAnalyse %options
+[CouchDB API "POST /_search_analyze", since 3.0, UNTESTED]
+Check what the build-in Lucene tokenizer(s) will do with your text.
+
+=requires analyzer KIND
+=requires text STRING
+=cut
+
+#XXX the API-doc might be mistaken, calling the "analyzer" parameter "field".
+
+sub searchAnalyse(%)
+{	my ($self, %args) = @_;
+
+	$self->call(POST => '/_search_analyze',
+		introduced => '3.0',
+		$self->_resultsConfig(\%args),
+	);
+}
+
+=method reshardStatus %options
+[CouchDB API "GET /_reshard", since 2.4, UNTESTED] and
+[CouchDB API "GET /_reshard/state", since 2.4, UNTESTED]
+
+=option  counts BOOLEAN
+=default counts C<false>
+Include the job counts in the result.
+=cut
+
+#XXX The example in CouchDB API doc 3.3.3 says it returns 'reason' with /state,
+#XXX but the spec says 'state_reason'.
+
+sub reshardStatus(%)
+{	my ($self, %args) = @_;
+	my $path = '/_reshard';
+	$path   .= '/state' if delete $args{counts};
+
+	$self->call(GET => $path,
+		introduced => '2.4',
+		$self->_resultsConfig(\%args),
+	);
+}
+
+=method resharding %options
+[CouchDB API "PUT /_reshard/state", since 2.4, UNTESTED]
+Start or stop the resharding process.
+
+=requires state STRING
+Can be C<stopped> or C<running>.  Stopped state can be resumed into running.
+
+=option   reason STRING
+=default  reason C<undef>
+
+=cut
+
+#XXX The example in CouchDB API doc 3.3.3 says it returns 'reason' with /state,
+#XXX but the spec says 'state_reason'.
+
+sub resharding(%)
+{	my ($self, %args) = @_;
+
+	my %send   = (
+		state  => (delete $args{state} or panic "Requires 'state'"),
+		reason => delete $args{reason},
+	);
+
+	$self->call(PUT => '/_reshard/state',
+		introduced => '2.4',
+		send       => \%send,
+		$self->_resultsConfig(\%args),
+	);
+}
+
+=method reshardJobs %options
+[CouchDB API "GET /_reshard/jobs", since 2.4, UNTESTED]
+Show the resharding activity.
+=cut
+
+sub __jobValues($$)
+{	my ($couch, $job) = @_;
+
+	$couch->toPerl($job, isotime => qw/start_time update_time/)
+	      ->toPerl($job, node => qw/node/);
+
+	$couch->toPerl($_, isotime => qw/timestamp/)
+		for @{$job->{history} || []};
+}
+
+sub __reshardJobsValues($$)
+{	my ($result, $data) = @_;
+	my $couch  = $result->couch;
+
+	my $values = dclone $data;
+	__jobValues($couch, $_) for @{$values->{jobs} || []};
+	$values;
+}
+
+sub reshardJobs(%)
+{	my ($self, %args) = @_;
+
+	$self->call(GET => '/_reshard/jobs',
+		introduced => '2.4',
+		$self->_resultsConfig(\%args),
+		to_values  => \&__reshardJobsValues,
+	);
+}
+
+=method reshardCreate %options
+[CouchDB API "POST /_reshard/jobs", since 2.4, UNTESTED]
+Create resharding jobs.
+
+The many %options are passed as parameters.
+=cut
+
+sub __reshardCreateValues($$)
+{	my ($result, $data) = @_;
+	my $values = dclone $data;
+	$result->couch->toPerl($_, node => 'node')
+		for @$values;
+
+	$values;
+}
+
+sub reshardCreate(%)
+{	my ($self, %args) = @_;
+	my %config = $self->_resultsConfig(\%args);
+
+	#XXX The spec in CouchDB API doc 3.3.3 lists request param 'node' twice.
+
+	$self->call(POST => '/_reshard/jobs',
+		introduced => '2.4',
+		send       => \%args,
+		to_values  => \&__reshardCreateValues,
+		%config,
+	);
+}
+
+=method reshardJob $jobid, %options
+[CouchDB API "GET /_reshard/jobs/{jobid}", since 2.4, UNTESTED]
+Show the resharding activity.
+=cut
+
+sub __reshardJobValues($$)
+{	my ($result, $data) = @_;
+	my $couch  = $result->couch;
+
+	my $values = dclone $data;
+	__jobValues($couch, $values);
+	$values;
+}
+
+sub reshardJob($%)
+{	my ($self, $jobid, %args) = @_;
+
+	$self->call(GET => "/_reshard/jobs/$jobid",
+		introduced => '2.4',
+		$self->_resultsConfig(\%args),
+		to_values  => \&__reshardJobValues,
+	);
+}
+
+=method reshardJobRemove $jobid, %options
+[CouchDB API "DELETE /_reshard/jobs/{jobid}", since 2.4, UNTESTED]
+Show the resharding activity.
+=cut
+
+sub reshardJobRemove($%)
+{	my ($self, $jobid, %args) = @_;
+
+	$self->call(DELETE => "/_reshard/jobs/$jobid",
+		introduced => '2.4',
+		$self->_resultsConfig(\%args),
+	);
+}
+
+=method reshardJobState $jobid, %options
+[CouchDB API "GET /_reshard/jobs/{jobid}/state", since 2.4, UNTESTED]
+Show the resharding job status.
+=cut
+
+sub reshardJobState($%)
+{	my ($self, $jobid, %args) = @_;
+
+	#XXX in the 3.3.3 docs, "Request JSON Object" should read "Response ..."
+	$self->call(GET => "/_reshard/job/$jobid/state",
+		introduced => '2.4',
+		$self->_resultsConfig(\%args),
+	);
+}
+
+=method reshardJobChange $jobid, %options
+[CouchDB API "PUT /_reshard/jobs/{jobid}/state", since 2.4, UNTESTED]
+Change the resharding job status.
+
+=requires state STRING
+Can be C<new>, C<running>, C<stopped>, C<completed>, or C<failed>.
+
+=option   reason STRING
+=default  reason C<undef>
+=cut
+
+sub reshardJobChange($%)
+{	my ($self, $jobid, %args) = @_;
+
+	my %send = (
+		state  => (delete $args{state} or panic "Requires 'state'"),
+		reason => delete $args{reason},
+	);
+
+	$self->call(PUT => "/_reshard/job/$jobid/state",
+		introduced => '2.4',
+		send       => \%send,
+		$self->_resultsConfig(\%args),
+	);
+}
+
+#-------------
+=section Nodes
+
+=method node $name
+Returns a M<Couch::DB::Node> object with the $name.  If it does not exist
+yet, it gets created, otherwise reused.
+=cut
+
+sub node($)
+{	my ($self, $name) = @_;
+	$self->{CD_nodes}{$name} ||= Couch::DB::Node->new(name => $name, couch => $self);
+}
+
 #-------------
 =section Conversions
 
-=method toPerl $type, $name, $datum
-Convert a single value
+=method toPerl \%data, $type, @keys
+Convert all fields with @keys in the $data into object of $type.
+Fields which do not exist are left alone.
 =cut
 
-sub toPerl($$)
-{	my ($self, $type, $name, $datum) = @_;
-	my $conv  = $_[0]->{CD_conv}{$type};
-	defined $datum && defined $conv ? $conv->($self, $name, $datum) : undef;
+%default_toperl = (  # sub ($couch, $name, $datum) returns value/object
+	abs_uri   => sub { URI->new($_[2]) },
+	epoch     => sub { DateTime->from_epoch(epoch => $_[2]) },
+	isotime   => sub { DateTime::Format::ISO8601->parse_datetime($_[2]) },
+	mailtime  => sub { DateTime::Format::Mail->parse_datetime($_[2]) },   # smart choice by CouchDB?
+ 	version   => sub { version->parse($_[2]) },
+	node      => sub { $_[0]->node($_[2]) },
+);
+
+sub _toPerlHandler($) { $_[0]->{CD_toperl}{$_[1]} }
+sub toPerl($$@)
+{	my ($self, $data, $type) = (shift, shift, shift);
+	my $conv  = $self->_toPerlHandler($type) or return $self;
+
+	exists $data->{$_} && ($data->{$_} = $conv->($self, $_, $data->{$_}))
+		for @_;
+
+	$self;
+}
+
+=method listToPerl $set, $type, @data|\@data
+=cut
+
+sub listToPerl
+{	my ($self, $name, $type) = (shift, shift, shift);
+	my $conv  = $self->_toPerlHandler($type) or return flat @_;
+	grep defined, map $conv->($self, $name, $_), flat @_;
+}
+
+=method toJSON \%data, $type, @keys
+Convert the named fields in the %data into a JSON compatible format.
+Fields which do not exist are left alone.
+=cut
+
+%default_tojson = (  # sub ($couch, $name, $datum) returns JSON
+	bool      => sub { $_[2] ? JSON::PP::true : JSON::PP::false },
+	uri       => sub { "$_[2]" },
+	node      => sub { my $n = $_[2]; blessed $n ? $n->name : undef },
+);
+
+sub _toJsonHandler($) { $_[0]->{CD_tojson}{$_[1]} }
+sub toJSON($@)
+{	my ($self, $data, $type) = (shift, shift, shift);
+	my $conv = $self->_toJsonHandler($type) or return $self;
+
+	exists $data->{$_} && ($data->{$_} = $conv->($self, $_, $data->{$_}))
+		for @_;
+
+	foreach (@_)
+	{	exists $data->{$_} or next;
+		$data->{$_} = $data->{$_} ? JSON::PP::true : JSON::PP::false;
+	}
+	$self;
+}
+
+=method jsonText $json, %options
+Convert the (complex) $json structure into serialized JSON.  By default, it
+is beautified.
+
+=option  compact BOOLEAN
+=default compact C<false>
+=cut
+
+sub jsonText($%)
+{	my ($self, $json, %args) = @_;
+	JSON->new->pretty(not $args{compact})->encode($json);
 }
 
 #-------------

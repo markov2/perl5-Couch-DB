@@ -41,7 +41,7 @@ sub init($)
 {	my ($self, $args) = @_;
 
 	$args->{to_perl} =
-	 +{	uri => sub { Mojo::URL->new($_[2]) },
+	 +{	abs_uri => sub { Mojo::URL->new($_[2]) },
 	  };
 
 	$self->SUPER::init($args);
@@ -75,21 +75,21 @@ sub createClient(%)
 
 #method call
 
-sub _callClient($$$$%)
-{	my ($self, $result, $client, $method, $path, %args) = @_;
+sub _callClient($$%)
+{	my ($self, $result, $client, %args) = @_;
 
-	my $query   = delete $args{query}  || {};
+	my $method  = delete $args{method} or panic;
 	my $delay   = delete $args{delay}  || 0;
 
-	my $url = $client->server->clone->path($path);
-	$url->query($query) if keys %$query;
+	my $url = $client->server->clone->path(delete $args{path});
+	$url->query(delete $args{query});
 
 	my $ua  = $client->userAgent;
 
 	# $tx is a Mojo::Transaction::HTTP
-my $body;
-	my @body = defined $body ? (json => $body) : ();
-	my $tx   = $ua->build_tx($method => $url, $client->headers, @body);
+	my $send = delete $args{send};
+	my @body = defined $send ? (json => $send) : ();
+	my $tx   = $ua->build_tx(method => $url, $client->headers, @body);
 
 	my $plan = $ua->start_p($tx)->then(sub ($) {
 		my $tx = shift;

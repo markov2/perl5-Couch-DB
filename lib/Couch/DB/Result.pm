@@ -79,7 +79,7 @@ sub init($)
 
 	$self->{CDR_on_error}  = delete $args->{on_error}  || sub { };
 	$self->{CDR_code}      = HTTP_MULTIPLE_CHOICES;
-	$self->{CDR_to_values} = delete $args->{to_values} || sub { $_[0]->doc->data };
+	$self->{CDR_to_values} = delete $args->{to_values} || sub { $_[1] };
 	$self;
 }
 
@@ -173,7 +173,7 @@ See M<values()>.  See L</DETAILS> below.
 
 sub values(@)
 {	my $self = shift;
-	$self->{CDR_values} ||= $self->{CDR_to_values}->($self);
+	$self->{CDR_values} ||= $self->{CDR_to_values}->($self, $self->doc->data);
 }
 
 #-------------

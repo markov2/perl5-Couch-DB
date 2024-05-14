@@ -3,13 +3,14 @@
 
 package Couch::DB::Client;
 
-use Couch::DB::Util;
-use Couch::DB::Result;
+use Couch::DB::Util   qw(flat);
+use Couch::DB::Result ();
 
 use Log::Report 'couch-db';
 
 use Scalar::Util    qw(weaken);
 use MIME::Base64    qw(encode_base64);
+use Storable        qw(dclone);
 
 =chapter NAME
 
@@ -123,14 +124,13 @@ sub headers($) { $_[0]->{CDC_headers} }
 #-------------
 =section Server information
 
+B<All CouchDB API calls> provide the C<delay> option, to create a result
+object which will be run later.
+
 =method serverInfo %options
 [CouchDB API "GET /"]
 Query details about the server this client is connected to.
 Returns a M<Couch::DB::Result> object.
-
-=option  delay BOOLEAN
-=default delay C<false>
-Create a delayed Result.
 
 =option  cached 'YES'|'NEVER'|'RETRY'|'PING'
 =default cached 'YES'
@@ -143,12 +143,12 @@ not be lost.
 =cut
 
 sub __serverInfoValues
-{	my $result = shift;
-	my %values = %{$result->doc->data};
+{	my ($result, $data) = @_;
+	my %values = %$data;
 
 	# 3.3.3 does not contain the vendor/version, as the example in the spec says
 	# Probably a mistake.
-	$values{version} = $result->couch->toPerl(version => version => $values{version});
+	$result->couch->toPerl(\%values, version => qw/version/);
 	\%values;
 }
 
@@ -200,16 +200,14 @@ Query details about the (maintenance) tasks which are currently running in the
 connected server.  Returns a M<Couch::DB::Result> object.
 =cut
 
-sub __activeTasksValues
-{	my $result = shift;
-	my $tasks = $result->doc->data;
+sub __activeTasksValues($$)
+{	my ($result, $tasks) = @_;
 	my $couch = $result->couch;
 
 	my @tasks;
 	foreach my $task (@$tasks)
 	{	my %task = %$task;
-		$task{started_on} = $couch->toPerl(epoch => $task{type} => $task{started_on});
-		$task{updated_on} = $couch->toPerl(epoch => $task{type} => $task{updated_on});
+		$couch->toPerl(\%task, epoch => qw/started_on updated_on/);
 		push @tasks, \%task;
 	}
 
@@ -236,19 +234,19 @@ returned.  These options are C<descending> (boolean)
 C<startkey>, C<endkey>, C<limit>, and C<skip>.
 =cut
 
-sub true { 1 }
-sub enc_json { $_[0] }
+sub _db_keyfilter($)
+{	my ($self, $args) = @_;
+	$self->couch->toJSON($args, bool => qw/descending/);
 
-sub __db_keyfilter($)
-{	my $args = shift;
-
-	+{
-		descending => delete $args->{descending} ? true : undef,
-		startkey   => enc_json(delete $args->{startkey} || delete $args->{start_key}),
-		endkey     => enc_json(delete $args->{endkey}   || delete $args->{end_key}),
+	my $filter = +{
+		descending => delete $args->{descending},
+		startkey   => delete $args->{startkey} || delete $args->{start_key},
+		endkey     => delete $args->{endkey}   || delete $args->{end_key},
 		limit      => delete $args->{limit},
-		skip       => delete $args->{skip}     || undef,
-	 };
+		skip       => delete $args->{skip},
+	};
+
+	$filter;
 }
 
 sub databaseKeys(%)
@@ -257,7 +255,7 @@ sub databaseKeys(%)
 	$self->couch->call(GET => '/_all_dbs',
 		client    => $self,          # explicitly run only on this client
 		delay     => delete $args{delay},
-		query     => __db_keyfilter(\%args),
+		query     => $self->_db_keyfilter(\%args),
 	);
 }
 
@@ -284,15 +282,291 @@ sub databaseInfo(%)
 
 	my ($method, $query, $body, $intro) = $args{keys}
 	  ?	(POST => undef,  +{ keys => delete $args{keys} }, '2.2')
-	  :	(GET  => __db_keyfilter(\%args), undef, '3.2');
+	  :	(GET  => $self->_db_keyfilter(\%args), undef, '3.2');
 
 	$self->couch->call($method => '/_dbs_info',
 		introduced => $intro,
 		client     => $self,          # explicitly run only on this client
 		delay      => delete $args{delay},
 		query      => $query,
-		body       => $body,
+		send       => $body,
 	);
+}
+
+=method clusterState %options
+[CouchDB API "GET /_cluster_setup", since 2.0, UNTESTED]
+Describes the status of this CouchDB instance is in the cluster.
+Option C<ensure_dbs_exist>.
+=cut
+
+sub clusterState(%)
+{	my ($self, %args) = @_;
+
+	my %query;
+	my @need = flat delete $args{ensure_dbs_exists};
+	$query{ensure_dbs_exists} = $self->couch->jsonText(\@need, compact => 1)
+		if @need;
+
+	$self->couch->call(GET => '/_cluster_setup',
+		introduced => '2.0',
+		client     => $self,
+		delay      => delete $args{delay},
+		query      => \%query,
+	);
+}
+
+=method clusterSetup %options
+[CouchDB API "POST /_cluster_setup", since 2.0, UNTESTED]
+Describes the status of this CouchDB instance is in the cluster.
+
+All %options are posted as parameters.  See 
+=cut
+
+sub clusterSetup(%)
+{	my ($self, %args) = @_;
+
+	$self->couch->call(POST => '/_cluster_setup',
+		introduced => '2.0',
+		client     => $self,
+		delay      => delete $args{delay},
+		send       => \%args,
+	);
+}
+
+=method dbUpdates
+[CouchDB API "GET /_db_updates", since 1.4, UNTESTED]
+Get a feed of database changes, mainly for debugging purposes.
+
+All %options are used as parameters: C<feed> (type),
+C<timeout> (milliseconds!, default 60_000),
+C<heartbeat> (milliseconds, default 60_000), C<since> (sequence ID).
+
+=cut
+
+sub dbUpdates(%)
+{	my ($self, %args) = @_;
+
+	my $delay = delete $args{delay};
+	my %query = \%args;
+
+	$self->couch->call(GET => '/_db_updates',
+		introduced => '1.4',
+		client     => $self,
+		delay      => $delay,
+		send       => \%args,
+	);
+}
+
+=method clusterNodes %options
+[CouchDB API "GET /_membership", since 2.0, UNTESTED]
+List all known nodes, and those currently used for the cluster.
+=cut
+
+sub __clusterNodeValues($)
+{	my ($result, $data) = @_;
+	my $couch   = $result->couch;
+
+	my %values  = %$data;
+	foreach my $set (qw/all_nodes cluster_nodes/)
+	{	my $v = $values{$set} or next;
+		$values{$set} = [ $couch->listToPerl($set, node => $v) ];
+	}
+
+	\%values;
+}
+
+sub clusterNodes(%)
+{	my ($self, %args) = @_;
+
+	$self->couch->call(GET => '/_membership',
+		introduced => '2.0',
+		client     => $self,
+		delay      => delete $args{delay},
+		send       => \%args,
+		to_values  => \&__clusterNodeValues,
+	);
+}
+
+=method replicate %options
+[CouchDB API "POST /_replicate", UNTESTED]
+Configure replication: configure and stop.
+
+All %options are posted as parameters.
+=cut
+
+sub __replicateValues($$)
+{	my ($result, $raw) = @_;
+	my $couch   = $result->couch;
+
+	my $history = delete $raw->{history} or return $raw;
+	my %values  = %$raw;
+	my @history;
+
+	foreach my $event (@$history)
+	{	my %event = %$event;
+		$couch->toPerl(\%event, mailtime => qw/start_time end_time/);
+		push @history, \%event;
+	}
+	$values{history} = \@history;
+
+	\%values;
+}
+
+sub replicate(%)
+{	my ($self, %args) = @_;
+	my $couch = $self->couch;
+
+	my $delay = delete $args{delay};
+	$couch->toJSON(\%args, bool => qw/cancel continuous create_target/);
+
+    #TODO: warn for upcoming changes in source and target: absolute URLs required
+
+	$couch->call(POST => '/_replicate',
+		client     => $self,
+		delay      => $delay,
+		send       => \%args,
+		to_values  => \&__replicateValues,
+	);
+}
+
+=method replicationJobs %options
+[CouchDB API "GET /_scheduler/jobs", UNTESTED]
+Returns information about current replication jobs (which preform tasks), on
+this CouchDB server instance.  The results are ordered by replication ID.
+
+The %options can be C<limit> and C<skip>.
+=cut
+
+sub __replJobsValues($$)
+{	my ($result, $raw) = @_;
+	my $couch   = $result->couch;
+	my $values  = dclone $raw;
+
+	foreach my $job (@{$values->{jobs} || []})
+	{
+		$couch->toPerl($_, isotime => qw/timestamp/)
+			foreach @{$job->{history} || []};
+
+		$couch->toPerl($job, isotime => qw/start_time/)
+		      ->toPerl($job, abs_url => qw/target source/)
+		      ->toPerl($job, node    => qw/node/);
+	}
+
+	$values;
+}
+
+sub replicationJobs(%)
+{	my ($self, %args) = @_;
+	my %query = (
+		limit => delete $args{limit},
+		skip  => delete $args{skip},
+	);
+
+	$self->couch->call(GET => '/_scheduler/jobs',
+		client     => $self,
+		delay      => delete $args{delay},
+		query      => \%query,
+		to_values  => \&__replJobsValues,
+	);
+}
+
+=method replicationDocs %options
+[CouchDB API "GET /_scheduler/docs", UNTESTED] and
+[CouchDB API "GET /_scheduler/docs/{replicator_db}", UNTESTED].
+
+Pass a C<dbname> with %options to be specific about the database which
+contains the replication information.
+=cut
+
+sub __replDocsValues($$)
+{	my ($result, $raw) = @_;
+	my $couch   = $result->couch;
+	my $values  = dclone $raw;
+
+	foreach my $doc (@{$values->{docs} || []})
+	{	$couch->toPerl($doc, isotime => qw/start_time last_updated/)
+		      ->toPerl($doc, abs_url => qw/target source/)
+		      ->toPerl($doc, node    => qw/node/);
+		# my $info = $doc->info;  # no conversions needed
+	}
+
+	$values;
+}
+
+sub replicationDocs($%)
+{	my ($self, %args) = @_;
+
+	my $path = '/_scheduler/docs';
+	if(my $dbname = $args{dbname})
+	{	# API-doc specifies the protocol twice, seemingly exactly the same in
+		# docs 3.3.3 section 1.2.10.
+		$path .= "/$dbname";    # '/' protection not needed
+	}
+
+	my %query = (
+		limit => delete $args{limit},
+		skip  => delete $args{skip},
+	);
+
+	$self->couch->call(GET => $path,
+		client     => $self,
+		delay      => delete $args{delay},
+		query      => \%query,
+		to_values  => \&__replDocsValues,
+	);
+}
+
+=method nodeName $name, %options
+[CouchDB API "GET /_node/{node-name}", UNTESTED]
+The only useful application is with the abstract name C<_local>, which will
+return you the name of the node represented by the CouchDB instance.
+=cut
+
+sub __nodeNameValues($)
+{	my ($result, $raw) = @_;
+	my $values = dclone $raw;
+	$result->couch->toPerl($values, node => qw/name/);
+	$values;
+}
+
+sub nodeName($%)
+{	my ($self, $name, %args) = @_;
+	my $path = "/_node/$name";
+
+	$self->couch->call(GET => $path,
+		client     => $self,
+		delay      => delete $args{delay},
+		to_values  => \&__nodeNameValues,
+	);
+}
+
+=method node
+Returns the C<Couch::DB::Node> which is run by the connected CouchDB instance.
+This fact is cached.
+=cut
+
+sub node()
+{	my $self = shift;
+	return $self->{CDC_node} if defined $self->{CDC_node};
+
+ 	my $result = $self->nodeName('_local', delay => 'NEVER', client => $self);
+	$result->isReady or return undef;   # (temporary?) failure
+
+	my $name   = $result->value('name')
+		or error __x"Did not get a node name for _local";
+
+	$self->{CDC_node} = $self->couch->node($name);
+}
+
+=method adminInterface
+[CouchDB API "GET /_utils", UNTESTED]
+Returns the address of the admin interface.  This can be passed to a browser,
+which will probably need to follow redirects and authenication procedures.
+=cut
+
+sub adminInterface()
+{	my $self = shift;
+	$self->server->path('/_utils');
 }
 
 #-------------
