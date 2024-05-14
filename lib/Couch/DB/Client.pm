@@ -67,6 +67,7 @@ sub init($)
 	$self->{CDC_server} = my $server = delete $args->{server} or panic "Requires 'server'";
 	$self->{CDC_name}   = delete $args->{name} || "$server";
 	$self->{CDC_ua}     = delete $args->{user_agent} or panic "Requires 'user_agent'";
+	$self->{CDC_uuids}  = [];
 
 	$self->{CDC_couch}  = delete $args->{couch}      or panic "Requires 'couch'";
 	weaken $self->{CDC_couch};
@@ -126,6 +127,11 @@ sub headers($) { $_[0]->{CDC_headers} }
 
 B<All CouchDB API calls> provide the C<delay> option, to create a result
 object which will be run later.
+
+Not supported from the CouchDB API:
+=over 4
+=item * C</favicon.ico>
+=back
 
 =method serverInfo %options
 [CouchDB API "GET /"]
@@ -290,46 +296,6 @@ sub databaseInfo(%)
 		delay      => delete $args{delay},
 		query      => $query,
 		send       => $body,
-	);
-}
-
-=method clusterState %options
-[CouchDB API "GET /_cluster_setup", since 2.0, UNTESTED]
-Describes the status of this CouchDB instance is in the cluster.
-Option C<ensure_dbs_exist>.
-=cut
-
-sub clusterState(%)
-{	my ($self, %args) = @_;
-
-	my %query;
-	my @need = flat delete $args{ensure_dbs_exists};
-	$query{ensure_dbs_exists} = $self->couch->jsonText(\@need, compact => 1)
-		if @need;
-
-	$self->couch->call(GET => '/_cluster_setup',
-		introduced => '2.0',
-		client     => $self,
-		delay      => delete $args{delay},
-		query      => \%query,
-	);
-}
-
-=method clusterSetup %options
-[CouchDB API "POST /_cluster_setup", since 2.0, UNTESTED]
-Describes the status of this CouchDB instance is in the cluster.
-
-All %options are posted as parameters.  See 
-=cut
-
-sub clusterSetup(%)
-{	my ($self, %args) = @_;
-
-	$self->couch->call(POST => '/_cluster_setup',
-		introduced => '2.0',
-		client     => $self,
-		delay      => delete $args{delay},
-		send       => \%args,
 	);
 }
 
@@ -549,7 +515,7 @@ sub node()
 {	my $self = shift;
 	return $self->{CDC_node} if defined $self->{CDC_node};
 
- 	my $result = $self->nodeName('_local', delay => 'NEVER', client => $self);
+ 	my $result = $self->nodeName('_local', client => $self);
 	$result->isReady or return undef;   # (temporary?) failure
 
 	my $name   = $result->value('name')
@@ -567,6 +533,33 @@ which will probably need to follow redirects and authenication procedures.
 sub adminInterface()
 {	my $self = shift;
 	$self->server->path('/_utils');
+}
+
+=method serverStatus
+[CouchDB API "GET /_up", since 2.0, UNTESTED]
+Probably you want to use M<serverIsUp()>, because this reply contains little
+information.
+=cut
+
+sub serverStatus(%)
+{	my ($self, %args) = @_;
+
+	$self->couch->call(GET => '/_up',
+		introduced => '2.0',
+		client     => $self,
+		delay      => delete $args{delay},
+	);
+}
+
+=method serverIsUp
+[UNTESTED]
+Returns a true value when the server status is "ok".
+=cut
+
+sub serverIsUp()
+{	my $self = shift;
+	my $result = $self->serverStatus;
+	$result && $result->doc->data->{status} eq 'ok';
 }
 
 #-------------

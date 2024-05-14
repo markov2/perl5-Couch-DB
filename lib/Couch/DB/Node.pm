@@ -43,8 +43,8 @@ sub init($)
 {	my ($self, $args) = @_;
 	$self->{CDN_name} = delete $args->{name} // panic "Node has no name";
 
-	$self->{CDB_couch} = delete $args->{couch} or panic "Requires couch";
-	weaken $self->{CDB_couch};
+	$self->{CDN_couch} = delete $args->{couch} or panic "Requires couch";
+	weaken $self->{CDN_couch};
 
 	$self;
 }
@@ -56,8 +56,8 @@ sub init($)
 =method couch
 =cut
 
-sub name()  { $_[0]->{CDB_name} }
-sub couch() { $_[0]->{CDB_couch} }
+sub name()  { $_[0]->{CDN_name} }
+sub couch() { $_[0]->{CDN_couch} }
 
 #-------------
 =section Node information
