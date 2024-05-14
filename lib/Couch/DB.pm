@@ -178,6 +178,87 @@ sub client($)
 	first { $_->name eq $name } $self->clients;   # never many: no HASH needed
 }
 
+=method call $method, $path, %options
+Call some couchDB server, to get work done.
+
+=option  delay BOOLEAN
+=default delay C<false>
+See M<Couch::DB::Result> chapter DETAILS about delayed requests.
+
+=option  query HASH
+=default query C<< +{ } >>
+Query parameters for the request.
+
+=option  data  HASH
+=default data  C<< +{ } >>
+
+=option  clients ARRAY
+=default clients C<undef>
+Explicitly use only the specified clients (M<Couch::DB::Client> objects) for the query.
+When none are given, then all are used (in order of precedence).
+
+=option  client M<Couch::DB::Client>
+=default client C<undef>
+
+=option  to_values CODE
+=default to_values C<undef>
+A function (sub) which transforms the data of the CouchDB answer into useful Perl
+values and objects.  See M<Couch::DB::toPerl()>.
+=cut
+
+sub __couchdb_version($)
+{	my $v = shift or return;
+	version->parse($v =~ /^\d+\.\d+$/ ? "$v.0" : $v);  # sometime without 3rd
+}
+my %surpress_depr;
+
+sub call($$%)
+{	my ($self, $method, $path, %args) = @_;
+
+	### On this level, we pick a client.  Extensions implement the transport.
+
+	my @clients = flat delete $args{client}, delete $args{clients};
+	@clients or @clients = $self->clients;
+
+	my $removed = __couchdb_version delete $args{removed};
+	if($removed && $self->api >= $removed)
+	{	error __x"Using {what} was deprecated in {release}, but you specified api {api}.",
+			what => "$method($path)", release => $removed, api => $self->api;
+	}
+
+	my $introduced = __couchdb_version delete $args{introduced};
+	if($introduced && $introduced <= $self->api)
+	{	warning __x"Using {what}, introduced in {release} but you specified api {api}.",
+			what => "$method($path)", release => $introduced, api => $self->api;
+	}
+
+	my $deprecated = __couchdb_version delete $args{deprecated};
+	if($deprecated && $self->api >= $deprecated && ! $surpress_depr{"$method:$path"}++)
+	{	warning __x"Using {what}, which got deprecated in {release}.",
+			what => "$method($path)", release => $deprecated;
+	}
+
+	my $result  = Couch::DB::Result->new(
+		couch     => $self,
+		to_values => delete $args{to_values},
+	);
+
+  CLIENT:
+	foreach my $client (@clients)
+	{
+		! $introduced || $introduced <= $client->version
+			or next CLIENT;  # server release too old
+
+		$self->_callClient($result, $client, $method, $path, %args)
+			and last;
+	}
+
+	# The error from the last try will remain.
+	$result;
+}
+
+sub _callClient { ... }
+
 #-------------
 =section Database
 

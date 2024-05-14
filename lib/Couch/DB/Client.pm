@@ -124,7 +124,7 @@ sub headers($) { $_[0]->{CDC_headers} }
 =section Server information
 
 =method serverInfo %options
-[CouchDB API 1.2.1 "GET /"]
+[CouchDB API "GET /"]
 Query details about the server this client is connected to.
 Returns a M<Couch::DB::Result> object.
 
@@ -195,7 +195,7 @@ sub version()
 }
 
 =method activeTasks %options
-[CouchDB API 1.2.2 "GET /_active_tasks"]
+[CouchDB API "GET /_active_tasks"]
 Query details about the (maintenance) tasks which are currently running in the
 connected server.  Returns a M<Couch::DB::Result> object.
 =cut
@@ -227,7 +227,7 @@ sub activeTasks(%)
 }
 
 =method databaseKeys %options
-[CouchDB API 1.2.3 "GET /_all_dbs"]
+[CouchDB API "GET /_all_dbs"]
 Returns the selected database names as present on the connected CouchDB
 instance.
 
@@ -240,14 +240,14 @@ sub true { 1 }
 sub enc_json { $_[0] }
 
 sub __db_keyfilter($)
-{	my $args = @_;
+{	my $args = shift;
 
 	+{
-		descending => delete $args{descending} ? true : undef,
-		startkey   => enc_json(delete $args{startkey} || delete $args{start_key}),
-		endkey     => enc_json(delete $args{endkey}   || delete $args{end_key}),
-		limit      => delete $args{limit},
-		skip       => delete $args{skip}     || undef,
+		descending => delete $args->{descending} ? true : undef,
+		startkey   => enc_json(delete $args->{startkey} || delete $args->{start_key}),
+		endkey     => enc_json(delete $args->{endkey}   || delete $args->{end_key}),
+		limit      => delete $args->{limit},
+		skip       => delete $args->{skip}     || undef,
 	 };
 }
 
@@ -257,14 +257,13 @@ sub databaseKeys(%)
 	$self->couch->call(GET => '/_all_dbs',
 		client    => $self,          # explicitly run only on this client
 		delay     => delete $args{delay},
-		query     => (__db_keyfilter \%args),
+		query     => __db_keyfilter(\%args),
 	);
 }
 
-
 =method databaseInfo %options
-[CouchDB API 1.2.4 "GET /_dbs_info"] and
-[CouchDB API 1.2.5 "POST /_dbs_info"]
+[CouchDB API "GET /_dbs_info", since 3.2] and
+[CouchDB API "POST /_dbs_info", since 2.2]
 Returns detailed information about the selected database keys,
 on the connected CouchDB instance.  Both the GET and POST
 alternatives produce the same structures.
@@ -276,8 +275,8 @@ M<databaseKeys()>.
 =option  keys ARRAY
 =default keys C<undef>
 When you provide explicit database keys, then only those are displayed.
-The amount is limited by the C<max_db_number_for_dbs_info_req> configuration
-parameter, which defaults to 100.
+The number of keys is limited by the C<max_db_number_for_dbs_info_req>
+configuration parameter, which defaults to 100.
 =cut
 
 sub databaseInfo(%)
@@ -285,7 +284,7 @@ sub databaseInfo(%)
 
 	my ($method, $query, $body, $intro) = $args{keys}
 	  ?	(POST => undef,  +{ keys => delete $args{keys} }, '2.2')
-	  :	(GET  => (__db_keyfilter \%args), undef, '3.2');
+	  :	(GET  => __db_keyfilter(\%args), undef, '3.2');
 
 	$self->couch->call($method => '/_dbs_info',
 		introduced => $intro,
