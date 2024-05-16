@@ -3,7 +3,7 @@
 
 package Couch::DB::Result;
 
-use Couch::DB::Util;
+use Couch::DB::Util     qw(flat);
 use Couch::DB::Document ();
 
 use Log::Report   'couch-db';
@@ -59,8 +59,12 @@ use overload bool => sub { $_[0]->code >= 400 };
 
 =requires couch M<Couch::DB>-object
 
-=option   on_error CODE
-=default  on_error <do nothing>
+=option   on_final CODE|ARRAY
+=default  on_final [ ]
+Called when the Result object has either an error or an success.
+
+=option   on_error CODE|ARRAY
+=default  on_error [ ]
 Called each time when the result CODE changes to be "not a success".
 
 =option   to_values CODE
@@ -77,7 +81,8 @@ sub init($)
 	$self->{CDR_couch}     = delete $args->{couch} or panic;
 	weaken $self->{CDR_couch};
 
-	$self->{CDR_on_error}  = delete $args->{on_error}  || sub { };
+	$self->{CDR_on_final}  = [ flat delete $args->{on_final} ];
+	$self->{CDR_on_error}  = [ flat delete $args->{on_error} ];
 	$self->{CDR_code}      = HTTP_MULTIPLE_CHOICES;
 	$self->{CDR_to_values} = delete $args->{to_values} || sub { $_[1] };
 	$self;
@@ -102,7 +107,7 @@ Returns an HTTP status code (please use M<HTTP::Status>), which reflects
 the condition of the answer.
 =cut
 
-sub code()   { $_[0]->{CDR_code} }
+sub code()      { $_[0]->{CDR_code} }
 
 =method codeName [$code]
 Return a string which represents the code.  For instance, code 200 will
@@ -185,15 +190,21 @@ Fill this Result object with the actual results.
 
 sub setFinalResult($%)
 {	my ($self, $data, %args) = @_;
+	my $code = delete $data->{code} || HTTP_OK;
 
 	$self->{CDR_client}   = delete $data->{client} or panic "No client";
 	weaken $self->{CDR_client};
 
 	$self->{CDR_request}  = delete $data->{request};
 	$self->{CDR_response} = delete $data->{response};
+	$self->status($code, delete $data->{message});
 
-	# Must be last: may trigger on_error event
-	$self->status(delete $data->{code} || HTTP_OK, delete $data->{message});
+	$_->($self) for @{$self->{CDR_on_final}};
+
+	unless(is_success $code)
+	{	$_->($self) for @{$self->{CDR_on_error}};
+	}
+
 	$self;
 }
 
@@ -231,9 +242,6 @@ sub status($$)
 {	my ($self, $code, $msg) = @_;
 	$self->{CDR_code} = $code;
 	$self->{CDR_msg}  = $msg;
-
-	is_success $code
-		or $self->{CDR_on_error}->($self);
 
 	$self;
 }

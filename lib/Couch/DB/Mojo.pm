@@ -89,7 +89,7 @@ sub _callClient($$%)
 	# $tx is a Mojo::Transaction::HTTP
 	my $send = delete $args{send};
 	my @body = defined $send ? (json => $send) : ();
-	my $tx   = $ua->build_tx(method => $url, $client->headers, @body);
+	my $tx   = $ua->build_tx($method => $url, $client->headers, @body);
 
 	my $plan = $ua->start_p($tx)->then(sub ($) {
 		my $tx = shift;

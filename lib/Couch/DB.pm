@@ -175,7 +175,7 @@ Returns a LIST with the defined clients; M<Couch::DB::Client>-objects.
 sub clients() { @{$_[0]->{CD_clients}} }
 
 =method client $name
-Returns the client with the specific $name (which defaults to the server url).
+Returns the client with the specific $name (which defaults to the server's url).
 =cut
 
 sub client($)
@@ -286,11 +286,11 @@ sub _callClient { ... }
 
 sub _resultsConfig($)
 {	my ($self, $args) = @_;
-	map +($_ => delete $args->{$_}), qw/delay client clients/;
+	map +($_ => delete $args->{$_}), qw/delay client clients on_error on_final/;
 }
 
 #-------------
-=section Database
+=section Interface
 
 =method createDatabase $name, %options
 See M<Couch::DB::Database::create()>
@@ -319,204 +319,47 @@ sub searchAnalyse(%)
 	);
 }
 
-=method reshardStatus %options
-[CouchDB API "GET /_reshard", since 2.4, UNTESTED] and
-[CouchDB API "GET /_reshard/state", since 2.4, UNTESTED]
-
-=option  counts BOOLEAN
-=default counts C<false>
-Include the job counts in the result.
+=method requestUUIDs $count, %options
+[CouchDB API "GET /_uuids", since 2.0, UNTESTED]
+Returns a LIST of UUIDS, when the call was successful.  Cannot be delayed.
 =cut
 
-#XXX The example in CouchDB API doc 3.3.3 says it returns 'reason' with /state,
-#XXX but the spec says 'state_reason'.
+sub requestUUIDs($%)
+{	my ($self, $count, %args) = @_;
 
-sub reshardStatus(%)
-{	my ($self, %args) = @_;
-	my $path = '/_reshard';
-	$path   .= '/state' if delete $args{counts};
-
-	$self->call(GET => $path,
-		introduced => '2.4',
+	$self->call(GET => '/_uuids',
+		introduced => '2.0',
+		query      => { count => $count },
 		$self->_resultsConfig(\%args),
 	);
 }
 
-=method resharding %options
-[CouchDB API "PUT /_reshard/state", since 2.4, UNTESTED]
-Start or stop the resharding process.
+=method freshUUIDs $count, %options
+[UNTESTED]
+Returns a $count number of UUIDs in a LIST.  This uses M<requestUUIDs() to get
+a bunch at the same time, for efficiency.  You may get fewer than you want, but
+only when the server is not sending them.
 
-=requires state STRING
-Can be C<stopped> or C<running>.  Stopped state can be resumed into running.
-
-=option   reason STRING
-=default  reason C<undef>
-
+=option  bulk INTEGER
+=default bulk 50
+When there are not enough UUIDs in stock, in how large sets should we ask them.
 =cut
 
-#XXX The example in CouchDB API doc 3.3.3 says it returns 'reason' with /state,
-#XXX but the spec says 'state_reason'.
+sub freshUUIDs($%)
+{	my ($self, $count, %args) = @_;
+	my $stock = $self->{CDC_uuids};
+	my $bulk  = delete $args{bulk} || 50;
 
-sub resharding(%)
-{	my ($self, %args) = @_;
+	while($count > @$stock)
+	{	my $result = $self->requestUUIDs($bulk) or last;
+		push @$stock, @{$result->doc->data->{uuids} || []};
+	}
 
-	my %send   = (
-		state  => (delete $args{state} or panic "Requires 'state'"),
-		reason => delete $args{reason},
-	);
-
-	$self->call(PUT => '/_reshard/state',
-		introduced => '2.4',
-		send       => \%send,
-		$self->_resultsConfig(\%args),
-	);
-}
-
-=method reshardJobs %options
-[CouchDB API "GET /_reshard/jobs", since 2.4, UNTESTED]
-Show the resharding activity.
-=cut
-
-sub __jobValues($$)
-{	my ($couch, $job) = @_;
-
-	$couch->toPerl($job, isotime => qw/start_time update_time/)
-	      ->toPerl($job, node => qw/node/);
-
-	$couch->toPerl($_, isotime => qw/timestamp/)
-		for @{$job->{history} || []};
-}
-
-sub __reshardJobsValues($$)
-{	my ($result, $data) = @_;
-	my $couch  = $result->couch;
-
-	my $values = dclone $data;
-	__jobValues($couch, $_) for @{$values->{jobs} || []};
-	$values;
-}
-
-sub reshardJobs(%)
-{	my ($self, %args) = @_;
-
-	$self->call(GET => '/_reshard/jobs',
-		introduced => '2.4',
-		$self->_resultsConfig(\%args),
-		to_values  => \&__reshardJobsValues,
-	);
-}
-
-=method reshardCreate %options
-[CouchDB API "POST /_reshard/jobs", since 2.4, UNTESTED]
-Create resharding jobs.
-
-The many %options are passed as parameters.
-=cut
-
-sub __reshardCreateValues($$)
-{	my ($result, $data) = @_;
-	my $values = dclone $data;
-	$result->couch->toPerl($_, node => 'node')
-		for @$values;
-
-	$values;
-}
-
-sub reshardCreate(%)
-{	my ($self, %args) = @_;
-	my %config = $self->_resultsConfig(\%args);
-
-	#XXX The spec in CouchDB API doc 3.3.3 lists request param 'node' twice.
-
-	$self->call(POST => '/_reshard/jobs',
-		introduced => '2.4',
-		send       => \%args,
-		to_values  => \&__reshardCreateValues,
-		%config,
-	);
-}
-
-=method reshardJob $jobid, %options
-[CouchDB API "GET /_reshard/jobs/{jobid}", since 2.4, UNTESTED]
-Show the resharding activity.
-=cut
-
-sub __reshardJobValues($$)
-{	my ($result, $data) = @_;
-	my $couch  = $result->couch;
-
-	my $values = dclone $data;
-	__jobValues($couch, $values);
-	$values;
-}
-
-sub reshardJob($%)
-{	my ($self, $jobid, %args) = @_;
-
-	$self->call(GET => "/_reshard/jobs/$jobid",
-		introduced => '2.4',
-		$self->_resultsConfig(\%args),
-		to_values  => \&__reshardJobValues,
-	);
-}
-
-=method reshardJobRemove $jobid, %options
-[CouchDB API "DELETE /_reshard/jobs/{jobid}", since 2.4, UNTESTED]
-Show the resharding activity.
-=cut
-
-sub reshardJobRemove($%)
-{	my ($self, $jobid, %args) = @_;
-
-	$self->call(DELETE => "/_reshard/jobs/$jobid",
-		introduced => '2.4',
-		$self->_resultsConfig(\%args),
-	);
-}
-
-=method reshardJobState $jobid, %options
-[CouchDB API "GET /_reshard/jobs/{jobid}/state", since 2.4, UNTESTED]
-Show the resharding job status.
-=cut
-
-sub reshardJobState($%)
-{	my ($self, $jobid, %args) = @_;
-
-	#XXX in the 3.3.3 docs, "Request JSON Object" should read "Response ..."
-	$self->call(GET => "/_reshard/job/$jobid/state",
-		introduced => '2.4',
-		$self->_resultsConfig(\%args),
-	);
-}
-
-=method reshardJobChange $jobid, %options
-[CouchDB API "PUT /_reshard/jobs/{jobid}/state", since 2.4, UNTESTED]
-Change the resharding job status.
-
-=requires state STRING
-Can be C<new>, C<running>, C<stopped>, C<completed>, or C<failed>.
-
-=option   reason STRING
-=default  reason C<undef>
-=cut
-
-sub reshardJobChange($%)
-{	my ($self, $jobid, %args) = @_;
-
-	my %send = (
-		state  => (delete $args{state} or panic "Requires 'state'"),
-		reason => delete $args{reason},
-	);
-
-	$self->call(PUT => "/_reshard/job/$jobid/state",
-		introduced => '2.4',
-		send       => \%send,
-		$self->_resultsConfig(\%args),
-	);
+	splice @$stock, 0, $count;
 }
 
 #-------------
-=section Nodes
+=section Interfaces
 
 =method node $name
 Returns a M<Couch::DB::Node> object with the $name.  If it does not exist
@@ -527,6 +370,13 @@ sub node($)
 {	my ($self, $name) = @_;
 	$self->{CD_nodes}{$name} ||= Couch::DB::Node->new(name => $name, couch => $self);
 }
+
+=method cluster
+Returns a M<Couch::DB::Cluster> object, which organizes calls to
+manipulate replication, sharding, and related jobs.
+=cut
+
+sub cluster() { $_[0]->{CD_cluster} ||= Couch::DB::Cluster->new(couch => $_[0]) }
 
 #-------------
 =section Conversions

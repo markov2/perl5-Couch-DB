@@ -9,6 +9,7 @@ use Couch::DB::Result ();
 use Log::Report 'couch-db';
 
 use Scalar::Util    qw(weaken);
+use List::Util      qw(first);
 use MIME::Base64    qw(encode_base64);
 use Storable        qw(dclone);
 
@@ -25,17 +26,21 @@ Couch::DB::Client - connect to a CouchDB node
 
   # Even simpler
   my $couchdb = Couch::DB::Mojo->new(server => ...);
-  my $client  = ($couchdb->clients)[0];      # usually not needed
+  my $client  = $couchdb->client('local');   # default client
 
 =chapter DESCRIPTION
 
-Connect to a couchDB node, potentially a cluster.
+Connect to a CouchDB-server which runs a CouchDB-node to host databases.  That
+node may be part of a cluster, which can be managed via M<Couch::DB::Cluster>
 
 =chapter METHODS
 
 =section Constructors
 
 =c_method new %options
+
+Create the client. Whether it works will show when the first call is made.
+You could try M<serverStatus()> on application startup.
 
 =requires couch  M<Couch::DB>-object
 
@@ -52,6 +57,9 @@ Defaults to the location of the server.
 
 =option  username STRING
 =default username C<undef>
+When you specify a C<username>/C<password> here, then C<Basic>
+authentication will be used.  Otherwise, call C<login()> to
+use Cookies.
 
 =option  password STRING
 =default password C<undef>
@@ -77,6 +85,7 @@ sub init($)
 
 	my $username = delete $args->{username} // '';
 	my $password = delete $args->{password} // '';
+
 	$headers->{Authorization} = 'Basic ' . encode_base64("$username:$password", '')
 		if length $username && length $password;
 
@@ -123,10 +132,110 @@ this client.
 sub headers($) { $_[0]->{CDC_headers} }
 
 #-------------
+=section Session
+
+=method login %options
+[CouchDB API "POST /_session", UNTESTED]
+Get a Cookie: Cookie authentication.
+
+B<TODO>: implement refreshing of the session.
+
+=requires username STRING
+=requires password STRING
+
+=option   next URL
+=default  next C<undef>
+When the login was successful, the UserAgent will get redirected to
+the indicated location.
+=cut
+
+sub _clientIsMe($)   # check no client parameter is used
+{	my ($self, $args) = @_;
+	defined $args->{client} and panic "No parameter 'client' allowed.";
+	$args->{clients} && @{delete $args->{clients}} and panic "No parameter 'clients' allowed.";
+	$args->{client} = $self;
+}
+
+sub login(%)
+{	my ($self, %args) = @_;
+	$self->_clientIsMe(\%args);
+
+	my %send = (
+		name     => (delete $args{username} or panic "Requires username"),
+		password => (delete $args{password} or panic "Requires password"),
+	);
+
+	#XXX API 3.3.3 says response field 'name' is 'null'.  Weird.
+
+	$self->couch->call(POST => '/_session',
+		send      => \%send,
+		query     => { next => delete $args{next} },
+		on_final  => sub { $self->{CDC_roles} = $_[0]->isReady ? $_[0]->values->{roles} : undef },
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
+=method session %options
+[CouchDB API "GET /_session", UNTESTED]
+Returns information about the current session, like information about the
+user who is logged-in.  Part of the reply is the "userCtx" (user context)
+which displays the roles of this user, and its name.
+
+=option  basic BOOLEAN
+=default basic C<undef>
+
+=cut
+
+sub session(%)
+{	my ($self, %args) = @_;
+	$self->_clientIsMe(\%args);
+
+	my %query;
+	$query{basic} = delete $args{basic} ? 'true' : 'false'
+		if exists $args{basic};
+
+	$self->couch->call(GET => '/_session',
+		query     => \%query,
+		on_final  => sub { $self->{CDC_roles} = $_[0]->isReady ? $_[0]->values->{userCtx}{roles} : undef },
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
+=method logout %options
+[CouchDB API "DELETE /_session", UNTESTED]
+=cut
+
+sub logout(%)
+{	my ($self, %args) = @_;
+	$self->_clientIsMe(\%args);
+
+	$self->couch->call(DELETE => '/_session',
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
+=method roles
+Returns a LIST of all roles this client can perform.
+=cut
+
+sub roles()
+{	my $self = shift;
+	$self->{CDC_roles} or $self->session(basic => 1);  # produced as side-effect
+	@{$self->{CDC_roles} || []};
+}
+
+=method hasRole $role
+Return 'true' if (this user logged-in to the server with) this client can perform
+a certain role.
+=cut
+
+sub hasRole($) { first { $_[1] eq $_ } $_[0]->roles }
+
+#-------------
 =section Server information
 
-B<All CouchDB API calls> provide the C<delay> option, to create a result
-object which will be run later.
+B<All CouchDB API calls> documented below, support %options like C<delay>,
+C<client>, C<clients>, C<on_error>, and C<on_final>.
 
 Not supported from the CouchDB API:
 =over 4
@@ -160,6 +269,8 @@ sub __serverInfoValues
 
 sub serverInfo(%)
 {	my ($self, %args) = @_;
+	$self->_clientIsMe(\%args);
+
 	my $cached = delete $args{cached} || 'YES';
 	$cached =~ m!^(?:YES|NEVER|RETRY|PING)$!
 		or panic "Unsupported cached parameter '$cached'.";
@@ -170,8 +281,7 @@ sub serverInfo(%)
 	}
 
 	my $result = $self->couch->call(GET => '/',
-		client    => $self,          # explicitly run only on this client
-		delay     => delete $args{delay},
+		$self->couch->_resultsConfig(\%args),
 		to_values => \&__serverInfoValues,
 	);
 
@@ -222,10 +332,10 @@ sub __activeTasksValues($$)
 
 sub activeTasks(%)
 {	my ($self, %args) = @_;
+	$self->_clientIsMe(\%args);
 
 	$self->couch->call(GET => '/_active_tasks',
-		client    => $self,          # explicitly run only on this client
-		delay     => delete $args{delay},
+		$self->couch->_resultsConfig(\%args),
 		to_values => \&__activeTasksValues,
 	);
 }
@@ -257,11 +367,11 @@ sub _db_keyfilter($)
 
 sub databaseKeys(%)
 {	my ($self, %args) = @_;
+	$self->_clientIsMe(\%args);
 
 	$self->couch->call(GET => '/_all_dbs',
-		client    => $self,          # explicitly run only on this client
-		delay     => delete $args{delay},
 		query     => $self->_db_keyfilter(\%args),
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 
@@ -285,6 +395,7 @@ configuration parameter, which defaults to 100.
 
 sub databaseInfo(%)
 {	my ($self, %args) = @_;
+	$self->_clientIsMe(\%args);
 
 	my ($method, $query, $body, $intro) = $args{keys}
 	  ?	(POST => undef,  +{ keys => delete $args{keys} }, '2.2')
@@ -292,10 +403,9 @@ sub databaseInfo(%)
 
 	$self->couch->call($method => '/_dbs_info',
 		introduced => $intro,
-		client     => $self,          # explicitly run only on this client
-		delay      => delete $args{delay},
 		query      => $query,
 		send       => $body,
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 
@@ -311,15 +421,15 @@ C<heartbeat> (milliseconds, default 60_000), C<since> (sequence ID).
 
 sub dbUpdates(%)
 {	my ($self, %args) = @_;
+	$self->_clientIsMe(\%args);
 
-	my $delay = delete $args{delay};
-	my %query = \%args;
+	my %config = $self->couch->_resultsConfig(\%args);
+	my $query  = \%args;
 
 	$self->couch->call(GET => '/_db_updates',
 		introduced => '1.4',
-		client     => $self,
-		delay      => $delay,
-		send       => \%args,
+		query      => $query,
+		%config,
 	);
 }
 
@@ -343,13 +453,16 @@ sub __clusterNodeValues($)
 
 sub clusterNodes(%)
 {	my ($self, %args) = @_;
+	$self->_clientIsMe(\%args);
+
+	my %config = $self->couch->_resultsConfig(\%args);
+	my $send   = \%args;
 
 	$self->couch->call(GET => '/_membership',
 		introduced => '2.0',
-		client     => $self,
-		delay      => delete $args{delay},
-		send       => \%args,
+		send       => $send,
 		to_values  => \&__clusterNodeValues,
+		%config,
 	);
 }
 
@@ -380,18 +493,20 @@ sub __replicateValues($$)
 
 sub replicate(%)
 {	my ($self, %args) = @_;
-	my $couch = $self->couch;
+	$self->_clientIsMe(\%args);
 
-	my $delay = delete $args{delay};
-	$couch->toJSON(\%args, bool => qw/cancel continuous create_target/);
+	my $couch  = $self->couch;
+	my %config = $couch->_resultsConfig(\%args),
+
+	my $send   = \%args;
+	$couch->toJSON($send, bool => qw/cancel continuous create_target/);
 
     #TODO: warn for upcoming changes in source and target: absolute URLs required
 
 	$couch->call(POST => '/_replicate',
-		client     => $self,
-		delay      => $delay,
-		send       => \%args,
+		send       => $send,
 		to_values  => \&__replicateValues,
+		%config,
 	);
 }
 
@@ -423,16 +538,17 @@ sub __replJobsValues($$)
 
 sub replicationJobs(%)
 {	my ($self, %args) = @_;
+	$self->_clientIsMe(\%args);
+
 	my %query = (
 		limit => delete $args{limit},
 		skip  => delete $args{skip},
 	);
 
 	$self->couch->call(GET => '/_scheduler/jobs',
-		client     => $self,
-		delay      => delete $args{delay},
 		query      => \%query,
 		to_values  => \&__replJobsValues,
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 
@@ -461,6 +577,7 @@ sub __replDocsValues($$)
 
 sub replicationDocs($%)
 {	my ($self, %args) = @_;
+	$self->_clientIsMe(\%args);
 
 	my $path = '/_scheduler/docs';
 	if(my $dbname = $args{dbname})
@@ -475,10 +592,9 @@ sub replicationDocs($%)
 	);
 
 	$self->couch->call(GET => $path,
-		client     => $self,
-		delay      => delete $args{delay},
 		query      => \%query,
 		to_values  => \&__replDocsValues,
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 
@@ -497,12 +613,11 @@ sub __nodeNameValues($)
 
 sub nodeName($%)
 {	my ($self, $name, %args) = @_;
-	my $path = "/_node/$name";
+	$self->_clientIsMe(\%args);
 
-	$self->couch->call(GET => $path,
-		client     => $self,
-		delay      => delete $args{delay},
+	$self->couch->call(GET => "/_node/$name",
 		to_values  => \&__nodeNameValues,
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 
@@ -543,11 +658,11 @@ information.
 
 sub serverStatus(%)
 {	my ($self, %args) = @_;
+	$self->_clientIsMe(\%args);
 
 	$self->couch->call(GET => '/_up',
 		introduced => '2.0',
-		client     => $self,
-		delay      => delete $args{delay},
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 
