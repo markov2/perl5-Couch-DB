@@ -215,6 +215,7 @@ sub logout(%)
 }
 
 =method roles
+[UNTESTED]
 Returns a LIST of all roles this client can perform.
 =cut
 
@@ -225,8 +226,12 @@ sub roles()
 }
 
 =method hasRole $role
+[UNTESTED]
 Return 'true' if (this user logged-in to the server with) this client can perform
 a certain role.
+
+B<It is often> preferred to try a certain action, and then check whether it
+results in a permission error.
 =cut
 
 sub hasRole($) { first { $_[1] eq $_ } $_[0]->roles }

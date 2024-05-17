@@ -75,14 +75,14 @@ it is a plain-text version of the M<stats()> and M<server()> calls.
 Collect node statistics.
 =cut
 
-sub _pathTo($) { '/_node/'. $_[0]->name . '/' . $_[1] }
+sub _pathToNode($) { '/_node/'. $_[0]->name . '/' . $_[1] }
 
 sub stats(%)
 {	my ($self, %args) = @_;
 	my $couch = $self->couch;
 
 	#XXX No idea which data transformations can be done
-	$couch->call(GET => $self->_pathTo('_stats'),
+	$couch->call(GET => $self->_pathToNode('_stats'),
 		$couch->_resultsConfig(\%args),
 	);
 }
@@ -99,11 +99,10 @@ function.
 
 sub server(%)
 {	my ($self, %args) = @_;
-	my $couch = $self->couch;
 
 	#XXX No idea which data transformations can be done
-	$couch->call(GET => $self->_pathTo('_system'),
-		$couch->_resultsConfig(\%args),
+	$self->couch->call(GET => $self->_pathToNode('_system'),
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 
@@ -115,11 +114,10 @@ production, according to the API documentation.
 
 sub restart(%)
 {	my ($self, %args) = @_;
-	my $couch = $self->couch;
 
 	#XXX No idea which data transformations can be done
-	$couch->call(POST => $self->_pathTo('_restart'),
-		$couch->_resultsConfig(\%args),
+	$self->couch->call(POST => $self->_pathToNode('_restart'),
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 
@@ -130,12 +128,97 @@ Get details of some software running the node.
 
 sub software(%)
 {	my ($self, %args) = @_;
-	my $couch = $self->couch;
 
 	#XXX No idea which data transformations can be done.
     #XXX Some versions would match Perl's version object, but that's uncertain.
-	$couch->call(POST => $self->_pathTo('_versions'),
-		$couch->_resultsConfig(\%args),
+	$self->couch->call(POST => $self->_pathToNode('_versions'),
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
+=method config %options
+[CouchDB API "GET /_node/{node-name}/_config", UNTESTED],
+[CouchDB API "GET /_node/{node-name}/_config/{section}", UNTESTED], and
+[CouchDB API "GET /_node/{node-name}/_config/{section}/{key}", UNTESTED].
+Returns the node configuration.
+
+At least according to the example in the spec, all values are strings.
+So, a boolean will be string "true" or "false".  The API notes that the
+actual type of values is unpredictable.
+
+=option  section STRING
+=default section C<undef>
+
+=option  key     STRING
+=default key     C<undef>
+(Requires a section to be specified)
+
+=examples of config
+  # Three times the same.  The last may be the most efficient for the server.
+  my $mode = $node->config->values->{log}{level};
+  my $mode = $node->config(section => 'log')->values->{level};
+  my $mode = $node->config(section => 'log', key => 'level')->values;
+=cut
+
+sub config(%)
+{	my ($self, %args) = @_;
+	my $path = $self->_pathToNode('_config');
+
+	if(my $section = delete $args{section})
+	{	$path .= "/$section";
+		if(my $key = delete $args{key})
+		{	$path .= "/$key";
+		}
+	}
+
+	$self->couch->call(GET => $path,
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
+=method configChange $section, $key, $value, %options
+[CouchDB API "PUT /_node/{node-name}/_config/{section}/{key}", UNTESTED]>
+Change one value in the configuration.  Probably, it should be followed by
+a M<configReload()>: changes may not be commited without reload.
+
+You MAY need to convert booleans to string "true" or "false" by hand.
+=cut
+
+sub configChange($$$%)
+{	my ($self, $section, $key, $value, %args) = @_;
+
+	$self->couch->call(PUT => self->_pathToNode("_config/$section/$key"),
+		send => $value,
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
+
+=method configDelete $section, $key, %options
+[CouchDB API "DELETE /_node/{node-name}/_config/{section}/{key}", UNTESTED]>
+Remove one value in the configuration.  Probably, it should be followed by
+a M<configReload()>: changes may not be commited without reload.
+=cut
+
+sub configDelete($$%)
+{	my ($self, $section, $key, %args) = @_;
+
+	$self->couch->call(DELETE => self->_pathToNode("_config/$section/$key"),
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
+=method configReload %options
+[CouchDB API "POST /_node/{node-name}/_config/_reload", UNTESTED]>
+Re-apply the configuration to the node.  This has as side-effect that the
+(changed) configuration of the node will be saved.
+=cut
+
+sub configReload(%)
+{	my ($self, %args) = @_;
+
+	$self->couch->call(POST => self->_pathToNode("_config/_reload"),
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 

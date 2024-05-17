@@ -79,9 +79,14 @@ The server will be named 'local'.
 You can add more servers using M<addClient()>.  When you do not want this
 default client to be created as well, then explicitly set C<undef> here.
 
+=option  auth 'BASIC'|'COOKIE'
+=default auth 'BASIC'
+Authentication method to be used.
+
 =option  username STRING
 =default username C<undef>
-Used to login to the default server.
+When a C<username> is given, it will be used together with C<auth> and
+C<password> to login to any created client.
 
 =option  password STRING
 =default password C<undef>
@@ -112,13 +117,15 @@ sub init($)
 	$self->{CD_api} = blessed $v && $v->isa('version') ? $v : version->parse($v);
 
 	$self->{CD_clients} = [];
-	my $username = delete $args->{username};
-	my $password = delete $args->{password};
+	$self->{CD_auth}    = {
+		auth     => delete $args->{auth} || 'BASIC',
+		username => delete $args->{username},
+		password => delete $args->{password},
+	};
 
 	if(! exists $args->{server} || defined $args->{server})
 	{	my $server = delete $args->{server} || DEFAULT_SERVER;
-		$self->createClient(server => $server, name => 'local',
-			username => $username, password => $password);
+		$self->createClient(server => $server, name => 'local');
 	}
 
 	$self->{CD_toperl} = +{ %default_toperl, %{delete $args->{to_perl} || {}} };
@@ -149,9 +156,8 @@ The client will also be added via M<addClient()>, and is returned.
 
 sub createClient(%)
 {	my ($self, %args) = @_;
-	my $client = Couch::DB::Client->new(couch => $self, %args);
-	$self->addClient($client);
-	$client;
+	my $client = Couch::DB::Client->new(couch => $self, %{$self->{CD_auth}}, %args);
+	$client ? $self->addClient($client) : undef;
 }
 
 =method addClient $client
