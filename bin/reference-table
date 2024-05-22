@@ -1,0 +1,148 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use LWP::UserAgent    ();
+use HTML::TreeBuilder ();
+use File::Slurper     qw(read_text read_lines write_text);
+use Getopt::Long      qw(GetOptions);
+
+use Data::Dumper;
+$Data::Dumper::Indent = 1;
+
+my $couchdb_api   = 'https://docs.couchdb.org/en/stable';
+my $couchdb_index = "$couchdb_api/http-routingtable.html";
+my $couchdb_cache = '/tmp/couch-cache';
+
+GetOptions
+	'refresh|r!' => \(my $refresh = 0),
+	;
+
+my %index;    # from the couchdb website
+my %impls;    # from this module
+
+####
+###### parse the couchdb api index
+####
+
+sub fill_index()
+{
+	my $routing;
+	if($refresh || ! -r $couchdb_cache || -M $couchdb_cache > 14)
+	{	print "Loading new routing table from couchdb.org\n";
+		my $ua = LWP::UserAgent->new;
+		my $overview = $ua->get($couchdb_index);
+		$routing     = $overview->decoded_content;
+		write_text $couchdb_cache, $routing;
+	}
+	else
+	{	$routing     = read_text $couchdb_cache;
+	}
+	
+	my $tree = HTML::TreeBuilder->new_from_content($routing);
+	#my $table = $tree->elementify->find('table');
+	foreach my $tr ($tree->elementify->find('table')->find('tr'))
+	{	my (undef, $which, $what) = $tr->find('td');
+		my ($a)  = $which->find('a') or next;
+		my $href = $a->attr('href');
+		my $call = $a->find_by_attribute(class => 'xref')->content->[0];
+		my ($method, $endpoint) = split " ", $call, 2;
+		my $descr = $what->as_text;
+	
+		my %def    = (
+			call     => $call,
+			method   => $method,
+			endpoint => $endpoint,
+			doclink  => "$couchdb_api/$href",
+		);
+		$index{$call} = \%def;
+	}
+
+	print "Found ", scalar keys %index, " calls in the API docs\n";
+}
+
+####
+###### parse the docs from implementation
+####
+
+my @modules = (
+	{ file => 'lib/Couch/DB.pm',			base => '$couch' },
+	{ file => 'lib/Couch/DB/Client.pm',		base => '$client' },
+	{ file => 'lib/Couch/DB/Cluster.pm',	base => '$cluster' },
+	{ file => 'lib/Couch/DB/Database.pm',	base => '$db' },
+	{ file => 'lib/Couch/DB/Document.pm',	base => '$doc' },
+ 	{ file => 'lib/Couch/DB/Design.pm',		base => '$ddoc' },
+	{ file => 'lib/Couch/DB/Node.pm',		base => '$node' },
+);
+
+sub fill_impls()
+{
+  MODULE:
+	foreach my $module (@modules)
+	{	my $last_use;
+		my $package;
+
+		my $file = $module->{file};
+		unless(-e $file)
+		{	print "Module $file does not exist yet.\n";
+			next MODULE;
+		}
+
+		foreach my $line (read_lines $file)
+		{	$package = $1
+				if $line =~ m/^package\s+([\w:]+)/;
+
+			$last_use = "$module->{base}->$1($2)"
+				if $line =~ m/^=method\s+(\w+)\s*(.*)/;
+
+			my ($call, $status) = $line =~ /\[CouchDB API "([^"]+)".*?(|UNTESTED|TODO)\]/
+				or next;
+
+			my ($method, $endpoint) = split " ", $call, 2;
+
+			my %impl = (
+				package  => $package,
+				call     => $call,
+				status   => $status || 'DONE',
+				method   => $method,
+				endpoint => $endpoint,
+				use      => $last_use,
+			);
+
+			! $impls{$call} or die "Double $call";
+			$impls{$call} = \%impl;
+		}
+	}
+
+	print "Found ", scalar keys %impls, " calls implemented.\n";
+}
+
+####
+###### MAIN
+####
+
+fill_index;
+#warn Dumper \%index;
+
+fill_impls;
+#warn Dumper \%impls;
+
+my %methods_counts;
+$methods_counts{$_->{method}}++ for values %impls;
+print Dumper \%methods_counts;
+
+my %status_counts;
+$status_counts{$_->{status}}++ for values %impls;
+print Dumper \%status_counts;
+
+my %mistakes = map +($_ => 1), keys %impls;
+delete @mistakes{keys %index};
+
+delete $mistakes{"POST /{db}/_design_docs/queries"};   # expected
+print "impl mismatch: $_\n" for sort keys %mistakes;
+
+foreach my $index (sort { $a->{endpoint} cmp $b->{endpoint} || $a->{method} cmp $b->{method}} values %index)
+{	my $impls = $impls{$index->{call}} || { };
+	printf "%-50.50s %-8s %-8s %s\n",
+		$index->{endpoint}, $index->{method}, $impls->{status} || 'TODO', $impls->{use} || '';
+}

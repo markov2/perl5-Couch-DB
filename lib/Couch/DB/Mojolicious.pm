@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2024 Mark Overmeer <mark@open-console.eu>
 # SPDX-License-Identifier: EUPL-1.2-or-later
 
-package Couch::DB::Mojo;
+package Couch::DB::Mojolicious;
 use parent 'Couch::DB';
 use feature 'state';
 
@@ -15,12 +15,12 @@ use HTTP::Status     qw(HTTP_OK);
 
 =chapter NAME
 
-Couch::DB::Mojo - CouchDB backend for Mojolicious
+Couch::DB::Mojolicious - CouchDB backend for Mojolicious
 
 =chapter SYNOPSIS
 
-   use Couch::DB::Mojo ();
-   my $couch = Couch::DB::Mojo->new;
+   use Couch::DB::Mojolicious ();
+   my $couch = Couch::DB::Mojolicious->new;
 
    # From here on: see the Couch::DB base class
    my $db    = $couch->db('my-db');

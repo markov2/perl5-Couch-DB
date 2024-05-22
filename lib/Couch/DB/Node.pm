@@ -122,7 +122,7 @@ sub restart(%)
 }
 
 =method software %options
-[CouchDB API "POST /_node/{node-name}/_versions", UNTESTED]
+[CouchDB API "GET /_node/{node-name}/_versions", UNTESTED]
 Get details of some software running the node.
 =cut
 
@@ -131,7 +131,7 @@ sub software(%)
 
 	#XXX No idea which data transformations can be done.
     #XXX Some versions would match Perl's version object, but that's uncertain.
-	$self->couch->call(POST => $self->_pathToNode('_versions'),
+	$self->couch->call(GET => $self->_pathToNode('_versions'),
 		$self->couch->_resultsConfig(\%args),
 	);
 }

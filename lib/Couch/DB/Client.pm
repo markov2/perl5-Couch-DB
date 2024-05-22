@@ -61,11 +61,19 @@ When you specify a C<username>/C<password> here, then C<Basic>
 authentication will be used.  Otherwise, call C<login()> to
 use Cookies.
 
+=option  auth     'BASIC'|'COOKIE'
+=default auth     'BASIC'
+
 =option  password STRING
 =default password C<undef>
 
 =option  headers HASH
 =default headers <a few>
+Some headers are set by default, for instance the 'Accept' header.  You can overrule
+them.  The defaults may change.
+
+With this option you can also provide proxy authentication headers, of the form
+C<X-Auth-CouchDB-*>.
 =cut
 
 sub new(@) { (bless {}, shift)->init( {@_} ) }
@@ -80,14 +88,15 @@ sub init($)
 	$self->{CDC_couch}  = delete $args->{couch}      or panic "Requires 'couch'";
 	weaken $self->{CDC_couch};
 
-	$self->{CDC_headers} = my $headers = delete $args->{headers} || {};
+	$self->{CDC_hdrs}   = my $headers = delete $args->{headers} || {};
 	$headers->{Accept} ||= 'application/json';
 
-	my $username = delete $args->{username} // '';
-	my $password = delete $args->{password} // '';
-
-	$headers->{Authorization} = 'Basic ' . encode_base64("$username:$password", '')
-		if length $username && length $password;
+	my $username        = delete $args->{username} // '';
+	$self->login(
+		auth     => delete $args->{auth} || 'BASIC',
+		username => $username,
+		password => delete $args->{password},
+	) if length $username;
 
 	$self;
 }
@@ -129,7 +138,7 @@ Returns a HASH with the default set of headers to be used when contacting
 this client.
 =cut
 
-sub headers($) { $_[0]->{CDC_headers} }
+sub headers($) { $_[0]->{CDC_hdrs} }
 
 #-------------
 =section Session
@@ -160,15 +169,25 @@ sub login(%)
 {	my ($self, %args) = @_;
 	$self->_clientIsMe(\%args);
 
-	my %send = (
-		name     => (delete $args{username} or panic "Requires username"),
-		password => (delete $args{password} or panic "Requires password"),
-	);
+	my $auth     = delete $args{auth} || 'BASIC';
+	my $username = delete $args{username} or panic "Requires username";
+	my $password = delete $args{password} or panic "Requires password";
+
+	if($auth eq 'BASIC')
+	{	$self->headers->{Authorization} = 'Basic ' . encode_base64("$username:$password", '');
+		return $self->session(basic => 1);     #XXX do something with an error
+	}
+
+	$auth eq 'COOKIE'
+		or error __x"Unsupport authorization '{how}'", how => $auth;
+
+	my $send = $self->{CDC_login} =     # keep for cookie refresh (uninplemented)
+	 	+{ name => $username, password => $password };
 
 	#XXX API 3.3.3 says response field 'name' is 'null'.  Weird.
 
 	$self->couch->call(POST => '/_session',
-		send      => \%send,
+		send      => $send,
 		query     => { next => delete $args{next} },
 		on_final  => sub { $self->{CDC_roles} = $_[0]->isReady ? $_[0]->values->{roles} : undef },
 		$self->couch->_resultsConfig(\%args),

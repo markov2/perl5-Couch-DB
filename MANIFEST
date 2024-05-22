@@ -1,0 +1,15 @@
+bin/reference-table
+ChangeLog
+index.html
+lib/Couch/DB.pm
+lib/Couch/DB/Client.pm
+lib/Couch/DB/Cluster.pm
+lib/Couch/DB/Database.pm
+lib/Couch/DB/Document.pm
+lib/Couch/DB/Mojolicious.pm
+lib/Couch/DB/Node.pm
+lib/Couch/DB/Result.pm
+lib/Couch/DB/Util.pm
+Makefile.PL
+MANIFEST			This list of files
+README.pm

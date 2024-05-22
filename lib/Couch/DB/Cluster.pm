@@ -293,6 +293,78 @@ sub reshardJobChange($%)
 	);
 }
 
+=method shardsForDB $db, %options
+[CouchDB API "GET /{db}/_shards", since 2.0, UNTESTED]
+Returns the structure of the shared used to store a database.  Pass this
+a $db as M<Couch::DB::Database=object.
+=cut
+
+sub __dbshards($$)
+{	my ($result, $data) = @_;
+	my $couch  = $reult->couch;
+
+	my %values = %$data;
+	my $shards = delete $values{shards} || {};
+
+	my %nodes;
+	foreach my $shard (sort keys %$shards)
+	{	$nodes{$shard} = [ $couch->listToPerl($shard, node => $shards->{$shard}) ];
+	}
+
+	$values{shards} = \%nodes;
+	\%values;
+}
+
+sub shardsForDB($%)
+{	my ($self, $db, %args) = @_;
+
+	$self->couch->call(GET => $db->_pathToDB('_shards'),
+		introduced => '2.0',
+		to_values  => \&__dbshards,
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
+=method shardsForDoc $doc, %options
+[CouchDB API "GET /{db}/_shards/{docid}", since 2.0, UNTESTED]
+Returns the structure of the shared used to store a database.  Pass this
+a $db as M<Couch::DB::Database>-object.
+=cut
+
+sub __docshards($$)
+{	my ($result, $data) = @_;
+	my %values = %$data;
+	$values{nodes} = [ $result->couch->listToPerl($shard, node => delete $values->{nodes}) ];
+	$values;
+}
+
+sub shardsForDoc($%)
+{	my ($self, $doc, %args) = @_;
+	my $db = $doc->db;
+
+	$self->couch->call(GET => $db->_pathToDB('_shards/'.$doc->id),
+		introduced => '2.0',
+		to_values  => \&__docshards,
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
+=method syncShards $db, %options
+[CouchDB API "POST /{db}/_sync_shards", since 2.3.1, UNTESTED]
+Force (re-)sharding of documents, usually in response to changes in the setup.
+Pass this a $db as M<Couch::DB::Database>-object.
+=cut
+
+sub syncShards($%)
+{	my ($self, $db, %args) = @_;
+
+	$self->couch->call(POST => $db->_pathToDB('_sync_shards'),
+		introduced => '2.3.1',
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
+
 
 #-------------
 =section Other

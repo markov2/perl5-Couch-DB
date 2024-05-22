@@ -162,9 +162,9 @@ sub doc(%)
  	$self->isReady
 		or error __x"Document not ready: {err}", err => $self->message;
 
-	$self->{CDR_doc} = Couch::DB::Document->fromJSON(
+	$self->{CDR_doc} = Couch::DB::Document->fromResult(
+		$self,
 		$self->couch->extractJSON($self->response),
-		result => $self,
 	);
 }
 
