@@ -49,7 +49,8 @@ any error.  For delayed collection of data, this status may change after
 this object is initially created.
 =cut
 
-use overload bool => sub { $_[0]->code >= 400 };
+use overload
+	bool => sub { $_[0]->code < 400 };
 
 =chapter METHODS
 
@@ -80,6 +81,8 @@ sub init($)
 
 	$self->{CDR_couch}     = delete $args->{couch} or panic;
 	weaken $self->{CDR_couch};
+#use Data::Dumper;
+#warn "RESULT INIT=", Dumper $args;
 
 	$self->{CDR_on_final}  = [ flat delete $args->{on_final} ];
 	$self->{CDR_on_error}  = [ flat delete $args->{on_error} ];
@@ -100,7 +103,7 @@ Generic accessors, not related to the Result content.
 
 sub couch()     { $_[0]->{CDR_couch}  }
 sub isDelayed() { $_[0]->code == HTTP_CONTINUE }
-sub isReady()   { $_[0]->code == HTTP_OK }
+sub isReady()   { $_[0]->{CDR_ready} }
 
 =method code
 Returns an HTTP status code (please use M<HTTP::Status>), which reflects
@@ -148,37 +151,36 @@ sub client()    { $_[0]->{CDR_client} }
 sub request()   { $_[0]->{CDR_request} }
 sub response()  { $_[0]->{CDR_response} }
 
-=method doc %options
-Returns the received document.  When the Result was delayed, it will get
-realized now.
+=method answer %options
+Returns the received json answer as HASH of raw data.
+
+You can better use the M<values()> method, which returns the data in a far more
+Perlish way: as Perl booleans, DateTime objects, and so on.
 =cut
 
-sub doc(%)
+sub answer(%)
 {	my ($self, %args) = @_;
 
-	return $self->{CDR_doc}
-		if defined $self->{CDR_doc};
+	return $self->{CDR_answer}
+		if defined $self->{CDR_answer};
 
  	$self->isReady
 		or error __x"Document not ready: {err}", err => $self->message;
 
-	$self->{CDR_doc} = Couch::DB::Document->fromResult(
-		$self,
-		$self->couch->extractJSON($self->response),
-	);
+	$self->{CDR_answer} = $self->couch->_extractAnswer($self->response),
 }
 
 =method values
-Returns a scalar which represents a value included in the document,
-made easily accessible and hiding protocol version differences.
+Each CouchDB API call knows whether it passes data types which are
+(potentially) incompatible between JSON and Perl. Those types get
+converted for you for convenience in your main program.
 
-When the value produces an ARRAY, then it is returned as reference.
-See M<values()>.  See L</DETAILS> below.
+The raw data is returned with M<answer()>.  See L</DETAILS> below.
 =cut
 
 sub values(@)
 {	my $self = shift;
-	$self->{CDR_values} ||= $self->{CDR_to_values}->($self, $self->doc->data);
+	$self->{CDR_values} ||= $self->{CDR_to_values}->($self, $self->answer);
 }
 
 #-------------
@@ -198,6 +200,7 @@ sub setFinalResult($%)
 	$self->{CDR_request}  = delete $data->{request};
 	$self->{CDR_response} = delete $data->{response};
 	$self->status($code, delete $data->{message});
+	$self->{CDR_ready}    = 1;
 
 	$_->($self) for @{$self->{CDR_on_final}};
 
@@ -281,7 +284,7 @@ multiple queries, and then start them at the same time.
 
 =example prepare a query, delayed
 
-  my $find1 = $db->find(..., delay => 1)
+  my $find1 = $db->find(..., _delay => 1)
       or die $result->message;  # only preparation errors
   
   if($find1->isDelayed) ...;    # true
@@ -298,14 +301,14 @@ To bridge the gap between your program and JSON data received, Couch::DB
 provides templated conversions.  This conversion scheme also attempts to
 hide protocol changes between CouchDB server versions.
 
-  my $result = $couch->client('local')->serverInfo;
+  my $result = $couch->client('_local')->serverInfo;
   result or die;
 
   # Try to avoid this:
-  print $result->doc->data->{version}; # string
+  print $result->answer->{version}; # string
 
   # Use this instead:
-  print $result->value('version');     # version object
+  print $result->value->{version};  # version object
 
 The M<value()> and M<values()> methods accept a $path which describes
 the position of the required value in the raw data.  Then, it knows

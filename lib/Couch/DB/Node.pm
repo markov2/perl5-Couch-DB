@@ -62,13 +62,16 @@ sub couch() { $_[0]->{CDN_couch} }
 #-------------
 =section Node information
 
-B<All CouchDB API calls> provide the C<delay> option, to create a result
-object which will be run later.  It also always has the C<client> and
-C<client> options, which can be used to limit the used connections to
-collect this data.
+B<All CouchDB API calls> documented below, support %options like C<_delay>
+and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
-Endpoint "/_node/{node-name}/_prometeus" is not (yet) supported, because
-it is a plain-text version of the M<stats()> and M<server()> calls.
+=method prometeus %options
+[CouchDB API "GET /_node/{node-name}/_prometheus", UNSUPPORTED]
+This is not (yet) supported, because it is a plain-text version of the
+M<stats()> and M<server()> calls.
+=cut
+
+sub prometeus { panic "Unsupported" }
 
 =method stats %options
 [CouchDB API "GET /_node/{node-name}/_stats", UNTESTED]

@@ -95,7 +95,7 @@ sub fill_impls()
 			$last_use = "$module->{base}->$1($2)"
 				if $line =~ m/^=method\s+(\w+)\s*(.*)/;
 
-			my ($call, $status) = $line =~ /\[CouchDB API "([^"]+)".*?(|UNTESTED|TODO)\]/
+			my ($call, $status) = $line =~ /\[CouchDB API "([^"]+)".*?(|UNTESTED|TODO|UNSUPPORTED|PARTIAL)\]/
 				or next;
 
 			my ($method, $endpoint) = split " ", $call, 2;
@@ -109,8 +109,7 @@ sub fill_impls()
 				use      => $last_use,
 			);
 
-			! $impls{$call} or die "Double $call";
-			$impls{$call} = \%impl;
+			push @{$impls{$call}}, \%impl;
 		}
 	}
 
@@ -128,11 +127,11 @@ fill_impls;
 #warn Dumper \%impls;
 
 my %methods_counts;
-$methods_counts{$_->{method}}++ for values %impls;
+map $methods_counts{$_->{method}}++, @$_ for values %impls;
 print Dumper \%methods_counts;
 
 my %status_counts;
-$status_counts{$_->{status}}++ for values %impls;
+map $status_counts{$_->{status}}++, @$_ for values %impls;
 print Dumper \%status_counts;
 
 my %mistakes = map +($_ => 1), keys %impls;
@@ -142,7 +141,11 @@ delete $mistakes{"POST /{db}/_design_docs/queries"};   # expected
 print "impl mismatch: $_\n" for sort keys %mistakes;
 
 foreach my $index (sort { $a->{endpoint} cmp $b->{endpoint} || $a->{method} cmp $b->{method}} values %index)
-{	my $impls = $impls{$index->{call}} || { };
-	printf "%-50.50s %-8s %-8s %s\n",
-		$index->{endpoint}, $index->{method}, $impls->{status} || 'TODO', $impls->{use} || '';
+{	my $impls = $impls{$index->{call}} || [ +{} ];
+
+	foreach my $impl (@$impls)
+	{	printf "%-50.50s %-8s %-11s %s\n",
+			$index->{endpoint}, $index->{method}, $impl->{status} || 'TODO', $impl->{use} || '';
+	}
 }
+

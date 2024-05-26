@@ -69,8 +69,8 @@ use Cookies.
 
 =option  headers HASH
 =default headers <a few>
-Some headers are set by default, for instance the 'Accept' header.  You can overrule
-them.  The defaults may change.
+Some headers are set by default, for instance the 'Accept' header.
+You can overrule them.  The defaults may change.
 
 With this option you can also provide proxy authentication headers, of the form
 C<X-Auth-CouchDB-*>.
@@ -89,7 +89,6 @@ sub init($)
 	weaken $self->{CDC_couch};
 
 	$self->{CDC_hdrs}   = my $headers = delete $args->{headers} || {};
-	$headers->{Accept} ||= 'application/json';
 
 	my $username        = delete $args->{username} // '';
 	$self->login(
@@ -175,7 +174,7 @@ sub login(%)
 
 	if($auth eq 'BASIC')
 	{	$self->headers->{Authorization} = 'Basic ' . encode_base64("$username:$password", '');
-		return $self->session(basic => 1);     #XXX do something with an error
+		return $self;  #XXX must return Result object
 	}
 
 	$auth eq 'COOKIE'
@@ -184,13 +183,12 @@ sub login(%)
 	my $send = $self->{CDC_login} =     # keep for cookie refresh (uninplemented)
 	 	+{ name => $username, password => $password };
 
-	#XXX API 3.3.3 says response field 'name' is 'null'.  Weird.
-
 	$self->couch->call(POST => '/_session',
 		send      => $send,
 		query     => { next => delete $args{next} },
-		on_final  => sub { $self->{CDC_roles} = $_[0]->isReady ? $_[0]->values->{roles} : undef },
-		$self->couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args,
+			on_final  => sub { $self->{CDC_roles} = $_[0]->isReady ? $_[0]->values->{roles} : undef },
+		),
 	);
 }
 
@@ -208,15 +206,17 @@ which displays the roles of this user, and its name.
 sub session(%)
 {	my ($self, %args) = @_;
 	$self->_clientIsMe(\%args);
+	my $couch = $self->couch;
 
 	my %query;
-	$query{basic} = delete $args{basic} ? 'true' : 'false'
-		if exists $args{basic};
+	$query{basic} = delete $args{basic} if exists $args{basic};
+	$couch->toQuery(\%query, bool => qw/basic/);
 
-	$self->couch->call(GET => '/_session',
+	$couch->call(GET => '/_session',
 		query     => \%query,
-		on_final  => sub { $self->{CDC_roles} = $_[0]->isReady ? $_[0]->values->{userCtx}{roles} : undef },
-		$self->couch->_resultsConfig(\%args),
+		$couch->_resultsConfig(\%args,
+			on_final  => sub { $self->{CDC_roles} = $_[0]->isReady ? $_[0]->values->{userCtx}{roles} : undef },
+		),
 	);
 }
 
@@ -258,13 +258,14 @@ sub hasRole($) { first { $_[1] eq $_ } $_[0]->roles }
 #-------------
 =section Server information
 
-B<All CouchDB API calls> documented below, support %options like C<delay>,
-C<client>, C<clients>, C<on_error>, and C<on_final>.
+B<All CouchDB API calls> documented below, support %options like C<_delay>
+and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
-Not supported from the CouchDB API:
-=over 4
-=item * C</favicon.ico>
+=method favicon %options
+[CouchDB API "GET /favicon.ico", UNSUPPORTED]
 =back
+
+sub favicon() { ... }   # until I know how to handle this
 
 =method serverInfo %options
 [CouchDB API "GET /"]
@@ -364,7 +365,7 @@ sub activeTasks(%)
 	);
 }
 
-=method databaseKeys %options
+=method databaseNames %options
 [CouchDB API "GET /_all_dbs"]
 Returns the selected database names as present on the connected CouchDB
 instance.
@@ -376,7 +377,6 @@ C<startkey>, C<endkey>, C<limit>, and C<skip>.
 
 sub _db_keyfilter($)
 {	my ($self, $args) = @_;
-	$self->couch->toJSON($args, bool => qw/descending/);
 
 	my $filter = +{
 		descending => delete $args->{descending},
@@ -385,16 +385,18 @@ sub _db_keyfilter($)
 		limit      => delete $args->{limit},
 		skip       => delete $args->{skip},
 	};
+	$self->couch->toJSON($filter, bool => qw/descending/);
 
 	$filter;
 }
 
-sub databaseKeys(%)
+#XXX it is unclear why the database names are referred to as "keys".
+sub databaseNames(%)
 {	my ($self, %args) = @_;
 	$self->_clientIsMe(\%args);
 
 	$self->couch->call(GET => '/_all_dbs',
-		query     => $self->_db_keyfilter(\%args),
+		query => $self->_db_keyfilter(\%args),
 		$self->couch->_resultsConfig(\%args),
 	);
 }
@@ -698,7 +700,7 @@ Returns a true value when the server status is "ok".
 sub serverIsUp()
 {	my $self = shift;
 	my $result = $self->serverStatus;
-	$result && $result->doc->data->{status} eq 'ok';
+	$result && $result->values->{status} eq 'ok';
 }
 
 #-------------

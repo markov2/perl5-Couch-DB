@@ -18,8 +18,9 @@ Couch::DB::Cluster - interface for cluster management
   my $cluster = $couchdb->cluster;
 
 =chapter DESCRIPTION
-This modules groups all CouchDB API calls which relate to clustering, replication, and
-related jobs.  There are too many related methods, so they got their own module.
+This modules groups all CouchDB API calls which relate to clustering,
+replication, sharind, and related jobs.  There are too many related
+methods, so they got their own module.
 
 =chapter METHODS
 
@@ -52,6 +53,9 @@ sub couch() { $_[0]->{CDC_couch} }
 #-------------
 =section Managing a Cluster
 
+B<All CouchDB API calls> documented below, support %options like C<_delay>
+and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
+
 =method clusterState %options
 [CouchDB API "GET /_cluster_setup", since 2.0, UNTESTED]
 Describes the status of this CouchDB instance is in the cluster.
@@ -72,8 +76,8 @@ sub clusterState(%)
 
 	$self->couch->call(GET => '/_cluster_setup',
 		introduced => '2.0',
-		$self->couch->_resultsConfig(\%args),
 		query      => \%query,
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 
@@ -92,8 +96,8 @@ sub clusterSetup(%)
 
 	$self->couch->call(POST => '/_cluster_setup',
 		introduced => '2.0',
-		$self->couch->_resultsConfig(\%args),
 		send       => \%args,
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 

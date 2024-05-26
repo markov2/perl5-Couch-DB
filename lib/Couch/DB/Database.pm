@@ -5,9 +5,10 @@ package Couch::DB::Database;
 
 use Log::Report 'couch-db';
 
-use Couch::DB::Util;
+use Couch::DB::Util   qw(flat);
 
-use Scalar::Util  qw(weaken);
+use Scalar::Util      qw(weaken);
+use HTTP::Status      qw(HTTP_OK HTTP_NOT_FOUND);
 
 =chapter NAME
 
@@ -19,6 +20,15 @@ Couch::DB::Database - One database connection
 
 =chapter DESCRIPTION
 
+One I<node> (server) contains multiple databases.  Databases
+do not contain "collections", like MongoDB; each document is
+a direct child of a database.  Per database, you get multiple
+files to store that data, for views, replication, and so on.  
+Per database, you need to set permissions.
+
+Clustering, sharing, and replication activities on a database
+are provided by the M<Couch::DB::Cluster> package.
+
 =chapter METHODS
 
 =section Constructors
@@ -26,9 +36,15 @@ Couch::DB::Database - One database connection
 =c_method new %options
 
 =requires name STRING
-The name must match C<< ^[a-z][a-z0-9_$()+/-]*$ >>.
+The name of a database must match C<< ^[a-z][a-z0-9_$()+/-]*$ >>.
 
 =requires couch C<Couch::DB>-object
+
+=option  batch BOOLEAN
+=default batch C<false>
+When set, all write actions (which support this) to this database
+will not wait for the actual update of the database.  This gives a
+higher performance, but not all error may be reported.
 =cut
 
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
@@ -36,32 +52,41 @@ sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
 sub init($)
 {	my ($self, $args) = @_;
 
-	my $name = $self->{CDD_name} = delete->{name} or panic "Requires name";
+	my $name = $self->{CDD_name} = delete $args->{name} or panic "Requires name";
 	$name =~ m!^[a-z][a-z0-9_$()+/-]*$!
 		or error __x"Illegal database name '{name}'.", name => $name;
 
 	$self->{CDD_couch} = delete $args->{couch} or panic "Requires couch";
 	weaken $self->{CDD_couch};
 
+	$self->{CDD_batch} = delete $args->{batch};
 	$self;
 }
 
 #-------------
 =section Accessors
+
+=method name
+=method couch
+=method batch
 =cut
 
 sub name()  { $_[0]->{CDD_name} }
 sub couch() { $_[0]->{CDD_couch} }
+sub batch() { $_[0]->{CDD_batch} }
+
+sub _pathToDB(;$) { '/' . $_[0]->name . (defined $_[1] ? '/' . $_[1] : '') }
 
 #-------------
 =section Database information
-=cut
 
-#XXX In the API 3.3.3 docs, sometime /db is used where /{db} is meant.
+B<All CouchDB API calls> documented below, support %options like C<_delay>
+and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
 =method ping %options
-[CouchDB API "HEAD /{db}", UNTESTED]
-Check whether the database exists.  You may get some useful response headers.
+[CouchDB API "HEAD /{db}"]
+Check whether the database exists.  You may get some useful response
+headers, but nothing more: the response body is empty.
 =cut
 
 sub ping(%)
@@ -72,50 +97,77 @@ sub ping(%)
 	);
 }
 
-=method info %options
-[CouchDB API "GET /{db}", UNTESTED]
+=method exists
+Returns a boolean, whether the database exists already.  This will
+call M<ping()> and wait for an anwser.
+=cut
+
+sub exists()
+{	my $self = shift;
+	my $result = $self->ping(_delay => 0);
+	  $result->code eq HTTP_NOT_FOUND ? 0
+    : $result->code eq HTTP_OK        ? 1
+	:                                   undef;  # will probably die in the next step
+}
+
+=method details %options
+[CouchDB API "GET /{db}"]
 Collect information from the database, for instance about its clustering.
 =cut
 
-sub info(%)
+sub __detailsValues($$)
+{	my ($result, $raw) = @_;
+	my $couch = $result->couch;
+	my %values = %$raw;   # deep not needed;
+	$couch->toPerl(\%values, epoch => qw/instance_start_time/);
+	\%values;
+}
+
+sub details(%)
 {	my ($self, %args) = @_;
 
 	#XXX Value instance_start_time is now always zero, useful to convert if not
 	#XXX zero in old nodes?
 
 	$self->couch->call(GET => $self->_pathToDB,
+		to_values  => \&__detailsValues,
 		$self->couch->_resultsConfig(\%args),
 	);
 }
 
 =method create %options
-[CouchDB API "PUT /{db}", UNTESTED]
-Create a new database.
+[CouchDB API "PUT /{db}"]
+Create a new database.  The result object will have code HTTP_CREATED when the
+database is successfully created.  When the database already exists, it
+returns HTTP_PRECONDITION_FAILED and an error in the body.
 
-=option  partitioned BOOLEAN
-=default partitioned C<false>
-Whether to create a paritioned database.
+Options: C<partitioned> (bool), C<q> (shards, default 8), and C<n> (replicas,
+default 3).
 =cut
 
-sub info(%)
+sub create(%)
 {	my ($self, %args) = @_;
+	my $couch = $self->couch;
 
 	my %query;
-	$query{partitioned} = delete $args{partitioned} ? "true" : "false"
-		exists $args{partitioned};
+	exists $args{$_} && ($query{$_} = delete $args{$_})
+		for qw/partitioned q n/;
+	$couch->toQuery(\%query, bool => qw/partitioned/);
+	$couch->toQuery(\%query, int  => qw/q n/);
 
-	$self->couch->call(PUT => $self->_pathToDB,
+	$couch->call(PUT => $self->_pathToDB,
 		query => \%query,
+		send  => { },
 		$self->couch->_resultsConfig(\%args),
 	);
 }
 
-=method delete %options
-[CouchDB API "DELETE /{db}", UNTESTED]
+=method remove %options
+[CouchDB API "DELETE /{db}"]
 Remove the database.
 =cut
 
-sub delete(%)
+sub remove(%)
 {	my ($self, %args) = @_;
 
 	$self->couch->call(DELETE => $self->_pathToDB,
@@ -124,9 +176,13 @@ sub delete(%)
 }
 
 =method userRoles %options
-[CouchDB API "GET /{db}/_security", UNTESTED]
+[CouchDB API "GET /{db}/_security"]
 Returns the users who have access to the database, including their roles
 (permissions).
+
+Usually, it is better to simply attempt to take an action, and handle the
+errors: having a role does not mean that the action will be error-less
+anyway.
 =cut
 
 sub userRoles(%)
@@ -157,7 +213,7 @@ sub userRolesChange(%)
 	);
 
 	$self->couch->call(PUT => $self->_pathToDB('_security'),
-		send  => { admin => 
+		send  => \%send,
 		$self->couch->_resultsConfig(\%args),
 	);
 }
@@ -170,14 +226,14 @@ sub userRolesChange(%)
 sub changes { ... }
 
 =method compact %options
-[CouchDB API "POST /{db}/_compact", UNTESTED],
+[CouchDB API "POST /{db}/_compact"],
 [CouchDB API "POST /{db}/_compact/{ddoc}", UNTESTED]
 Instruct the database files to be compacted.  By default, the data gets
 compacted.
 
 =option  ddoc $ddoc
 =default ddoc C<undef>
-Compact all indexes related to this design document.
+Compact all indexes related to this design document, instead.
 =cut
 
 sub compact(%)
@@ -189,29 +245,37 @@ sub compact(%)
 	}
 
 	$self->couch->call(POST => $path,
+		send  => { },
 		$self->couch->_resultsConfig(\%args),
 	);
 }
 
 =method ensureFullCommit %options
-[CouchDB API "POST /{db}/_ensure_full_commit", deprecated 3.0.0, UNTESTED].
+[CouchDB API "POST /{db}/_ensure_full_commit", deprecated 3.0.0].
 =cut
+
+sub __ensure($$)
+{	my ($result, $raw) = @_;
+	return $raw unless $raw->{instance_start_time};  # exists && !=0
+	my $v = { %$raw };
+	$result->couch->toPerl($v, epoch => qw/instance_start_time/);
+	$v;
+}
 
 sub ensureFullCommit(%)
 {	my ($self, %args) = @_;
 
-	#XXX The 3.3.3 docs speak about "delayed_commits=true".  Where can I find
-	#XXX older versions of this doc?
-
 	$self->couch->call(POST => $self->_pathToDB('_ensure_full_commit'),
 		deprecated => '3.0.0',
+		send       => { },
+		to_values  => \&__ensure,
 		$self->couch->_resultsConfig(\%args),
 	);
 }
 
 =method purgeDocuments \%plan, %options
 [CouchDB API "POST /{db}/_purge", UNTESTED].
-Remove selected documents revisions from the database.
+Remove selected document revisions from the database.
 
 A deleted document is only marked as being deleted, but exists until
 purge.  There must be sufficient time between deletion and purging,
@@ -255,7 +319,7 @@ sub purgeRecordsLimitSet($%)
 {	my ($self, $value, %args) = @_;
 
 	$self->couch->call(PUT => $self->_pathToDB('_purged_infos_limit'),
-		send => toInt($value),
+		send => int($value),
 		$self->couch->_resultsConfig(\%args),
 	);
 }
@@ -331,7 +395,7 @@ sub revisionLimitSet($%)
 {	my ($self, $value, %args) = @_;
 
 	$self->couch->call(PUT => $self->_pathToDB('_revs_limit'),
-		send => toInt($value),
+		send => int($value),
 		$self->couch->_resultsConfig(\%args),
 	);
 }
@@ -364,7 +428,7 @@ sub listDesigns(%)
 	{	$method = 'POST';
 	 	my @s;
 		foreach (@search)
-		{	my $s  = %$search;
+		{	my $s  = +{ %$_ };
 			$couch->toJSON($s, bool => qw/conflicts descending include_docs inclusive_end update_seq/);
 			push @s, $s;
 		}
@@ -449,40 +513,19 @@ sub explainSearch(%)
 #-------------
 =section Handling documents
 
-=method saveDocument $doc, %options
-[CouchDB API "POST /{db}", UNTESTED]
-Upload a document to this database.  The document is a M<Couch::DB::Document>.
+=method doc ID, %options
+Returns a M<Couch::DB::Document> for this ID.  Be aware that this does not have
+any interaction with the CouchDB server.  Only when you call actions, like
+M<Couch::DB::Document::exists()>, on that object, you can see the status and
+content of the document.
 
-=option  id   ID
-=default id   generated
-Every document needs an ID.  If not specified, it will get generated.
-
-=option  batch BOOLEAN
-=default batch C<false>
-Do not wait for the write action to be completed.
+The %options are passed to M<Couch::DB::Database::new()>.  Of course, you do not
+need to pass the database object explicitly.
 =cut
 
-sub __saved($$)
-{	my ($self, $doc, $result) = @_;
-	$result or return;
-
-	my $v = $result->values;
-	$doc->saved($v->{id}, $v->{rev});
-}
-	
-sub saveDocument($%)
-{	my ($self, $doc, %args) = @_;
-	my %query;
-	$query{batch} = 'ok' if delete $args{batch};
-
-	my $data = $doc->data;
-	$data->{_id} = delete $args{id} if defined $args{id};
-
-	$self->couch->call(POST => $self->_pathToDB,
-		send     => $data,
-		on_final => sub { $self->__saved($doc, $_[0]) },
-		$self->couch->_resultsConfig(\%args),
-	);
+sub doc($%)
+{	my ($self, $id) = @_;
+	Couch::DB::Document->new(id => $id, db => $self, @_);
 }
 
 =method updateDocuments \@docs, %options
@@ -521,25 +564,27 @@ sub __updated($$$$)
 	my %deletes = map +($_->id => $_), @$deletes;
 
 	foreach my $report (@{$result->values})
-	{	my $id    = $report->{id};
-		my ($doc, $delete);
-		if($doc = delete $deletes{$id}) { $delete = 1 }
-		else { $doc = delete $docs{$id} or panic "missing report for updated $id" }
+	{	my $id     = $report->{id};
+		my $delete = exists $deletes{$id};
+		my $doc    = delete $deletes{$id} || delete $saves{$id}
+			or panic "missing report for updated $id";
 
 		if($report->{ok})
 		{	$doc->saved($id, $report->{rev});
 			$doc->deleted if $delete;
 		}
 		else
-		{	$on_error->($result, $doc, +{ %$report, delete => $delete };
+		{	$on_error->($result, $doc, +{ %$report, delete => $delete });
 		}
 	}
 
-	$on_error->($result, $_, { error => 'missing', reason => "The server did not report back on saving $id." })
-		for values %saves;
+	$on_error->($result, $saves{$_},
+		+{ error => 'missing', reason => "The server did not report back on saving $_." }
+	) for keys %saves;
 
-	$on_error->($result, $_, { error => 'missing', reason => "The server did not report back on deleting $id.", delete => 1 })
-		for values %deletes;
+	$on_error->($result, $deletes{$_},
+		+{ error => 'missing', reason => "The server did not report back on deleting $_.", delete => 1 }
+	) for keys %deletes;
 }
 
 sub updateDocuments($%)
@@ -550,19 +595,21 @@ sub updateDocuments($%)
 	my @deletes = flat delete $args{delete};
 
 	foreach my $del (@deletes)
-	{	push @plan, +{ _id => $del->id, _rev => $del->rev, _delete => true };
+	{	push @plan, +{ _id => $del->id, _rev => $del->rev, _delete => 1 };
+		$couch->toJSON($plan[-1], bool => qw/_delete/);
 	}
 
 	@plan or error __x"need at least on document for bulk processing.";
-	my %send    = ( docs => \@plan );
+	my $send    = +{ docs => \@plan };
 
-	$send{new_edits} = delete $args{new_edits} ? 'true' : 'false'
-		if exists $args{new_edits};
+	$send->{new_edits} = delete $args{new_edits} if exists $args{new_edits};
+	$couch->toJSON($send, bool => qw/new_edits/);
 
 	$couch->call(POST => $self->_pathToDB('_bulk_docs'),
-		send     => \%send,
-		on_final => sub { $self->_updated($_[0], $docs, \@deletes) },
-		$couch->_resultsConfig(\%args),
+		send     => $send,
+		$couch->_resultsConfig(\%args,
+			on_final => sub { $self->_updated($_[0], $docs, \@deletes) },
+		),
 	);
 }
 
@@ -577,9 +624,11 @@ Include the revision history of each document.
 
 sub inspectDocuments($%)
 {	my ($self, $docs, %args) = @_;
+	my $couch = $self->couch;
 
-	my %query;
-	$query{revs} = delete $args{revs} ? 'true' : 'false' if exists $args{revs};
+	my $query;
+	$query->{revs} = delete $args{revs} if exists $args{revs};
+	$couch->toQuery($query, bool => qw/revs/);
 
 	@$docs or error __x"need at least on document for bulk query.";
 
@@ -587,7 +636,8 @@ sub inspectDocuments($%)
 	#XXX what does "a": 1 mean in its response?
 
 	$self->couch->call(POST =>  $self->_pathToDB('_bulk_get'),
-		send => { docs => $docs },
+		query => $query,
+		send  => { docs => $docs },
 		$couch->_resultsConfig(\%args),
 	);
 }

@@ -11,6 +11,7 @@ use Couch::DB::Util qw(flat);
 use Scalar::Util     qw(blessed);
 use Mojo::URL        ();
 use Mojo::UserAgent  ();
+use Mojo::JSON       qw(decode_json);
 use HTTP::Status     qw(HTTP_OK);
 
 =chapter NAME
@@ -80,16 +81,23 @@ sub _callClient($$%)
 
 	my $method  = delete $args{method} or panic;
 	my $delay   = delete $args{delay}  || 0;
+	my $path    = delete $args{path};
+	my $url     = $client->server->clone->path($path);
 
-	my $url = $client->server->clone->path(delete $args{path});
 	$url->query(delete $args{query});
 
 	my $ua  = $client->userAgent;
+	my %headers = ( %{$client->headers}, %{delete $args{headers}} );
+warn "HEADERS = ", join ';', %headers;
+
+	my $send = delete $args{send};
+	my @body
+	  = ! defined $send ? ()
+	  : $headers{'Content-Type'} eq 'application/json' ? (json => $send)
+	  :                   $send;
 
 	# $tx is a Mojo::Transaction::HTTP
-	my $send = delete $args{send};
-	my @body = defined $send ? (json => $send) : ();
-	my $tx   = $ua->build_tx($method => $url, $client->headers, @body);
+	my $tx   = $ua->build_tx($method => $url, \%headers, @body);
 
 	my $plan = $ua->start_p($tx)->then(sub ($) {
 		my $tx = shift;
@@ -112,10 +120,29 @@ sub _callClient($$%)
 	1;
 }
 
-sub extractJSON($)
+sub _extractAnswer($)
 {	my ($self, $response) = @_;
-	$response->json;
+	my $content = $response->content;
+	return $response->json
+		unless $response->content->is_multipart;
+
+	my $part = $response->content->parts->[0];
+	decode_json $part->asset->slurp;
 }
+
+sub _attachment($$)
+{	my ($self, $response, $name) = @_;
+	my $parts = $response->content->parts || [];
+	foreach my $part (@$parts)
+	{	my $disp = $part->headers->content_disposition;
+		return $part->asset->slurp
+			if $disp && $disp =~ /filename="([^"]+)"/ && $1 eq $name;
+	}
+warn "NOT FOUND";
+	undef;
+}
+
+sub _messageContent($) { $_[1]->body }
 
 #-------------
 =section Other
