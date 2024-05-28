@@ -6,6 +6,7 @@ use Couch::DB::Util;
 
 use Log::Report 'couch-db';
 use Scalar::Util qw(weaken);
+use MIME::Base64 qw(decode_base64);
 
 =chapter NAME
 
@@ -15,8 +16,14 @@ Couch::DB::Document - one document as exchanged with a CouchDB server
 
   my $doc = $couch->db($dbname)->doc($docid);
   my $doc = $db->doc->create(\%data);
+  my $doc = $db->doc($id, local => 1);
 
 =chapter DESCRIPTION
+
+This class manages one document, without understanding the payload.  When
+exchanging questions and answers with the server, keys which start with
+an underscore (C<_>) may get added and removed: they should not be visible
+in your data.
 
 =chapter METHODS
 
@@ -38,6 +45,12 @@ actual writing is done, but is much faster.
 =option   db   M<Couch::DB::Database>-object
 =default  db   C<undef>
 If this document is database related.
+
+=option   local BOOLEAN
+=default  local C<false>
+Use a local document: do not replicate it to other instances.  Only limited
+actions are permitted on local documents... probably they do not support
+attachments.
 =cut
 
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
@@ -49,6 +62,7 @@ sub init($)
 	$self->{CDD_info}  = {};
 	$self->{CDD_batch} = exists $args->{batch} ? delete $args->{batch} : $db->batch;
 	$self->{CDD_revs}  = {};
+	$self->{CDD_local} = delete $args->{local};
 
 	$self->{CDD_couch} = $db->couch;
 	weaken $self->{CDD_couch};
@@ -79,14 +93,23 @@ sub data()  { $_[0]->{CDD_data} } #XXX
 =method db
 =method batch
 =method couch
+=method isLocal
 =cut
 
-sub id()    { $_[0]->{CDD_id} }
-sub db()    { $_[0]->{CDD_db} }
-sub batch() { $_[0]->{CDD_batch} }
-sub couch() { $_[0]->{CDD_couch} }
+sub id()      { $_[0]->{CDD_id} }
+sub db()      { $_[0]->{CDD_db} }
+sub batch()   { $_[0]->{CDD_batch} }
+sub couch()   { $_[0]->{CDD_couch} }
+sub isLocal() { $_[0]->{CDD_local} }
 
-sub _pathToDoc(;$) { $_[0]->db->_pathToDB($_[0]->id) . (defined $_[1] ? '/' . $_[1] : '')  }
+sub _pathToDoc(;$)
+{	my ($self, $path) = @_;
+	if($self->isLocal)
+	{	$path and panic "Local documents not supported with path '$path'";
+		return $self->db->_pathToDB('_local/' . $self->id);
+	}
+	$self->db->_pathToDB($self->id . (defined $path ? "/$path" : ''));
+}
 
 sub _saved($$$)
 {	my ($self, $id, $rev, $data) = @_;
@@ -238,12 +261,15 @@ sub create($%)
 	$self->couch->call(POST => $self->db->_pathToDB,  # !!
 		send     => $data,
 		query    => \%query,
-		$self->couch->_resultsConfig(\%args, on_final => sub { $self->__saved($_[0], $data) }),
+		$self->couch->_resultsConfig(\%args,
+			on_final => sub { $self->__saved($_[0], $data) },
+		),
 	);
 }
 
 =method update \%data, %options
-[CouchDB API "PUT /{db}/{docid}"]
+[CouchDB API "PUT /{db}/{docid}"],
+[CouchDB API "PUT /{db}/_local/{docid}"],
 Save a new revision of this document to the database.  If docid is new,
 then it will be created, otherwise a new revision is added.  Your content
 of the document is in %data.
@@ -274,7 +300,8 @@ sub update($%)
 }
 
 =method get %options
-[CouchDB API "GET /{db}/{docid}"]
+[CouchDB API "GET /{db}/{docid}"],
+[CouchDB API "GET /{db}/_local/{docid}"]
 Retrieve document data and information from the database.  There are a zillion
 of %options to collect additional meta-data.
 
@@ -308,8 +335,9 @@ sub __get($$)
 	if(my $atts = $info->{_attachments})
 	{	foreach my $name (keys %$atts)
 		{	my $details = $atts->{$name};
-			delete $details->{follows} or next;
-			$attdata->{$name} = $result->couch->_attachment($result->response, $name);
+			$attdata->{$name} = $details->{follows})
+ 			  ? $result->couch->_attachment($result->response, $name);
+			  : decode_base64 delete $details->{data};   # remove sometimes large data
 		}
 	}
 
@@ -321,7 +349,7 @@ sub __get($$)
 	$self->{CDD_revs}{$rev} = $answer;
 }
 
-sub get($%)
+sub get(%)
 {	my ($self, %args) = @_;
 	my $couch = $self->couch;
 
@@ -339,7 +367,8 @@ sub get($%)
 }
 
 =method delete %options
-[CouchDB API "DELETE /{db}/{docid}"]
+[CouchDB API "DELETE /{db}/{docid}"],
+[CouchDB API "DELETE /{db}/_local/{docid}"]
 Flag the document to be deleted.  A new revision is created, which reflects this.
 Only later, when all replications know it and compaction is run, the document
 versions will disappear.
@@ -368,7 +397,8 @@ sub delete(%)
 }
 
 =method cloneInto $doc, %options
-[CouchDB API "COPY /{db}/{docid}", PARTIAL]
+[CouchDB API "COPY /{db}/{docid}", PARTIAL],
+[CouchDB API "COPY /{db}/_local/{docid}", PARTIAL]
 See also M<appendTo()>.
 
 As %options, C<batch> and C<rev>.
@@ -400,7 +430,8 @@ sub cloneInto($%)
 }
 
 =method appendTo $doc, %options
-[CouchDB API "COPY /{db}/{docid}", PARTIAL]
+[CouchDB API "COPY /{db}/{docid}", PARTIAL],
+[CouchDB API "COPY /{db}/_local/{docid}", PARTIAL]
 See also M<cloneInto()>.
 
 As %options, C<batch> and C<rev>.
@@ -508,7 +539,6 @@ sub attSave($$%)
 
 	my  $type = delete $args{type} || 'application/octet-stream';
 	my %query = (rev => delete $args{rev} || $self->rev);
-warn "Q=", join '#', %query;
 	$query{batch} = 'ok' if exists $args{batch} ? delete $args{batch} : $self->batch;
 
 	$self->couch->call(PUT => $self->_pathToDoc($name),

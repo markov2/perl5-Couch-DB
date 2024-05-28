@@ -17,8 +17,8 @@ use DateTime          ();
 use DateTime::Format::Mail    ();
 use DateTime::Format::ISO8601 ();
 use URI               ();
-use URI::Escape       qw/uri_unescape/;
-use JSON              ();
+use URI::Escape       qw/uri_escape uri_unescape/;
+use JSON              qw/json_encode/;
 use Storable          qw/dclone/;
 
 use constant
@@ -281,12 +281,6 @@ A function (sub) which transforms the data of the CouchDB answer into useful Per
 values and objects.  See M<Couch::DB::toPerl()>.
 =cut
 
-my %surpress_depr;
-sub __couchdb_version($)
-{	my $v = shift or return;
-	version->parse($v =~ /^\d+\.\d+$/ ? "$v.0" : $v);  # sometime without 3rd
-}
-
 my %to_query = (
 	'JSON::PP::Boolean' => sub { $_[0] ? 'true' : 'false' },
 	'Couch::DB::Node'   => sub { $_[0]->name },
@@ -332,23 +326,8 @@ warn "CALL ", Dumper \%args;
 	}
 	@clients or panic "No clients";   #XXX to improve
 
-	my $removed = __couchdb_version delete $args{removed};
-	if($removed && $self->api >= $removed)
-	{	error __x"Endpoint '{what}' got removed in {release}, but you specified api {api}.",
-			what => "$method $path", release => $removed, api => $self->api;
-	}
-
-	my $introduced = __couchdb_version delete $args{introduced};
-	if($introduced && $introduced <= $self->api)
-	{	warning __x"Endpoint '{what}' was introduced in {release} but you specified api {api}.",
-			what => "$method $path", release => $introduced, api => $self->api;
-	}
-
-	my $deprecated = __couchdb_version delete $args{deprecated};
-	if($deprecated && $self->api >= $deprecated && ! $surpress_depr{"$method:$path"}++)
-	{	warning __x"Endpoint '{what}' got deprecated in api {release}.",
-			what => "$method $path", release => $deprecated;
-	}
+	$self->check(exists $args{$_}, $_ => delete $args{$_}, "Endpoint '$method $path'")
+		for qw/removed introduced deprecated/;
 
 	my $result  = Couch::DB::Result->new(
 		couch     => $self,
@@ -544,6 +523,7 @@ Fields which do not exist are left alone.
 # Extends/overrides the toJSON converters
 my %default_toquery = (
 	bool => sub { $_[2] ? 'true' : 'false' },
+	json => sub { json_encode $_[2] },
 );
 
 sub _toQueryHandler($)
@@ -573,6 +553,41 @@ is beautified.
 sub jsonText($%)
 {	my ($self, $json, %args) = @_;
 	JSON->new->pretty(not $args{compact})->encode($json);
+}
+
+=method check $condition, $change, $version, $what
+If the $condition it true (usually the existence of some parameter), then
+check whether api limitiations apply.
+
+Parameter $change is either C<removed>, C<introduced>, or C<deprecated> (as
+string).  The C<version> is taken from the CouchDB API documentation.
+The $what is describing the element, to be used is error or warning messages.
+=cut
+
+my %surpress_depr;
+sub check($$$$)
+{	defined $_->[1] or return $_[0];
+	my ($self, $element, $change, $version, $what) = @_;
+
+	my $cv = version->parse($v =~ /^\d+\.\d+$/ ? "$v.0" : $v);  # sometime without 3rd
+	if($check eq 'removed')
+	{	$self->api < $cv
+			or error __x"{what} got removed in {release}, but you specified api {api}.",
+				what => $what, release => $version, api => $self->api;
+	}
+	elsif($check eq 'introduced')
+	{	$self->api >= $cv
+			or warning __x"{what} was introduced in {release} but you specified api {api}.",
+				what => $what, release => $version, api => $self->api;
+	}
+	elsif($check eq 'deprecated')
+	{	$self->api >= $cv && ! $surpress_depr{$what}++
+			or warning __x"{what} got deprecated in api {release}.",
+					what => $what, release => $version;
+	}
+	else { panic "$check $cv $what" }
+
+	$self;
 }
 
 =method requestUUIDs $count, %options

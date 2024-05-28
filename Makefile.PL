@@ -8,18 +8,18 @@ my $VERSION = '0.001';
 
 my %prereq =
   (	'DateTime'			=> 0
-  , 'DateTime::Format::ISO8601'			=> 0
-  , 'DateTime::Format::Mail'			=> 0
-  , 'HTTP::Status'			=> 0
-  , 'JSON'			=> 0
-  , 'List::Util'			=> 0
-  , 'Log::Report'			=> 0
-  , 'MIME::Base64'			=> 0
+  , 'DateTime::Format::ISO8601'	=> 0
+  , 'DateTime::Format::Mail'	=> 0
+  , 'HTTP::Status'		=> 0
+  , 'JSON'				=> 0
+  , 'List::Util'		=> 0
+  , 'Log::Report'		=> 0
+  , 'MIME::Base64'		=> 0
   , 'Mojo::URL'			=> 0
-  , 'Mojo::UserAgent'			=> 0
-  , 'Scalar::Util'			=> 0
+  , 'Mojo::UserAgent'	=> 0
+  , 'Scalar::Util'		=> 0
   , 'Storable'			=> 0
-  , 'URI'			=> 0
+  , 'URI'				=> 0
   );
 
 WriteMakefile

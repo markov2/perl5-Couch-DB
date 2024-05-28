@@ -8,10 +8,11 @@ use Couch::DB::Result ();
 
 use Log::Report 'couch-db';
 
-use Scalar::Util    qw(weaken);
+use Scalar::Util    qw(weaken blessed);
 use List::Util      qw(first);
 use MIME::Base64    qw(encode_base64);
 use Storable        qw(dclone);
+use URI::Escape     qw(uri_escape);
 
 =chapter NAME
 
@@ -261,11 +262,10 @@ sub hasRole($) { first { $_[1] eq $_ } $_[0]->roles }
 B<All CouchDB API calls> documented below, support %options like C<_delay>
 and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
-=method favicon %options
-[CouchDB API "GET /favicon.ico", UNSUPPORTED]
-=back
-
-sub favicon() { ... }   # until I know how to handle this
+# These are only for web-interfaces
+# [CouchDB API "GET /favicon.ico", UNSUPPORTED]
+# [CouchDB API "GET /_utils", UNSUPPORTED]
+# [CouchDB API "GET /_utils/", UNSUPPORTED]
 
 =method serverInfo %options
 [CouchDB API "GET /"]
@@ -582,34 +582,38 @@ sub replicationJobs(%)
 [CouchDB API "GET /_scheduler/docs", UNTESTED] and
 [CouchDB API "GET /_scheduler/docs/{replicator_db}", UNTESTED].
 
-Pass a C<dbname> with %options to be specific about the database which
-contains the replication information.
+=option  dbname NAME
+=default dbname C<_replicator>
+Pass a C<dbname> for the database which contains the replication information.
 =cut
+
+sub __replDocValues($$)
+{	my ($result, $raw) = @_;
+	my $v = +{ %$raw }; # $raw->{info} needs no conversions
+
+	$result->couch
+		->toPerl($v, isotime => qw/start_time last_updated/)
+		->toPerl($v, abs_url => qw/target source/)
+		->toPerl($v, node    => qw/node/);
+	$v;
+}
 
 sub __replDocsValues($$)
 {	my ($result, $raw) = @_;
 	my $couch   = $result->couch;
 	my $values  = dclone $raw;
-
-	foreach my $doc (@{$values->{docs} || []})
-	{	$couch->toPerl($doc, isotime => qw/start_time last_updated/)
-		      ->toPerl($doc, abs_url => qw/target source/)
-		      ->toPerl($doc, node    => qw/node/);
-		# my $info = $doc->info;  # no conversions needed
-	}
-
+	$values->{docs} = [ map $self->__replDocValues($result, $_), @{$values->{docs} || []} ];
 	$values;
 }
 
-sub replicationDocs($%)
+sub replicationDocs(%)
 {	my ($self, %args) = @_;
 	$self->_clientIsMe(\%args);
+	my $dbname = delete $args{dbname} || '_replicator';
 
 	my $path = '/_scheduler/docs';
-	if(my $dbname = $args{dbname})
-	{	# API-doc specifies the protocol twice, seemingly exactly the same in
-		# docs 3.3.3 section 1.2.10.
-		$path .= "/$dbname";    # '/' protection not needed
+	if($dbname ne '_replicator')
+	{	$path .= '/' . uri_escape($dbname);
 	}
 
 	my %query = (
@@ -623,6 +627,37 @@ sub replicationDocs($%)
 		$self->couch->_resultsConfig(\%args),
 	);
 }
+
+=method replicationDoc $doc|$docid, %options
+[CouchDB API "GET /_scheduler/docs/{replicator_db}/{docid}", UNTESTED].
+
+=option  dbname NAME
+=default dbname C<_replicator>
+Pass a C<dbname> for the database which contains the replication information.
+=cut
+
+#XXX the output differs from replicationDoc
+
+sub replicationDoc($%)
+{	my ($self, $doc, %args) = @_;
+	$self->_clientIsMe(\%args);
+
+	my $dbname = delete $args{dbname} || '_replicator';
+	my $docid  = blessed $doc ? $doc->id : $doc;
+
+	my $path = '/_scheduler/docs/' . uri_escape($dbname) . '/' . $docid;
+	my %query = (
+		limit => delete $args{limit},
+		skip  => delete $args{skip},
+	);
+
+	$self->couch->call(GET => $path,
+		query      => \%query,
+		to_values  => \&__replDocValues,
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
 
 =method nodeName $name, %options
 [CouchDB API "GET /_node/{node-name}", UNTESTED]
@@ -663,17 +698,6 @@ sub node()
 		or error __x"Did not get a node name for _local";
 
 	$self->{CDC_node} = $self->couch->node($name);
-}
-
-=method adminInterface
-[CouchDB API "GET /_utils", UNTESTED]
-Returns the address of the admin interface.  This can be passed to a browser,
-which will probably need to follow redirects and authenication procedures.
-=cut
-
-sub adminInterface()
-{	my $self = shift;
-	$self->server->path('/_utils');
 }
 
 =method serverStatus

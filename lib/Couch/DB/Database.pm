@@ -416,8 +416,6 @@ The returned structure depends on the searches and the number of searches.
 =default search []
 =cut
 
-#XXX TODO  /db/_local_docs/queries
-
 sub listDesigns(%)
 {	my ($self, %args) = @_;
 	my $couch   = $self->couch;
@@ -447,15 +445,14 @@ sub listDesigns(%)
 	);
 }
 
-#-------------
-=section Indexes
-
 =method createIndex %options
 [CouchDB API "POST /{db}/_index", UNTESTED]
-Create/confirm an index on the database.
+Create/confirm an index on the database.  By default, the index C<name>
+and the name for the design document C<ddoc> are generated.  You can
+also call C<Couch::DB::Design::createIndex()>.
 =cut
 
-sub createIndex(%)
+sub createIndex($%)
 {	my ($self, %args) = @_;
 	my $couch  = $self->couch;
 
@@ -482,22 +479,16 @@ sub listIndexes(%)
 	);
 }
 
-=method deleteIndex $ddoc, $name, %options
-[CouchDB API "DELETE /{db}/_index/{designdoc}/json/{name}", UNTESTED]
-=cut
-
-sub deleteIndex($%)
-{	my ($self, $ddoc, $name, %args) = @_;
-	$self->couch->call(DELETE => $self->_pathToDB('_index/' . $ddoc->name . '/json/' . $name),
-		$self->couch->_resultsConfig(\%args),
-	);
-}
-
 =method explainSearch %options
 [CouchDB API "POST /{db}/_explain", UNTESTED]
 Explain how the a search will be executed.
 
 =requires search HASH
+
+=option  partition $partition
+=default partition C<undef>
+Which index is being used for a search on this partition only.  Used
+by M<Couch::DB::Cluster::partitionExplainSearch()>.
 =cut
 
 sub explainSearch(%)
@@ -644,15 +635,22 @@ sub inspectDocuments($%)
 
 =method listDocuments %options
 [CouchDB API "GET /{db}/_all_docs", UNTESTED],
-[CouchDB API "POST /{db}/_all_docs", UNTESTED], and
-[CouchDB API "POST /{db}/_all_docs/queries", UNTESTED].
+[CouchDB API "POST /{db}/_all_docs", UNTESTED],
+[CouchDB API "POST /{db}/_all_docs/queries", UNTESTED],
+[CouchDB API "GET /{db}/_local_docs", UNTESTED],
+[CouchDB API "POST /{db}/_local_docs", UNTESTED],
+[CouchDB API "POST /{db}/_local_docs/queries", UNTESTED].
 Get the documents, optionally limited by a view.
 
-If there are searches, then C<GET> is used, otherwise the C<POST> version.
+If there are searches, then C<POST> is used, otherwise the C<GET> version.
 The returned structure depends on the searches and the number of searches.
 
 =option  search \%view|ARRAY
 =default search []
+
+=option  local  BOOLEAN
+=default local C<false>
+Search only in local (non-replicated) documents.
 
 =cut
 
@@ -660,28 +658,36 @@ The returned structure depends on the searches and the number of searches.
 
 sub listDocuments(%)
 {	my ($self, %args) = @_;
+	my $couch  = $self->couch;
+
 	my @search = flat delete $args{search};
 
-	my ($method, $path, $send) = (GET => $self->_pathToDB('_all_docs'), undef);
+	my $set    = delete $args->{local} ? '_local_docs' : '_all_docs';
+	my ($method, $path, $send) = (GET => $self->_pathToDB($end), undef);
 	if(@search)
 	{	$method = 'POST';
 		if(@search==1)
 		{	$send = $search[0];
 		}
 		else
-		{	$send = +{ queries => \@search };
+		{	$couch->check(1, introduced => '2.2', 'Bulk queries');
+			$send = +{ queries => \@search };
 			$path .= '/queries';
 		}
 	}
 
-	$self->couch->call($method => $path,
-		$self->couch->_resultsConfig(\%args),
+	$couch->call($method => $path,
+		$couch->_resultsConfig(\%args),
 	);
 }
 
 =method find %options
 [CouchDB API "POST /{db}/_find", UNTESTED]
 Search the database for matching components.
+
+=option  partition $partition
+=default partition C<undef>
+Used by M<Couch::DB::Cluster::partitionFind()>.
 =cut
 
 sub find(%)
@@ -689,10 +695,11 @@ sub find(%)
 	my $couch  = $self->couch;
 
 	my %config = $couch->_resultsConfig(\%args);
+	my $part   = delete $args{partition};
 	my $send   = \%args;
 	$couch->toJSON($send, bool => qw/conflicts update stable execution_stats/);
 
-	$couch->call(POST => $self->_pathToDB('_find'),
+	$couch->call(POST => $self->_pathToDB((defined $part ? uri_escape($part) . '/' : '') . '_find'),
 		send => $send,
 		%config,
 	);

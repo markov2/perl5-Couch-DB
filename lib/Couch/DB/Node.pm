@@ -64,14 +64,11 @@ sub couch() { $_[0]->{CDN_couch} }
 
 B<All CouchDB API calls> documented below, support %options like C<_delay>
 and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
-
-=method prometeus %options
-[CouchDB API "GET /_node/{node-name}/_prometheus", UNSUPPORTED]
-This is not (yet) supported, because it is a plain-text version of the
-M<stats()> and M<server()> calls.
 =cut
 
-sub prometeus { panic "Unsupported" }
+# [CouchDB API "GET /_node/{node-name}/_prometheus", UNSUPPORTED]
+# This is not (yet) supported, because it is a plain-text version of the
+# M<stats()> and M<server()> calls.
 
 =method stats %options
 [CouchDB API "GET /_node/{node-name}/_stats", UNTESTED]
