@@ -373,58 +373,6 @@ sub syncShards($%)
 }
 
 #-------------
-=section Partitioning
-
-=method partitionInfo $db, $partition, %options
-[CouchDB API "GET /{db}/_partition/{partition}", UNTESTED]
-Returns partitioning details.
-=cut
-
-sub partitionInfo($%)
-{	my ($self, $db, %args) = @_;
-
-	$self->couch->call(POST => $db->_pathToDB("_partition/" . uri_escape($partition)),
-		$self->couch->_resultsConfig(\%args),
-	);
-}
-
-=method partitionDocuments $db, $partition, %options
-[CouchDB API "GET /{db}/_partition/{partition}/_all_docs", TODO]
-=cut
-
-sub partitionDocuments { ... }
-#XXX The parameters are like findView() but only as query parameters.  Why is
-#XXX there no POST interface for this :-(
-
-=method partitionFindView $db, $ddoc, $view, $partition, %options
-[CouchDB API "GET /{db}/_partition/{partition}/_design/{ddoc}/_view/{view}", TODO]
-=cut
-
-sub partitionFindView { ... }
-#XXX The parameters are like findView() but only as query parameters :-(
-
-=method partitionFind $db, $partition, %options
-[CouchDB API "POST /{db}/_partition/{partition_id}/_find", UNTESTED]
-This calls M<Couch::DB::Database::find()>, with results restricted to a certain partition.
-=cut
-
-sub partitionFind($$%)
-{	my ($self, $db, $partition) = (shift, shift, shift);
-	$db->find(partition => $partition, @_);
-}
-
-=method partitionExplainSearch $db, $partition, %options
-[CouchDB API "POST /{db}/_partition/{partition_id}/_explain", UNTESTED]
-Explain how the a search will be executed within one partition.
-This calls M<Couch::DB::Database::explainSearch()>, with results restricted to a certain partition.
-=cut
-
-sub partitionFind($$%)
-{	my ($self, $db, $partition) = (shift, shift, shift);
-	$db->explainSearch(partition => $partition, @_);
-}
-
-#-------------
 =section Other
 =cut
 

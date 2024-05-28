@@ -111,8 +111,12 @@ sub exists()
 }
 
 =method details %options
-[CouchDB API "GET /{db}"]
+[CouchDB API "GET /{db}"],
+[CouchDB API "GET /{db}/_partition/{partition}", UNTESTED].
+
 Collect information from the database, for instance about its clustering.
+
+=option
 =cut
 
 sub __detailsValues($$)
@@ -125,11 +129,12 @@ sub __detailsValues($$)
 
 sub details(%)
 {	my ($self, %args) = @_;
+	my $part = delete $args{partition};
 
 	#XXX Value instance_start_time is now always zero, useful to convert if not
 	#XXX zero in old nodes?
 
-	$self->couch->call(GET => $self->_pathToDB,
+	$self->couch->call(GET => $self->_pathToDB($part ? '_partition/'.uri_escape($part) : undef),
 		to_values  => \&__detailsValues,
 		$self->couch->_resultsConfig(\%args),
 	);
@@ -479,23 +484,24 @@ sub listIndexes(%)
 	);
 }
 
-=method explainSearch %options
+=method explainSearch \%search, %options
 [CouchDB API "POST /{db}/_explain", UNTESTED]
-Explain how the a search will be executed.
+[CouchDB API "POST /{db}/_partition/{partition_id}/_explain", UNTESTED]
 
-=requires search HASH
+Explain how the a search will be executed.
 
 =option  partition $partition
 =default partition C<undef>
-Which index is being used for a search on this partition only.  Used
-by M<Couch::DB::Cluster::partitionExplainSearch()>.
 =cut
 
 sub explainSearch(%)
 {	my ($self, %args) = @_;
-	my $search = delete $args{search} or panic "Explain requires 'search'.";
+	my $part = delete $args{partition};
 
-	$self->couch->call(POST => $self->_pathToDB('_explain'),
+	my $path = $self->_pathToDB;
+	$path   .= '/_partition/' . uri_escape($part) if $part;
+
+	$self->couch->call(POST => "$path/_explain",
 		send => $search,
 		$self->couch->_resultsConfig(\%args),
 	);
@@ -639,7 +645,9 @@ sub inspectDocuments($%)
 [CouchDB API "POST /{db}/_all_docs/queries", UNTESTED],
 [CouchDB API "GET /{db}/_local_docs", UNTESTED],
 [CouchDB API "POST /{db}/_local_docs", UNTESTED],
-[CouchDB API "POST /{db}/_local_docs/queries", UNTESTED].
+[CouchDB API "POST /{db}/_local_docs/queries", UNTESTED],
+[CouchDB API "GET /{db}/_partition/{partition}/_all_docs", TODO].
+
 Get the documents, optionally limited by a view.
 
 If there are searches, then C<POST> is used, otherwise the C<GET> version.
@@ -652,6 +660,9 @@ The returned structure depends on the searches and the number of searches.
 =default local C<false>
 Search only in local (non-replicated) documents.
 
+=option  partition $name
+=default partition C<undef>
+Restrict the search to the specific partition.
 =cut
 
 #XXX refer to the view parameter docs
@@ -662,7 +673,10 @@ sub listDocuments(%)
 
 	my @search = flat delete $args{search};
 
-	my $set    = delete $args->{local} ? '_local_docs' : '_all_docs';
+	my $set
+	  = delete $args{local} ? '_local_docs'
+	  : $args{partition}    ? '_partition/'. uri_escape(delete $args{partition}) . '/_all_docs'
+	  :                       '_all_docs';
 	my ($method, $path, $send) = (GET => $self->_pathToDB($end), undef);
 	if(@search)
 	{	$method = 'POST';
@@ -681,27 +695,32 @@ sub listDocuments(%)
 	);
 }
 
-=method find %options
-[CouchDB API "POST /{db}/_find", UNTESTED]
+=method find $search, %options
+[CouchDB API "POST /{db}/_find", UNTESTED],
+[CouchDB API "POST /{db}/_partition/{partition_id}/_find", UNTESTED]
+
 Search the database for matching components.
 
 =option  partition $partition
 =default partition C<undef>
-Used by M<Couch::DB::Cluster::partitionFind()>.
 =cut
 
-sub find(%)
-{	my ($self, %args) = @_;
-	my $couch  = $self->couch;
-
-	my %config = $couch->_resultsConfig(\%args);
+sub find($%)
+{	my ($self, $search, %args) = @_;
 	my $part   = delete $args{partition};
-	my $send   = \%args;
-	$couch->toJSON($send, bool => qw/conflicts update stable execution_stats/);
+	my $send   = { %$search };
 
-	$couch->call(POST => $self->_pathToDB((defined $part ? uri_escape($part) . '/' : '') . '_find'),
+	my $couch  = $self->couch;
+	$couch
+		->toJSON($send, bool => qw/conflicts update stable execution_stats/)
+		->toJSON($send, int  => qw/limit skip r/);
+
+	my $path   = $self->_pathToDB;
+	$path     .= '/_partition/'. uri_espace($part) if $part;
+
+	$couch->call(POST => "$path/_find",
 		send => $send,
-		%config,
+		$couch->_resultsConfig(\%args),
 	);
 }
 
