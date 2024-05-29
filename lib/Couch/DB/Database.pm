@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: 2024 Mark Overmeer <mark@open-console.eu>
-# SPDX-License-Identifier: EUPL-1.2-or-later
+# SPDX-FileCopyrightText: 2024 Mark Overmeer <mark@overmeer.net>
+# SPDX-License-Identifier: Artistic-2.0
 
 package Couch::DB::Database;
 
