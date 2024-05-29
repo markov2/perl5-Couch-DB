@@ -150,7 +150,8 @@ warn "Implementation mismatch: $_\n" for sort keys %mistakes;
 
 sub create_index()
 {	print <<__HEADER;
-<html>
+<!DOCTYPE html>
+<html lang="en-EN">
 <head>
   <title>Reference table</title>
   <meta charset="utf-8" />
@@ -225,16 +226,6 @@ __ROW1
       <td class="status">$sec->{status}</td>
       <td class="use">$sec->{use}</td></tr>
 __ROW2
-
-=pod
-		while(my $impl = shift @impls)
-		{	print <<__ROWS;
-  <tr><td>&nbsp;</td>
-      <td class="status">$impl->{status}</td>
-      <td class="use">$impl->{use}</td></tr>
-__ROWS
-		}
-=cut
 
 	}
 

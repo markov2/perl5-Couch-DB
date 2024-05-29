@@ -113,7 +113,7 @@ This server will be named 'local'.
 
 You can add more servers using M<addClient()>.  In such case, you probably
 do not want this default client to be created as well.  To achieve this,
-explicitly set C<server =&gt; undef> here.
+explicitly set C<server =E<gt> undef> here.
 
 =option  auth 'BASIC'|'COOKIE'
 =default auth 'BASIC'
@@ -742,19 +742,19 @@ or with C<on_> (events).
 
 At the moment, the following %options are supported:
 =over 4
-=item * C<_delay> BOOLEAN, default C<false>
+=item * C<_delay> =E<gt> BOOLEAN, default C<false>
 Do not perform and wait for the actual call, but prepare it to be used in parallel
 querying.  TO BE IMPLEMENTED/DOCUMENTED.
 
-=item * C<_client> $client-object or -name
+=item * C<_client> =E<gt> $client-object or -name
 Use only the specified client (=server) to perform the call.
 
-=item * C<_clients> ARRAY-of-clients or a role
+=item * C<_clients> =E<gt> ARRAY-of-clients or a role
 Use any of the specified clients to perform the call.  When not an ARRAY, the
 parameter is a C<role>: select all clients which can perform that role (the
 logged-in user of that client is allowed to perform that task).
 
-=item * C<_headers> HASH
+=item * C<_headers> =E<gt> HASH
 Add headers to the request.  When applicable (for instance, the C<Accept>-header)
 this will overrule the internally calculated defaults.
 =back
@@ -762,13 +762,14 @@ this will overrule the internally calculated defaults.
 Besides, at the moment we support the following events:
 
 =over 4
-=item * on_error CODE or ARRAY-of-CODE
+=item * C<on_error> =E<gt> CODE or ARRAY-of-CODE
 A CODE (sub) which is called when the interaction with the server has been completed
 without success.  The CODE gets the result object as only parameter.
 
-=item * on_final CODE or ARRAY-of-CODE
+=item * C<on_final> =E<gt> CODE or ARRAY-of-CODE
 A CODE (sub) which is called when the interaction with the server has been completed.
 This may happen much later, when combined with C<_delay>.  The CODE gets the result
 object as only parameter.
 =back
+
 =cut
