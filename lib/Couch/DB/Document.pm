@@ -18,6 +18,8 @@ Couch::DB::Document - one document as exchanged with a CouchDB server
   my $doc = $db->doc->create(\%data);
   my $doc = $db->doc($id, local => 1);
 
+  my $content = $db->latest;
+
 =chapter DESCRIPTION
 
 This class manages one document, without understanding the payload.  When
@@ -74,33 +76,50 @@ sub init($)
 	$self;
 }
 
+sub _consume($$)
+{	my ($self, $result, $data) = @_;
+	my $id       = delete $data->{_id};
+	my $rev      = delete $data->{_rev};
+
+	# Add all received '_' labels to the existing info.
+	my $info     = $self->{CDD_info} ||= {};
+	$info->{$_}  = delete $data->{$_}
+		for grep /^_/, keys %$data;
+
+	my $attdata = $self->{CDD_atts} ||= {};
+	if(my $atts = $info->{_attachments})
+	{	foreach my $name (keys %$atts)
+		{	my $details = $atts->{$name};
+			$attdata->{$name} = $self->couch->_attachment($result->response, $name)
+				if $details->{follows};
+
+			# Remove sometimes large data
+			$attdata->{$name} = decode_base64 delete $details->{data} #XXX need decompression?
+				if defined $details->{data};
+		}
+	}
+	$self->{CDD_revs}{$rev} = $data;
+	$self;
+}
+
+sub _fromResponse($$$%)
+{	my ($class, $result, $data, %args) = @_;
+	$class->new(%args)->_consume($result, $data);
+}
+
 #-------------
 =section Accessors
-
-=method data
-This provides access to the raw data received from/to be sent to the CouchDB
-server.
-
-B<Warning:> Where Perl does not support the same data-types as JSON, you need to
-be very careful when addressing fields from this structure.  B<Much better> is
-it to use the provided abstraction methods, which hide those differences.  Those
-also hide changes in the server software, over time.
-=cut
-
-sub data()  { $_[0]->{CDD_data} } #XXX
 
 =method id
 =method db
 =method batch
 =method couch
-=method isLocal
 =cut
 
 sub id()      { $_[0]->{CDD_id} }
 sub db()      { $_[0]->{CDD_db} }
 sub batch()   { $_[0]->{CDD_batch} }
 sub couch()   { $_[0]->{CDD_couch} }
-sub isLocal() { $_[0]->{CDD_local} }
 
 sub _pathToDoc(;$)
 {	my ($self, $path) = @_;
@@ -111,24 +130,37 @@ sub _pathToDoc(;$)
 	$self->db->_pathToDB($self->id . (defined $path ? "/$path" : ''));
 }
 
+sub _deleted($)
+{	my ($self, $rev) = @_;
+	$self->{CDD_revs}{$rev} = {};
+	$self->{CDD_deleted} = 1;
+}
+
 sub _saved($$$)
 {	my ($self, $id, $rev, $data) = @_;
-warn "SAVED $id $rev";
 	$self->{CDD_id} ||= $id;
 	$self->{CDD_revs}{$rev} = $data;
 }
+
+#-------------
+=section Content
+
+B<Warning:> Where Perl does not support the same data-types as JSON, you need to
+be very careful when addressing fields from this structure.  B<Much better> is
+it to use the provided abstraction methods, which hide those differences.  Those
+also hide changes in the server software, over time.
+
+=method isLocal
+This documents does not get replicated over nodes.
+=cut
+
+sub isLocal() { $_[0]->{CDD_local} }
 
 =method isDeleted
 Returns a boolean whether the document is delete.
 =cut
 
 sub isDeleted() { $_[0]->{CDD_deleted} }
-
-sub _deleted($)
-{	my ($self, $rev) = @_;
-	$self->{CDD_revs}{$rev} = {};
-	$self->{CDD_deleted} = 1;
-}
 
 =method revision $rev
 Returns the data for document revision $rev, if retreived by a former
@@ -139,7 +171,7 @@ sub revision($) { $_[0]->{CDD_revs}{$_[1]} }
 
 =method latest
 Returns the data of the latest revision of the document, as retreived
-by a former call.
+by any former call on this document object.
 =cut
 
 sub latest() { $_[0]->revision(($_[0]->revisions)[0]) }
@@ -151,7 +183,7 @@ call.  They are sorted, newest first.
 
 sub revisions()
 {	my $revs = $_[0]->{CDD_revs};
-	no warnings 'numeric';
+	no warnings 'numeric';   # forget the "-hex" part of the rev
 	sort {$b <=> $a} keys %$revs;
 }
 
@@ -200,6 +232,7 @@ sub revisionsInfo()
 }
 
 =method revisionInfo $revision
+Returns a HASH with information about one $revision only.
 =cut
 
 sub revisionInfo($) { $_[0]->revisionsInfo->{$_[1]} }
@@ -211,7 +244,7 @@ B<All CouchDB API calls> documented below, support %options like C<_delay>
 and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
 =method exists %option
-[CouchDB API "HEAD /{db}/{docid}"]
+ [CouchDB API "HEAD /{db}/{docid}"]
 Check whether the document exists.  You may get some useful response headers.
 
 =example
@@ -227,7 +260,7 @@ sub exists(%)
 }
 
 =method create \%data, %options
-[CouchDB API "POST /{db}"]
+ [CouchDB API "POST /{db}"]
 Save this document for the first time to the database. Your content of the
 document is in %data.  When you pick your own document ids, you can also use
 M<update()> for a first save.
@@ -237,7 +270,7 @@ M<update()> for a first save.
 Do not wait for the write action to be completed.
 =cut
 
-sub __saved($$)
+sub __created($$)
 {	my ($self, $result, $data) = @_;
 	$result or return;
 
@@ -262,14 +295,14 @@ sub create($%)
 		send     => $data,
 		query    => \%query,
 		$self->couch->_resultsConfig(\%args,
-			on_final => sub { $self->__saved($_[0], $data) },
+			on_final => sub { $self->__created($_[0], $data) },
 		),
 	);
 }
 
 =method update \%data, %options
-[CouchDB API "PUT /{db}/{docid}"],
-[CouchDB API "PUT /{db}/_local/{docid}"],
+ [CouchDB API "PUT /{db}/{docid}"]
+ [CouchDB API "PUT /{db}/_local/{docid}"]
 Save a new revision of this document to the database.  If docid is new,
 then it will be created, otherwise a new revision is added.  Your content
 of the document is in %data.
@@ -302,8 +335,8 @@ sub update($%)
 }
 
 =method get %options
-[CouchDB API "GET /{db}/{docid}"],
-[CouchDB API "GET /{db}/_local/{docid}"]
+ [CouchDB API "GET /{db}/{docid}"]
+ [CouchDB API "GET /{db}/_local/{docid}"]
 Retrieve document data and information from the database.  There are a zillion
 of %options to collect additional meta-data.
 
@@ -323,33 +356,13 @@ received will get merged into this object's attributes.
 sub __get($$)
 {	my ($self, $result, $query) = @_;
 	$result or return;   # do nothing on unsuccessful access
-
-	my $answer   = $result->answer;
-	my $id       = delete $answer->{_id};
-	my $rev      = delete $answer->{_rev};
-
-	# Add all received '_' labels to the existing info.
-	my $info     = $self->{CDD_info} ||= {};
-	$info->{$_}  = delete $answer->{$_}
-		for grep /^_/, keys %$answer;
-
-	my $attdata = $self->{CDD_atts} ||= {};
-	if(my $atts = $info->{_attachments})
-	{	foreach my $name (keys %$atts)
-		{	my $details = $atts->{$name};
-			$attdata->{$name} = $details->{follows}
- 			  ? $result->couch->_attachment($result->response, $name)
-			  : decode_base64 delete $details->{data};   # remove sometimes large data
-														 #XXX need decompression?
-		}
-	}
+	$self->_consume($result, $result->answer);
 
 	# The query here, is the Perl version of the query, so bool=perl bool
 	$query->{conflicts} = $query->{deleted_conflicts} = $query->{revs_info} = 1
 		if $query->{meta};
 
 	$self->{CDD_query}      = $query;
-	$self->{CDD_revs}{$rev} = $answer;
 }
 
 sub get(%)
@@ -370,8 +383,8 @@ sub get(%)
 }
 
 =method delete %options
-[CouchDB API "DELETE /{db}/{docid}"],
-[CouchDB API "DELETE /{db}/_local/{docid}"]
+ [CouchDB API "DELETE /{db}/{docid}"]
+ [CouchDB API "DELETE /{db}/_local/{docid}"]
 Flag the document to be deleted.  A new revision is created, which reflects this.
 Only later, when all replications know it and compaction is run, the document
 versions will disappear.
@@ -400,8 +413,8 @@ sub delete(%)
 }
 
 =method cloneInto $doc, %options
-[CouchDB API "COPY /{db}/{docid}", PARTIAL],
-[CouchDB API "COPY /{db}/_local/{docid}", PARTIAL]
+ [CouchDB API "COPY /{db}/{docid}", PARTIAL]
+ [CouchDB API "COPY /{db}/_local/{docid}", PARTIAL]
 See also M<appendTo()>.
 
 As %options, C<batch> and C<rev>.
@@ -433,11 +446,11 @@ sub cloneInto($%)
 }
 
 =method appendTo $doc, %options
-[CouchDB API "COPY /{db}/{docid}", PARTIAL],
-[CouchDB API "COPY /{db}/_local/{docid}", PARTIAL]
+ [CouchDB API "COPY /{db}/{docid}", PARTIAL]
+ [CouchDB API "COPY /{db}/_local/{docid}", PARTIAL]
 See also M<cloneInto()>.
 
-As %options, C<batch> and C<rev>.
+As %options: C<batch> and C<rev>.
 
 =example appending one document into an other
    my $from = $db->doc('from');
@@ -487,7 +500,7 @@ sub attachments() { keys %{$_[0]->_info->{_attachments}} }
 sub attachment($) { $_[0]->{CDD_atts}{$_[1]} }
 
 =method attExists $name, %options
-[CouchDB API "HEAD /{db}/{docid}/{attname}", UNTESTED]
+ [CouchDB API "HEAD /{db}/{docid}/{attname}", UNTESTED]
 The response is empty, but contains some useful headers.
 =cut
 
@@ -502,7 +515,7 @@ sub attExists($%)
 }
 
 =method attLoad $name, %options
-[CouchDB API "GET /{db}/{docid}/{attname}", UNTESTED]
+ [CouchDB API "GET /{db}/{docid}/{attname}", UNTESTED]
 Load the data of the attachment into this Document.
 
 If the content-type of the attachment is C<application/octet-stream>,
@@ -531,10 +544,13 @@ sub attLoad($%)
 }
 
 =method attSave $name, $data, %options
-[CouchDB API "PUT /{db}/{docid}/{attname}", UNTESTED]
+ [CouchDB API "PUT /{db}/{docid}/{attname}", UNTESTED]
+
+The data is bytes.
 
 =option  type IANA-MediaType
 =default type C<application/octet-stream>
+For text documents, this may contain a charset like C<text/plain; charset="utf-8">.
 =cut
 
 sub attSave($$%)
@@ -554,7 +570,7 @@ sub attSave($$%)
 }
 
 =method attDelete $name, %options
-[CouchDB API "DELETE /{db}/{docid}/{attname}", UNTESTED]
+ [CouchDB API "DELETE /{db}/{docid}/{attname}", UNTESTED]
 =cut
 
 sub attDelete($$$%)
@@ -567,9 +583,5 @@ sub attDelete($$$%)
 		$self->couch->_resultsConfig(\%args),
 	);
 }
-
-#-------------
-=section Other
-=cut
 
 1;

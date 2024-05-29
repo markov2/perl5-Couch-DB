@@ -8,7 +8,7 @@ use Couch::DB::Util;
 
 use Log::Report 'couch-db';
 
-use URI::Escape  qw/uri_espace/;
+use URI::Escape  qw/uri_escape/;
 use Scalar::Util qw/blessed/;
 
 =chapter NAME
@@ -35,17 +35,11 @@ M<Couch::DB::Document>.
 =c_method new %options
 =cut
 
-sub init($)
-{	my ($self, $args) = @_;
-	$self->SUPER::init($args);
-	$self;
-}
-
 #-------------
 =section Accessors
 =cut
 
-sub _pathToDoc(;$) { $_[0]->db->_pathToDB('_design/' . $_[0]->id) . (defined $_[1] ? '/' . uri_espace $_[1] : '')  }
+sub _pathToDoc(;$) { $_[0]->db->_pathToDB('_design/' . $_[0]->id) . (defined $_[1] ? '/' . uri_escape $_[1] : '')  }
 
 #-------------
 =section Document in the database
@@ -54,7 +48,7 @@ differs, but their implementation is the same.  On the other hand: they
 add interpretation on fields which do not start with '_'.
 
 =method exists %option
-[CouchDB API "HEAD /{db}/_design/{ddoc}"]
+ [CouchDB API "HEAD /{db}/_design/{ddoc}"]
 Returns the HTTP Headers containing a minimal amount of information about the
 specified design document.
 
@@ -72,7 +66,7 @@ sub create($%)
 }
 
 =method update \%data, %options
-[CouchDB API "PUT /{db}/_design/{ddoc}"]
+ [CouchDB API "PUT /{db}/_design/{ddoc}"]
 Options C<filters>, C<lists>, C<shows>, and C<updates> are HASHes which
 map names to fragments of code written in programming language C<language>
 (usually erlang or javascript).
@@ -81,15 +75,15 @@ Options C<lists>, C<show>, and C<rewrites> (query redirection) are
 deprecated since 3.0, and are removed from 4.0.
 =cut
 
-sub create($%)
+sub update($%)
 {	my ($self, $data, $args) = @_;
 	$self->couch
 		->toJSON($data, bool => qw/autoupdate/)
-		->check($data{lists}, deprecated => '3.0.0', 'DesignDoc create() option list'),
-		->check($data{lists}, removed    => '4.0.0', 'DesignDoc create() option list'),
-		->check($data{show},  deprecated => '3.0.0', 'DesignDoc create() option show'),
-		->check($data{show},  removed    => '4.0.0', 'DesignDoc create() option show'),
-		->check($data{rewrites}, deprecated => '3.0.0', 'DesignDoc create() option rewrites');
+		->check($data->{lists}, deprecated => '3.0.0', 'DesignDoc create() option list')
+		->check($data->{lists}, removed    => '4.0.0', 'DesignDoc create() option list')
+		->check($data->{show},  deprecated => '3.0.0', 'DesignDoc create() option show')
+		->check($data->{show},  removed    => '4.0.0', 'DesignDoc create() option show')
+		->check($data->{rewrites}, deprecated => '3.0.0', 'DesignDoc create() option rewrites');
 
 	#XXX Do we need more parameter conversions in the nested queries?
 
@@ -97,25 +91,25 @@ sub create($%)
 }
 
 =method get %options
-[CouchDB API "GET /{db}/_design/{ddoc}"]
+ [CouchDB API "GET /{db}/_design/{ddoc}"]
 
 =method delete %options
-[CouchDB API "DELETE /{db}/_design/{ddoc}"]
+ [CouchDB API "DELETE /{db}/_design/{ddoc}"]
 
 =method cloneInto $doc, %options
-[CouchDB API "COPY /{db}/_design/{ddoc}"]
+ [CouchDB API "COPY /{db}/_design/{ddoc}"]
 
 =method appendTo $doc, %options
-[CouchDB API "COPY /{db}/_design/{ddoc}"]
+ [CouchDB API "COPY /{db}/_design/{ddoc}"]
 
-=method info %options
-[CouchDB API "GET /{db}/_design/{ddoc}/_info", UNTESTED]
+=method details %options
+ [CouchDB API "GET /{db}/_design/{ddoc}/_info", UNTESTED]
 Obtains information about the specified design document, including the
 index, index size and current status of the design document and associated
 index information.
 =cut
 
-sub info(%)
+sub details(%)
 {	my ($self, %args) = @_;
 
 	$self->couch->call(GET => $self->_pathToDoc('_info'),
@@ -127,36 +121,36 @@ sub info(%)
 =section Attachments
 
 =method attExists $name, %options
-[CouchDB API "HEAD /{db}/_design/{ddoc}/{attname}"]
+ [CouchDB API "HEAD /{db}/_design/{ddoc}/{attname}"]
 
 =method attLoad $name, %options
-[CouchDB API "GET /{db}/_design/{ddoc}/{attname}" ]
+ [CouchDB API "GET /{db}/_design/{ddoc}/{attname}" ]
 
 =method attSave $name, $data, %options
-[CouchDB API "PUT /{db}/_design/{ddoc}/{attname}" ]
+ [CouchDB API "PUT /{db}/_design/{ddoc}/{attname}" ]
 
 =method attDelete $name, %options
-[CouchDB API "DELETE /{db}/_design/{ddoc}/{attname}" ]
+ [CouchDB API "DELETE /{db}/_design/{ddoc}/{attname}" ]
 
 =cut
 
 #-------------
 =section Indexes
 
-=method createIndex %options
-[CouchDB API "POST /{db}/_index", UNTESTED]
-Create/confirm an index on the database.  By default, the index C<name> 
-and the name for the design document C<ddoc> are generated.  You can
-also call C<Couch::DB::createIndex()>.
+=method createIndex \%filter, %options
+ [CouchDB API "POST /{db}/_index", UNTESTED]
+
+Create/confirm an index on the database.  When you like a generated design
+document name, you can use M<Couch::DB::Database::createIndex()>.
 =cut
 
-sub createIndex(%)
-{	my ($self, %args) = @_;
-	$self->db->createIndex(%args, ddoc => $self->id);
+sub createIndex($%)
+{	my ($self, $filter, %args) = @_;
+	$self->db->createIndex(%args, design => $self);
 }
 
 =method deleteIndex $index, %options
-[CouchDB API "DELETE /{db}/_index/{designdoc}/json/{name}", UNTESTED]
+ [CouchDB API "DELETE /{db}/_index/{designdoc}/json/{name}", UNTESTED]
 =cut
 
 sub deleteIndex($%)
@@ -166,37 +160,54 @@ sub deleteIndex($%)
 	);
 }
 
-=method findIndex $index, %options
-[CouchDB API "GET /{db}/_design/{ddoc}/_search/{index}", UNTESTED]
-Executes a search request against the named index.
+=method indexFind $index, %options
+ [CouchDB API "GET /{db}/_design/{ddoc}/_search/{index}", UNTESTED]
+Executes a search request against the named $index.
+
+When you have used C<include_docs>, then the documents can be found in
+C<< $result->values->{docs} >>, not C<< {rows} >>.
 
 =option  search HASH
 =default search {}
+The search query.
 =cut
 
-# Everything into the query :-(
-sub findIndex($%)
+sub __indexValues($$%)
+{	my ($self, $result, $raw, %args) = @_;
+	delete $args{full_docs} or return $raw;
+
+	my $values = +{ %$raw };
+	$values->{docs} = delete $values->{rows};
+	$self->db->__toDocs($result, $values, db => $self->db);
+	$values;
+}
+
+sub indexFind($%)
 {	my ($self, $index, %args) = @_;
 	my $couch = $self->couch;
 
-	my $search = %{delete $args{search} || {}};
-	$couch
-		->toQuery($search, json => qw/counts drilldown group_sort highlight_fields include_fields ranges sort/)
-		->toQuery($search, bool => qw/include_docs/);
+	my $search  = delete $args{search} || {};
+	my $query   = +{ %$search };
 
-	#XXX extract documents which include_docs
+	# Everything into the query :-(  Why no POST version?
+	$couch
+		->toQuery($query, json => qw/counts drilldown group_sort highlight_fields include_fields ranges sort/)
+		->toQuery($query, int  => qw/highlight_number highlight_size limit/)
+		->toQuery($query, bool => qw/include_docs/);
+
 	$couch->call(GET => $self->_pathToDDoc('_search/' . uri_escape $index),
 		introduced => '3.0.0',
-		query      => $search,
+		query      => $query,
+		to_values  => sub { $self->__indexValues($_[0], $_[1], db => $self->db, full_docs => $search->{include_docs}) },
 		$couch->_resultsConfig(\%args),
 	);
 }
 
-=method infoIndex $index, %options
-[CouchDB API "GET /{db}/_design/{ddoc}/_search_info/{index}", UNTESTED]
+=method indexDetails $index, %options
+ [CouchDB API "GET /{db}/_design/{ddoc}/_search_info/{index}", UNTESTED]
 =cut
 
-sub infoIndex
+sub indexDetails($%)
 {	my ($self, $index, %args) = @_;
 
 	$self->couch->call(GET => $self->_pathToDDoc('_search_info/' . uri_escape($index)),
@@ -209,10 +220,10 @@ sub infoIndex
 =section Views
 
 =method viewFind $view, %options
-[CouchDB API "GET /{db}/_design/{ddoc}/_view/{view}"],
-[CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}", UNTESTED],
-[CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}/queries", UNTESTED],
-[CouchDB API "GET /{db}/_partition/{partition}/_design/{ddoc}/_view/{view}", UNTESTED]
+ [CouchDB API "GET /{db}/_design/{ddoc}/_view/{view}"]
+ [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
+ [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}/queries", UNTESTED]
+ [CouchDB API "GET /{db}/_partition/{partition}/_design/{ddoc}/_view/{view}", UNTESTED]
 
 Executes the specified view function.
 
@@ -229,10 +240,10 @@ sub viewFind($%)
 =section Functions
 
 =method show $function, %options
-[CouchDB API "GET /{db}/_design/{ddoc}/_show/{func}", deprecated 3.0, removed 4.0, UNTESTED],
-[CouchDB API "POST /{db}/_design/{ddoc}/_show/{func}", deprecated 3.0, removed 4.0, UNTESTED],
-[CouchDB API "GET /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED],
-[CouchDB API "POST /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED].
+ [CouchDB API "GET /{db}/_design/{ddoc}/_show/{func}", deprecated 3.0, removed 4.0, UNTESTED]
+ [CouchDB API "POST /{db}/_design/{ddoc}/_show/{func}", deprecated 3.0, removed 4.0, UNTESTED]
+ [CouchDB API "GET /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED]
+ [CouchDB API "POST /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED]
 Apply show $function on the document.
 
 =option  doc $document|$docid
@@ -247,18 +258,18 @@ sub show($%)
 	{	$path .= '/' . (blessed $doc ? $doc->id : $doc);
 	}
 
-	$couch->call(GET => $path,
+	$self->couch->call(GET => $path,
 		deprecated => '3.0.0',
 		removed    => '4.0.0',
-		$couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 
 =method list $function, $view, %options
-[CouchDB API "GET /{db}/_design/{ddoc}/_list/{func}/{view}", deprecated 3.0, removed 4.0, UNTESTED],
-[CouchDB API "POST /{db}/_design/{ddoc}/_list/{func}/{view}", deprecated 3.0, removed 4.0, UNTESTED],
-[CouchDB API "GET /{db}/_design/{ddoc}/_list/{func}/{other-ddoc}/{view}", deprecated 3.0, removed 4.0, UNTESTED],
-[CouchDB API "POST /{db}/_design/{ddoc}/_list/{func}/{other-ddoc}/{view}", deprecated 3.0, removed 4.0, UNTESTED].
+ [CouchDB API "GET /{db}/_design/{ddoc}/_list/{func}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
+ [CouchDB API "POST /{db}/_design/{ddoc}/_list/{func}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
+ [CouchDB API "GET /{db}/_design/{ddoc}/_list/{func}/{other-ddoc}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
+ [CouchDB API "POST /{db}/_design/{ddoc}/_list/{func}/{other-ddoc}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
 
 =option  view_ddoc $ddoc|$ddocid
 =default view_ddoc C<undef>
@@ -270,23 +281,24 @@ sub list($$%)
 	my $other = defined $args{view_ddoc} ? '/'.delete $args{view_ddoc} : '';
 	my $path = $self->_pathToDoc('_list/' . uri_escape($function) . $other . '/' . uri_escape($view));
 
-	$couch->call(GET => $path,
+	$self->couch->call(GET => $path,
 		deprecated => '3.0.0',
 		removed    => '4.0.0',
-		$couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 
-=method update $function, %options
-[CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}", UNTESTED],
-[CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}/{docid}", UNTESTED],
+=method applyUpdate $function, %options
+ [CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}", UNTESTED]
+ [CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}/{docid}", UNTESTED]
 
 =option  doc $document|$docid
 =default doc C<null>
-Run the function on the specified document, by default a C<null> document.
+Run the function on the specified document.  By default, the function is applied to
+a C<null> (missing) document.
 =cut
 
-sub show($%)
+sub applyUpdate($%)
 {	my ($self, $function, %args) = @_;
 	my $path = $self->_pathToDoc('_update/'.uri_escape($function));
 
@@ -294,20 +306,16 @@ sub show($%)
 	{	$path .= '/' . (blessed $doc ? $doc->id : $doc);
 	}
 
-	$couch->call(POST => $path,
+	$self->couch->call(POST => $path,
 		deprecated => '3.0.0',
 		removed    => '4.0.0',
 		send       => { },
-		$couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 
-# [CouchDB API "ANY /{db}/_design/{ddoc}/_rewrite/{path}", deprecated 3.0, removed 4.0, UNSUPPORTED],
+# [CouchDB API "ANY /{db}/_design/{ddoc}/_rewrite/{path}", deprecated 3.0, removed 4.0, UNSUPPORTED]
 # The documentation of this method is really bad, and you probably should do this in your programming
 # language anyway.
-
-#-------------
-=section Other
-=cut
 
 1;

@@ -7,7 +7,9 @@ use version;
 use Log::Report 'couch-db';
 
 use Couch::DB::Client   ();
+use Couch::DB::Cluster  ();
 use Couch::DB::Database ();
+use Couch::DB::Design   ();
 use Couch::DB::Node     ();
 use Couch::DB::Util     qw(flat);
 
@@ -32,7 +34,7 @@ Couch::DB - CouchDB database client
 =chapter SYNOPSIS
 
    use Couch::DB::Mojolicious ();
-   my $couch   = Couch::DB::Mojolicious->new(version => '3.3.3');
+   my $couch   = Couch::DB::Mojolicious->new(api => '3.3.3');
    my $db      = $couch->db('my-db'); # Couch::DB::Database object
    my $cluster = $couch->cluster;     # Couch::DB::Cluster object
    my $client  = $couch->createClient(...);  # Couch::DB::Client
@@ -43,7 +45,10 @@ When this module was written, there were already a large number of
 CouchDB implementations on CPAN.  Still, there was a need for one more.
 This implementation provides a B<thick interface>: a far higher level
 of abstraction than the other modules. This should make your work much,
-much easier.  Read about is in the L</DETAILS> section, further down.
+much easier.
+
+B<Please read> the L</DETAILS> section, further down, at least once
+before you start!
 
 =section Early adopters
 
@@ -59,12 +64,13 @@ Together, we can make the quality grow fast.
 
 You need to instantiate an extensions of this class.  At the moment,
 you can pick from:
+
 =over 4
-=item *
-M<Couch::DB::Mojolicious> implements the client using the M<Mojolicious>
-framework, using M<Mojo::URL>, M<Mojo::UserAgent>, M<Mojo::IOLoop>,
-and many other.
+=item * M<Couch::DB::Mojolicious>
+Implements the client using the M<Mojolicious> framework, using M<Mojo::URL>,
+M<Mojo::UserAgent>, M<Mojo::IOLoop>, and many other.
 =back
+
 Other extensions are hopefully added in the future.  Preferrably as part
 of this release so it gets maintained together.  The extensions are not
 too difficult to create and certainly quite small.
@@ -93,7 +99,7 @@ When you do not specify a C<server>-url, but have an environment variable
 C<PERL_COUCH_DB_SERVER>, then server url, username, and password are
 derived from it.
 
-=requires version $version
+=requires api $version
 You have to specify the version of the server you expect to answer your
 queries.  M<Couch::DB> tries to hide differences between your expectations
 and the reality.
@@ -195,7 +201,7 @@ automatically resolved.
 sub api() { $_[0]->{CD_api} }
 
 #-------------
-=section Server connections
+=section Interface starting points
 
 =method createClient %options
 Create a client object which handles a server.  All options are passed
@@ -212,6 +218,66 @@ sub createClient(%)
 	my $client = Couch::DB::Client->new(couch => $self, %{$self->{CD_auth}}, %args);
 	$client ? $self->addClient($client) : undef;
 }
+
+=method db $name, %options
+Define a dabase.  The database may not exist yet.  Calling this
+method does nothing with the CouchDB server.
+
+  my $db = $couch->db('authors');
+  $db->ping or $db->create(...);
+
+=cut
+
+sub db($%)
+{	my ($self, $name, %args) = @_;
+	Couch::DB::Database->new(name => $name, couch => $self, %args);
+}
+
+=method searchAnalyse %options
+ [CouchDB API "POST /_search_analyze", since 3.0, UNTESTED]
+Check what the build-in Lucene tokenizer(s) will do with your text.
+
+=requires analyzer KIND
+=requires text STRING
+=cut
+
+#XXX the API-doc might be mistaken, calling the "analyzer" parameter "field".
+
+sub searchAnalyse(%)
+{	my ($self, %args) = @_;
+
+	my %send = (
+		analyzer => delete $args{analyzer} // panic "No analyzer specified.",
+		text     => delete $args{text}     // panic "No text to inspect specified.",
+	);
+
+	$self->call(POST => '/_search_analyze',
+		introduced => '3.0',
+		send       => \%send,
+		$self->_resultsConfig(\%args),
+	);
+}
+
+=method node $name
+Returns a M<Couch::DB::Node>-object with the $name.  If the object does not
+exist yet, it gets created, otherwise reused.
+=cut
+
+sub node($)
+{	my ($self, $name) = @_;
+	$self->{CD_nodes}{$name} ||= Couch::DB::Node->new(name => $name, couch => $self);
+}
+
+=method cluster
+Returns a M<Couch::DB::Cluster>-object, which organizes calls to
+manipulate replication, sharding, and related jobs.  This will always
+return the same object.
+=cut
+
+sub cluster() { $_[0]->{CD_cluster} ||= Couch::DB::Cluster->new(couch => $_[0]) }
+
+#-------------
+=section Server connections
 
 =method addClient $client
 Add a M<Couch::DB::Client>-object to be used to contact the CouchDB
@@ -261,7 +327,7 @@ because module C<Couch::DB> is a complete implementation.
 
 =option  delay BOOLEAN
 =default delay C<false>
-[PARTIAL]
+ [PARTIAL]
 Do not execute the server call yet, but prepare it only in a way that
 it can be combined with other clients in parallel.
 See M<Couch::DB::Result> chapter L</DETAILS> about delayed requests.
@@ -300,6 +366,7 @@ sub call($$%)
 
 	my $headers     = $args{headers} ||= {};
 	$headers->{Accept} ||= 'application/json';
+	$headers->{'Content-Type'} ||= 'application/json';
 
 use Data::Dumper;
 warn "CALL ", Dumper \%args;
@@ -377,66 +444,6 @@ sub _resultsConfig($%)
 	}
 	%config;
 }
-
-#-------------
-=section Interface starting points
-
-=method db $name, %options
-Define a dabase.  The database may not exist yet.  Calling this
-method does nothing with the CouchDB server.
-
-  my $db = $couch->db('authors');
-  $db->ping or $db->create(...);
-
-=cut
-
-sub db($%)
-{	my ($self, $name, %args) = @_;
-	Couch::DB::Database->new(name => $name, couch => $self, %args);
-}
-
-=method searchAnalyse %options
-[CouchDB API "POST /_search_analyze", since 3.0, UNTESTED]
-Check what the build-in Lucene tokenizer(s) will do with your text.
-
-=requires analyzer KIND
-=requires text STRING
-=cut
-
-#XXX the API-doc might be mistaken, calling the "analyzer" parameter "field".
-
-sub searchAnalyse(%)
-{	my ($self, %args) = @_;
-
-	my %send = (
-		analyzer => delete $args{analyzer} // panic "No analyzer specified.",
-		text     => delete $args{text}     // panic "No text to inspect specified.",
-	);
-
-	$self->call(POST => '/_search_analyze',
-		introduced => '3.0',
-		send       => \%send,
-		$self->_resultsConfig(\%args),
-	);
-}
-
-=method node $name
-Returns a M<Couch::DB::Node>-object with the $name.  If the object does not
-exist yet, it gets created, otherwise reused.
-=cut
-
-sub node($)
-{	my ($self, $name) = @_;
-	$self->{CD_nodes}{$name} ||= Couch::DB::Node->new(name => $name, couch => $self);
-}
-
-=method cluster
-Returns a M<Couch::DB::Cluster>-object, which organizes calls to
-manipulate replication, sharding, and related jobs.  This will always
-return the same object.
-=cut
-
-sub cluster() { $_[0]->{CD_cluster} ||= Couch::DB::Cluster->new(couch => $_[0]) }
 
 #-------------
 =section Conversions
@@ -599,7 +606,7 @@ sub check($$$$)
 }
 
 =method requestUUIDs $count, %options
-[CouchDB API "GET /_uuids", since 2.0, UNTESTED]
+ [CouchDB API "GET /_uuids", since 2.0, UNTESTED]
 Returns UUIDs (Universally unique identifiers), when the call was
 successful.  Better use M<freshUUIDs()>.  It is faster to use Perl
 modules to generate UUIDs.
@@ -616,7 +623,7 @@ sub requestUUIDs($%)
 }
 
 =method freshUUIDs $count, %options
-[UNTESTED]
+ [UNTESTED]
 Returns a $count number of UUIDs in a LIST.  This uses M<requestUUIDs()> to get
 a bunch at the same time, for efficiency.  You may get fewer than you want, but
 only when the server is not sending them.
@@ -641,8 +648,6 @@ sub freshUUIDs($%)
 }
 
 #-------------
-=section Other
-=cut
 
 #### Extension which perform some tasks which are framework object specific.
 

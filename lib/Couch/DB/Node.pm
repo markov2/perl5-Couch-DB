@@ -71,7 +71,7 @@ and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 # M<stats()> and M<server()> calls.
 
 =method stats %options
-[CouchDB API "GET /_node/{node-name}/_stats", UNTESTED]
+ [CouchDB API "GET /_node/{node-name}/_stats", UNTESTED]
 Collect node statistics.
 =cut
 
@@ -88,7 +88,7 @@ sub stats(%)
 }
 
 =method server %options
-[CouchDB API "GET /_node/{node-name}/_system", UNTESTED]
+ [CouchDB API "GET /_node/{node-name}/_system", UNTESTED]
 Presents information about the system of the server where the node
 runs on.
 
@@ -107,7 +107,7 @@ sub server(%)
 }
 
 =method restart %options
-[CouchDB API "POST /_node/{node-name}/_restart", UNTESTED]
+ [CouchDB API "POST /_node/{node-name}/_restart", UNTESTED]
 This may help you in a test environment, but should not be used in
 production, according to the API documentation.
 =cut
@@ -122,7 +122,7 @@ sub restart(%)
 }
 
 =method software %options
-[CouchDB API "GET /_node/{node-name}/_versions", UNTESTED]
+ [CouchDB API "GET /_node/{node-name}/_versions", UNTESTED]
 Get details of some software running the node.
 =cut
 
@@ -137,9 +137,9 @@ sub software(%)
 }
 
 =method config %options
-[CouchDB API "GET /_node/{node-name}/_config", UNTESTED],
-[CouchDB API "GET /_node/{node-name}/_config/{section}", UNTESTED], and
-[CouchDB API "GET /_node/{node-name}/_config/{section}/{key}", UNTESTED].
+ [CouchDB API "GET /_node/{node-name}/_config", UNTESTED]
+ [CouchDB API "GET /_node/{node-name}/_config/{section}", UNTESTED]
+ [CouchDB API "GET /_node/{node-name}/_config/{section}/{key}", UNTESTED]
 Returns the node configuration.
 
 At least according to the example in the spec, all values are strings.
@@ -177,7 +177,7 @@ sub config(%)
 }
 
 =method configChange $section, $key, $value, %options
-[CouchDB API "PUT /_node/{node-name}/_config/{section}/{key}", UNTESTED]>
+ [CouchDB API "PUT /_node/{node-name}/_config/{section}/{key}", UNTESTED]>
 Change one value in the configuration.  Probably, it should be followed by
 a M<configReload()>: changes may not be commited without reload.
 
@@ -195,7 +195,7 @@ sub configChange($$$%)
 
 
 =method configDelete $section, $key, %options
-[CouchDB API "DELETE /_node/{node-name}/_config/{section}/{key}", UNTESTED]>
+ [CouchDB API "DELETE /_node/{node-name}/_config/{section}/{key}", UNTESTED]>
 Remove one value in the configuration.  Probably, it should be followed by
 a M<configReload()>: changes may not be commited without reload.
 =cut
@@ -209,7 +209,7 @@ sub configDelete($$%)
 }
 
 =method configReload %options
-[CouchDB API "POST /_node/{node-name}/_config/_reload", UNTESTED]>
+ [CouchDB API "POST /_node/{node-name}/_config/_reload", UNTESTED]>
 Re-apply the configuration to the node.  This has as side-effect that the
 (changed) configuration of the node will be saved.
 =cut

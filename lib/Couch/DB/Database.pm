@@ -7,7 +7,7 @@ use Log::Report 'couch-db';
 
 use Couch::DB::Util   qw(flat);
 
-use Scalar::Util      qw(weaken);
+use Scalar::Util      qw(weaken blessed);
 use HTTP::Status      qw(HTTP_OK HTTP_NOT_FOUND);
 
 =chapter NAME
@@ -84,7 +84,7 @@ B<All CouchDB API calls> documented below, support %options like C<_delay>
 and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
 =method ping %options
-[CouchDB API "HEAD /{db}"]
+ [CouchDB API "HEAD /{db}"]
 Check whether the database exists.  You may get some useful response
 headers, but nothing more: the response body is empty.
 =cut
@@ -111,8 +111,8 @@ sub exists()
 }
 
 =method details %options
-[CouchDB API "GET /{db}"],
-[CouchDB API "GET /{db}/_partition/{partition}", UNTESTED].
+ [CouchDB API "GET /{db}"]
+ [CouchDB API "GET /{db}/_partition/{partition}", UNTESTED]
 
 Collect information from the database, for instance about its clustering.
 
@@ -141,7 +141,7 @@ sub details(%)
 }
 
 =method create %options
-[CouchDB API "PUT /{db}"]
+ [CouchDB API "PUT /{db}"]
 Create a new database.  The result object will have code HTTP_CREATED when the
 database is successfully created.  When the database already exists, it
 returns HTTP_PRECONDITION_FAILED and an error in the body.
@@ -168,7 +168,7 @@ sub create(%)
 }
 
 =method remove %options
-[CouchDB API "DELETE /{db}"]
+ [CouchDB API "DELETE /{db}"]
 Remove the database.
 =cut
 
@@ -181,7 +181,7 @@ sub remove(%)
 }
 
 =method userRoles %options
-[CouchDB API "GET /{db}/_security"]
+ [CouchDB API "GET /{db}/_security"]
 Returns the users who have access to the database, including their roles
 (permissions).
 
@@ -199,7 +199,7 @@ sub userRoles(%)
 }
 
 =method userRolesChange %options
-[CouchDB API "PUT /{db}/_security", UNTESTED]
+ [CouchDB API "PUT /{db}/_security", UNTESTED]
 Returns the users who have access to the database, including their roles
 (permissions).
 
@@ -224,15 +224,15 @@ sub userRolesChange(%)
 }
 
 =method changes %options
-[CouchDB API "GET /{db}/_changes", TODO] and
-[CouchDB API "POST /{db}/_changes", TODO].
+ [CouchDB API "GET /{db}/_changes", TODO]
+ [CouchDB API "POST /{db}/_changes", TODO]
 =cut
 
 sub changes { ... }
 
 =method compact %options
-[CouchDB API "POST /{db}/_compact"],
-[CouchDB API "POST /{db}/_compact/{ddoc}", UNTESTED]
+ [CouchDB API "POST /{db}/_compact"]
+ [CouchDB API "POST /{db}/_compact/{ddoc}", UNTESTED]
 Instruct the database files to be compacted.  By default, the data gets
 compacted.
 
@@ -256,7 +256,7 @@ sub compact(%)
 }
 
 =method ensureFullCommit %options
-[CouchDB API "POST /{db}/_ensure_full_commit", deprecated 3.0.0].
+ [CouchDB API "POST /{db}/_ensure_full_commit", deprecated 3.0.0]
 =cut
 
 sub __ensure($$)
@@ -279,7 +279,7 @@ sub ensureFullCommit(%)
 }
 
 =method purgeDocuments \%plan, %options
-[CouchDB API "POST /{db}/_purge", UNTESTED].
+ [CouchDB API "POST /{db}/_purge", UNTESTED]
 Remove selected document revisions from the database.
 
 A deleted document is only marked as being deleted, but exists until
@@ -299,7 +299,7 @@ sub purgeDocuments($%)
 }
 
 =method purgeRecordsLimit %options
-[CouchDB API "GET /{db}/_purged_infos_limit", UNTESTED].
+ [CouchDB API "GET /{db}/_purged_infos_limit", UNTESTED]
 Returns the soft maximum number of records kept about deleting records.
 =cut
 
@@ -314,7 +314,7 @@ sub purgeRecordsLimit(%)
 }
 
 =method purgeRecordsLimitSet $limit, %options
-[CouchDB API "PUT /{db}/_purged_infos_limit", UNTESTED].
+ [CouchDB API "PUT /{db}/_purged_infos_limit", UNTESTED]
 Set a new soft limit.  The default is 1000.
 =cut
 
@@ -330,7 +330,7 @@ sub purgeRecordsLimitSet($%)
 }
 
 =method purgeUnusedViews %options
-[CouchDB API "POST /{db}/_view_cleanup", UNTESTED].
+ [CouchDB API "POST /{db}/_view_cleanup", UNTESTED]
 =cut
 
 sub purgeUnusedViews(%)
@@ -343,7 +343,7 @@ sub purgeUnusedViews(%)
 }
 
 =method revisionsMissing \%plan, %options
-[CouchDB API "POST /{db}/_missing_revs", UNTESTED].
+ [CouchDB API "POST /{db}/_missing_revs", UNTESTED]
 With given a list of document revisions, returns the document revisions
 that do not exist in the database.
 =cut
@@ -359,7 +359,7 @@ sub revisionsMissing($%)
 }
 
 =method revisionsDiff \%plan, %options
-[CouchDB API "POST /{db}/_revs_diff", UNTESTED].
+ [CouchDB API "POST /{db}/_revs_diff", UNTESTED]
 With given a list of document revisions, returns the document revisions
 that do not exist in the database.
 =cut
@@ -375,7 +375,7 @@ sub revisionsDiff($%)
 }
 
 =method revisionLimit %options
-[CouchDB API "GET /{db}/_revs_limit", UNTESTED].
+ [CouchDB API "GET /{db}/_revs_limit", UNTESTED]
 Returns the soft maximum number of records kept about deleting records.
 =cut
 
@@ -390,7 +390,7 @@ sub revisionLimit(%)
 }
 
 =method revisionLimitSet $limit, %options
-[CouchDB API "PUT /{db}/_revs_limit", UNTESTED].
+ [CouchDB API "PUT /{db}/_revs_limit", UNTESTED]
 Set a new soft limit.  The default is 1000.
 =cut
 
@@ -406,13 +406,14 @@ sub revisionLimitSet($%)
 }
 
 #-------------
-=section Designs
+=section Designs and Indexes
 
 =method listDesigns
-[CouchDB API "GET /{db}/_design_docs", UNTESTED] and
-[CouchDB API "POST /{db}/_design_docs", UNTESTED].
-[CouchDB API "POST /{db}/_design_docs/queries", UNTESTED].
-Get some design documents.
+ [CouchDB API "GET /{db}/_design_docs", UNTESTED]
+ [CouchDB API "POST /{db}/_design_docs", UNTESTED]
+ [CouchDB API "POST /{db}/_design_docs/queries", UNTESTED]
+Get some design documents.  The search query looks very much like a generic
+view search, but a few parameters are added and missing.
 
 If there are searches, then C<GET> is used, otherwise the C<POST> version.
 The returned structure depends on the searches and the number of searches.
@@ -426,15 +427,10 @@ sub listDesigns(%)
 	my $couch   = $self->couch;
 
 	my ($method, $path, $send) = (GET => $self->_pathToDB('_design_docs'), undef);
-	my @search  = flat delete $args{search};
-	if(@search)
+	if(my @search  = flat delete $args{search})
 	{	$method = 'POST';
-	 	my @s;
-		foreach (@search)
-		{	my $s  = +{ %$_ };
-			$couch->toJSON($s, bool => qw/conflicts descending include_docs inclusive_end update_seq/);
-			push @s, $s;
-		}
+	 	my @s   = map $self->_designPrepare($method, $_), @search;
+
 		if(@search==1)
 		{	$send  = $search[0];
 		}
@@ -450,29 +446,49 @@ sub listDesigns(%)
 	);
 }
 
-=method createIndex %options
-[CouchDB API "POST /{db}/_index", UNTESTED]
+
+sub _designPrepare($$$)
+{	my ($self, $method, $data, $where) = @_;
+	$method eq 'POST' or panic;
+	my $s     = +{ %$data };
+
+	# Very close to a view search, but not equivalent.  At least: according to the
+	# API documentation :-(
+	$self->couch
+		->toJSON($s, bool => qw/conflicts descending include_docs inclusive_end update_seq/)
+		->toJSON($s, int  => qw/limit skip/);
+	$s;
+}
+
+=method createIndex \%filter, %options
+ [CouchDB API "POST /{db}/_index", UNTESTED]
 Create/confirm an index on the database.  By default, the index C<name>
 and the name for the design document C<ddoc> are generated.  You can
 also call C<Couch::DB::Design::createIndex()>.
+
+=option  design $design|$ddocid
+=default design C<undef>
 =cut
 
 sub createIndex($%)
-{	my ($self, %args) = @_;
+{	my ($self, $filter, %args) = @_;
 	my $couch  = $self->couch;
 
-	my %config = $couch->_resultsConfig(\%args);
-	my $send   = \%args;
+	my $send   = +{ %$filter };
+	if(my $design = delete $args{design})
+	{	$send->{ddoc} = blessed $design ? $design->id : $design;
+	}
+
 	$couch->toJSON($send, bool => qw/partitioned/);
 
 	$couch->call(POST => $self->_pathToDB('_index'),
 		send => $send,
-		%config,
+		$couch->_resultsConfig(\%args),
 	);
 }
 
 =method listIndexes %options
-[CouchDB API "GET /{db}/_index", UNTESTED]
+ [CouchDB API "GET /{db}/_index", UNTESTED]
 Collect all indexes for the database.
 =cut
 
@@ -503,7 +519,7 @@ sub doc($%)
 }
 
 =method updateDocuments \@docs, %options
-[CouchDB API "POST /{db}/_bulk_docs", UNTESTED]
+ [CouchDB API "POST /{db}/_bulk_docs", UNTESTED]
 Insert, update, and delete multiple documents in one go.  This is more efficient
 than saving them one by one.
 
@@ -588,7 +604,7 @@ sub updateDocuments($%)
 }
 
 =method inspectDocuments \@docs, %options
-[CouchDB API "POST /{db}/_bulk_get", UNTESTED]
+ [CouchDB API "POST /{db}/_bulk_get", UNTESTED]
 Return information on multiple documents at the same time.
 
 =option  revs BOOLEAN
@@ -617,13 +633,13 @@ sub inspectDocuments($%)
 }
 
 =method listDocuments %options
-[CouchDB API "GET /{db}/_all_docs", UNTESTED],
-[CouchDB API "POST /{db}/_all_docs", UNTESTED],
-[CouchDB API "POST /{db}/_all_docs/queries", UNTESTED],
-[CouchDB API "GET /{db}/_local_docs", UNTESTED],
-[CouchDB API "POST /{db}/_local_docs", UNTESTED],
-[CouchDB API "POST /{db}/_local_docs/queries", UNTESTED],
-[CouchDB API "GET /{db}/_partition/{partition}/_all_docs", UNTESTED].
+ [CouchDB API "GET /{db}/_all_docs", UNTESTED]
+ [CouchDB API "POST /{db}/_all_docs", UNTESTED]
+ [CouchDB API "POST /{db}/_all_docs/queries", UNTESTED]
+ [CouchDB API "GET /{db}/_local_docs", UNTESTED]
+ [CouchDB API "POST /{db}/_local_docs", UNTESTED]
+ [CouchDB API "POST /{db}/_local_docs/queries", UNTESTED]
+ [CouchDB API "GET /{db}/_partition/{partition}/_all_docs", UNTESTED]
 
 Get the documents, optionally limited by a view.
 If there are searches, then C<POST> is used, otherwise the C<GET> version.
@@ -652,6 +668,30 @@ Restrict the search to the named view.  Requires the C<design> document.
 =default design C<undef>
 
 =cut
+
+sub __toDocs($$%)
+{	my ($self, $result, $data, %args) = @_;
+	my @docs = flat $data->{docs};
+	$data->{docs} = [ map Couch::DB::Document->_fromResponse($result, $_, %args), @docs ] if @docs;
+	$data;
+}
+
+sub __listValues($$%)
+{	my ($self, $result, $raw, %args) = @_;
+	$args{db}  = $self;
+	my $values = +{ %$raw };
+
+	if(my $multi = $values->{results})
+	{	# Multiple queries, multiple answers
+		$values->{results} = [ map $self->__toDocs($result, +{ %$_ }, %args), flat $multi ];
+	}
+	else
+	{	# Single query
+		$self->__toDocs($result, $values, %args);
+	}
+
+	$values;
+}
 
 sub listDocuments(%)
 {	my ($self, %args) = @_;
@@ -696,6 +736,7 @@ sub listDocuments(%)
 
 	$couch->call($method => $path,
 		@params,
+		to_values => sub { $self->__listValues($_[0], $_[1], local => $local) },
 		$couch->_resultsConfig(\%args),
 	);
 }
@@ -705,6 +746,7 @@ my @search_bools = qw/
 	inclusive_end reducs sorted stable update_seq
 	/;
 
+# Handles standard view/_all_docs/_local_docs queries.
 sub _viewPrepare($$$)
 {	my ($self, $method, $data, $where) = @_;
 	my $s     = +{ %$data };
@@ -732,25 +774,47 @@ sub _viewPrepare($$$)
 	$s;
 }
 
-=method find $search, %options
-[CouchDB API "POST /{db}/_find", UNTESTED],
-[CouchDB API "POST /{db}/_partition/{partition_id}/_find", UNTESTED]
+=method find [\%search, %options]
+ [CouchDB API "POST /{db}/_find"]
+ [CouchDB API "POST /{db}/_partition/{partition_id}/_find", UNTESTED]
 
-Search the database for matching components.
+Search the database for matching documents.  The documents are always
+included in the reply, including attachment information.  Attachement
+data is not included.
+
+The default search will select everything (uses a blank HASH as required
+C<selector>).  By default, the number of results has a C<limit> of 25.
 
 =option  partition $partition
 =default partition C<undef>
+
+=example of find() with a single query
+  my $result = $couch->find or die;
+  my $docs   = $result->values->{docs};  # Couch::DB::Documents
+  foreach my $doc (@$docs) { ... }
+
+=example of find() more than one query:
+  my $result = $couch->find(search => [ \%q0, \%q1 ]) or die;
+  my $docs   = $result->values->{results}[1]{docs};
+  foreach my $doc (@$docs) { ... }
 =cut
+
+sub __findValues($$)
+{	my ($self, $result, $raw) = @_;
+	$self->__toDocs($result, +{ %$raw }, db => $self);
+}
 
 sub find($%)
 {	my ($self, $search, %args) = @_;
 	my $part   = delete $args{partition};
+	$search->{selector} ||= {};
 
 	my $path   = $self->_pathToDB;
 	$path     .= '/_partition/'. uri_espace($part) if $part;
 
 	$self->couch->call(POST => "$path/_find",
-		send => $self->_findPrepare(POST => $search),
+		send      => $self->_findPrepare(POST => $search),
+		to_values => sub { $self->__findValues(@_) },
 		$self->couch->_resultsConfig(\%args),
 	);
 }
@@ -769,8 +833,8 @@ sub _findPrepare($$)
 }
 
 =method findExplain \%search, %options
-[CouchDB API "POST /{db}/_explain", UNTESTED]
-[CouchDB API "POST /{db}/_partition/{partition_id}/_explain", UNTESTED]
+ [CouchDB API "POST /{db}/_explain", UNTESTED]
+ [CouchDB API "POST /{db}/_partition/{partition_id}/_explain", UNTESTED]
 
 Explain how the a search will be executed.
 
@@ -781,6 +845,7 @@ Explain how the a search will be executed.
 sub findExplain(%)
 {	my ($self, $search, %args) = @_;
 	my $part = delete $args{partition};
+	$search->{selector} ||= {};
 
 	my $path  = $self->_pathToDB;
 	$path    .= '/_partition/' . uri_escape($part) if $part;
@@ -790,9 +855,5 @@ sub findExplain(%)
 		$self->couch->_resultsConfig(\%args),
 	);
 }
-
-#-------------
-=section Other
-=cut
 
 1;

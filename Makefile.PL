@@ -6,7 +6,7 @@ use IO::Handle;
 
 my $VERSION = '0.001';
 
-my %prereq =
+my %prereq =  # also included in t/00use.t
   (	'DateTime'			=> 0
   , 'DateTime::Format::ISO8601'	=> 0
   , 'DateTime::Format::Mail'	=> 0
@@ -15,8 +15,9 @@ my %prereq =
   , 'List::Util'		=> 0
   , 'Log::Report'		=> 0
   , 'MIME::Base64'		=> 0
-  , 'Mojo::URL'			=> 0
-  , 'Mojo::UserAgent'	=> 0
+# , 'Mojo::URL'			=> 0   has no version, part of Mojolicious
+# , 'Mojo::UserAgent'	=> 0   has no version, part of Mojolicious
+  , 'Mojolicious'		=> 0
   , 'Scalar::Util'		=> 0
   , 'Storable'			=> 0
   , 'URI'				=> 0

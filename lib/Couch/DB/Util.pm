@@ -23,9 +23,12 @@ Couch::DB::Util - utility functions
 
 =chapter SYNOPSIS
 
+   use Couch::DB::Util;           # obligatory!
+   use Couch::DB::Util  qw(flat); # alternative
+
 =chapter DESCRIPTION
 
-All modules in CouchDB must import this module, because it also offers
+All modules in CouchDB B<must import> this module, because it also offers
 additional features to the namespace, like 'warnings' and 'strict'.
 
 =chapter Functions
