@@ -484,29 +484,6 @@ sub listIndexes(%)
 	);
 }
 
-=method explainSearch \%search, %options
-[CouchDB API "POST /{db}/_explain", UNTESTED]
-[CouchDB API "POST /{db}/_partition/{partition_id}/_explain", UNTESTED]
-
-Explain how the a search will be executed.
-
-=option  partition $partition
-=default partition C<undef>
-=cut
-
-sub explainSearch(%)
-{	my ($self, %args) = @_;
-	my $part = delete $args{partition};
-
-	my $path = $self->_pathToDB;
-	$path   .= '/_partition/' . uri_escape($part) if $part;
-
-	$self->couch->call(POST => "$path/_explain",
-		send => $search,
-		$self->couch->_resultsConfig(\%args),
-	);
-}
-
 #-------------
 =section Handling documents
 
@@ -646,53 +623,113 @@ sub inspectDocuments($%)
 [CouchDB API "GET /{db}/_local_docs", UNTESTED],
 [CouchDB API "POST /{db}/_local_docs", UNTESTED],
 [CouchDB API "POST /{db}/_local_docs/queries", UNTESTED],
-[CouchDB API "GET /{db}/_partition/{partition}/_all_docs", TODO].
+[CouchDB API "GET /{db}/_partition/{partition}/_all_docs", UNTESTED].
 
 Get the documents, optionally limited by a view.
-
 If there are searches, then C<POST> is used, otherwise the C<GET> version.
 The returned structure depends on the searches and the number of searches.
+
+The usual way to use this method with a view, is by calling
+M<Couch::DB::Design::viewFind()>.
 
 =option  search \%view|ARRAY
 =default search []
 
 =option  local  BOOLEAN
 =default local C<false>
-Search only in local (non-replicated) documents.
+Search only in local (non-replicated) documents.  This does not support
+a combination with C<partition> or C<view>.
 
 =option  partition $name
 =default partition C<undef>
 Restrict the search to the specific partition.
-=cut
 
-#XXX refer to the view parameter docs
+=option  view $name
+=default view C<undef>
+Restrict the search to the named view.  Requires the C<design> document.
+
+=option  design $ddoc|$ddoc_id
+=default design C<undef>
+
+=cut
 
 sub listDocuments(%)
 {	my ($self, %args) = @_;
 	my $couch  = $self->couch;
 
 	my @search = flat delete $args{search};
+	my $part   = delete $args{partition};
+	my $local  = delete $args{local};
+	my $view   = delete $args{view};
+	my $ddoc   = delete $args{ddoc};
+	my $ddocid = blessed $ddoc ? $ddoc->id : $ddoc;
+
+	!$view  || $ddoc  or panic "listDocuments(view) requires design document.";
+	!$local || !$part or panic "listDocuments(local) cannot be combined with partition.";
+	!$local || !$view or panic "listDocuments(local) cannot be combined with a view.";
+	!$part  || @search < 2 or panic "listDocuments(partition) cannot work with multiple searches.";
 
 	my $set
-	  = delete $args{local} ? '_local_docs'
-	  : $args{partition}    ? '_partition/'. uri_escape(delete $args{partition}) . '/_all_docs'
-	  :                       '_all_docs';
-	my ($method, $path, $send) = (GET => $self->_pathToDB($end), undef);
-	if(@search)
-	{	$method = 'POST';
-		if(@search==1)
-		{	$send = $search[0];
-		}
-		else
-		{	$couch->check(1, introduced => '2.2', 'Bulk queries');
-			$send = +{ queries => \@search };
-			$path .= '/queries';
-		}
+	  = $local ? '_local_docs'
+	  :   ($part ? '_partition/'. uri_escape($part) . '/' : '')
+        . ($view ? "_design/$ddocid/_view/". uri_escape($view) : '_all_docs');
+
+	my $method = !@search || $part ? 'GET' : 'POST';
+	my $path   = $self->_pathToDB($set);
+
+	# According to the spec, _all_docs is just a special view.
+	my @send   = map $self->_viewPrepare($method, $_, "listDocuments search"), @search;
+		
+	my @params;
+	if($method eq 'GET')
+	{	@send < 2 or panic "Only one search with listDocuments(GET)";
+		@params = (query => $send[0]);
+	}
+	elsif(@send==1)
+	{	@params = (send  => $send[0]);
+	}
+	else
+	{	$couch->check(1, introduced => '2.2.0', 'Bulk queries');
+		@params = (send => +{ queries => \@send });
+		$path .= '/queries';
 	}
 
 	$couch->call($method => $path,
+		@params,
 		$couch->_resultsConfig(\%args),
 	);
+}
+
+my @search_bools = qw/
+	conflicts descending group include_docs attachments att_encoding_info
+	inclusive_end reducs sorted stable update_seq
+	/;
+
+sub _viewPrepare($$$)
+{	my ($self, $method, $data, $where) = @_;
+	my $s     = +{ %$data };
+	my $couch = $self->couch;
+
+	# Main doc in 1.5.4.  /{db}/_design/{ddoc}/_view/{view}
+	if($method eq 'GET')
+	{	$couch
+			->toQuery($s, bool => \@search_bools)
+			->toQuery($s, json => qw/endkey end_key key keys start_key startkey/);
+	}
+	else
+	{	$couch
+			->toJSON($s, bool => \@search_bools)
+			->toJSON($s, int  => qw/group_level limit skip/);
+	}
+
+	$couch
+		->check($s->{attachments}, introduced => '1.6.0', 'Search attribute "attachments"')
+		->check($s->{att_encoding_info}, introduced => '1.6.0', 'Search attribute "att_encoding_info"')
+		->check($s->{sorted}, introduced => '2.0.0', 'Search attribute "sorted"')
+		->check($s->{stable}, introduced => '2.1.0', 'Search attribute "stable"')
+		->check($s->{update}, introduced => '2.1.0', 'Search attribute "update"');
+
+	$s;
 }
 
 =method find $search, %options
@@ -708,19 +745,49 @@ Search the database for matching components.
 sub find($%)
 {	my ($self, $search, %args) = @_;
 	my $part   = delete $args{partition};
-	my $send   = { %$search };
-
-	my $couch  = $self->couch;
-	$couch
-		->toJSON($send, bool => qw/conflicts update stable execution_stats/)
-		->toJSON($send, int  => qw/limit skip r/);
 
 	my $path   = $self->_pathToDB;
 	$path     .= '/_partition/'. uri_espace($part) if $part;
 
-	$couch->call(POST => "$path/_find",
-		send => $send,
-		$couch->_resultsConfig(\%args),
+	$self->couch->call(POST => "$path/_find",
+		send => $self->_findPrepare(POST => $search),
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
+sub _findPrepare($$)
+{	my ($self, $method, $data, $where) = @_;
+	my $s = +{ %$data };  # no nesting
+
+	$method eq 'POST' or panic;
+
+	$self->couch
+		->toJSON($s, bool => qw/conflicts update stable execution_stats/)
+		->toJSON($s, int  => qw/limit sip r/);
+
+	$s;
+}
+
+=method findExplain \%search, %options
+[CouchDB API "POST /{db}/_explain", UNTESTED]
+[CouchDB API "POST /{db}/_partition/{partition_id}/_explain", UNTESTED]
+
+Explain how the a search will be executed.
+
+=option  partition $partition
+=default partition C<undef>
+=cut
+
+sub findExplain(%)
+{	my ($self, $search, %args) = @_;
+	my $part = delete $args{partition};
+
+	my $path  = $self->_pathToDB;
+	$path    .= '/_partition/' . uri_escape($part) if $part;
+
+	$self->couch->call(POST => "$path/_explain",
+		send => $self->_findPrepare(POST => $search),
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 

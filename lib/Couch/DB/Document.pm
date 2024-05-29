@@ -286,16 +286,18 @@ sub update($%)
 {	my ($self, $data, %args) = @_;
 	ref $data eq 'HASH' or panic "Attempt to update the document without data.";
 
+	my $couch     = $self->couch;
+
 	my %query;
 	$query{batch} = 'ok' if exists $args{batch} ? delete $args{batch} : $self->batch;
 	$query{rev}   = delete $args{rev} || $self->rev;
 	$query{new_edits} = delete $args{new_edits} if exists $args{new_edits};
 	$couch->toQuery(\%query, bool => qw/new_edits/);
 
-	$self->couch->call(PUT => $self->_pathToDoc,
+	$couch->call(PUT => $self->_pathToDoc,
 		query    => \%query,
 		send     => $data,
-		$self->couch->_resultsConfig(\%args, on_final => sub { $self->__saved($_[0], $data) }),
+		$couch->_resultsConfig(\%args, on_final => sub { $self->__saved($_[0], $data) }),
 	);
 }
 
@@ -335,9 +337,10 @@ sub __get($$)
 	if(my $atts = $info->{_attachments})
 	{	foreach my $name (keys %$atts)
 		{	my $details = $atts->{$name};
-			$attdata->{$name} = $details->{follows})
- 			  ? $result->couch->_attachment($result->response, $name);
+			$attdata->{$name} = $details->{follows}
+ 			  ? $result->couch->_attachment($result->response, $name)
 			  : decode_base64 delete $details->{data};   # remove sometimes large data
+														 #XXX need decompression?
 		}
 	}
 

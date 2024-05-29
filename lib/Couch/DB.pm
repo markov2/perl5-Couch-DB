@@ -18,7 +18,7 @@ use DateTime::Format::Mail    ();
 use DateTime::Format::ISO8601 ();
 use URI               ();
 use URI::Escape       qw/uri_escape uri_unescape/;
-use JSON              qw/json_encode/;
+use JSON              qw/encode_json/;
 use Storable          qw/dclone/;
 
 use constant
@@ -35,21 +35,25 @@ Couch::DB - CouchDB database client
    my $couch   = Couch::DB::Mojolicious->new(version => '3.3.3');
    my $db      = $couch->db('my-db'); # Couch::DB::Database object
    my $cluster = $couch->cluster;     # Couch::DB::Cluster object
+   my $client  = $couch->createClient(...);  # Couch::DB::Client
 
 =chapter DESCRIPTION
 
 When this module was written, there were already a large number of
 CouchDB implementations on CPAN.  Still, there was a need for one more.
-This implementation does provide a B<thick interface>: a far higher
-level of abstraction, which should make your work much, much easier.
-Read about is in the L</DETAILS> section, further down.
+This implementation provides a B<thick interface>: a far higher level
+of abstraction than the other modules. This should make your work much,
+much easier.  Read about is in the L</DETAILS> section, further down.
 
 =section Early adopters
 
-B<Be warned> that this module is really new.  The 127 different JSON
-interactions are often not tested, and certainly not battle ready.
-Please help me fix issues by reporting them.  Bugs will be solved within
-a day.  Together, we can make the quality grow fast.
+B<Be warned> that this module is really new.  The 127 different endpoints
+that the CouchDB 3.3.3 API defines, are grouped and combined.  The result
+is often not tested, and certainly not battle ready.
+
+B<Please help> me fix issues by reporting them.  Bugs will be solved within
+a day.  Please, contribute useful ideas to make the use of the module lighter.
+Together, we can make the quality grow fast.
 
 =section Integration with your framework
 
@@ -63,7 +67,7 @@ and many other.
 =back
 Other extensions are hopefully added in the future.  Preferrably as part
 of this release so it gets maintained together.  The extensions are not
-too difficult and certainly quite small.
+too difficult to create and certainly quite small.
 
 =section Where can I find what?
 
@@ -81,15 +85,13 @@ Have a look at F<...index...>
 =section Constructors
 
 =c_method new %options
-Create a relation with a CouchDB server (~cluster).  You should use
-totally separated M<Couch::DB> objects for totally separate database
-clusters.
+Create a relation with a CouchDB server(cluster).  You should use
+totally separated M<Couch::DB>-objects for totally separate database
+clusters.  B<Note:> you can only instantiate extensions of this class.
 
-When you do not specify a server, but have an environment variable
-C<PERL_COUCH_DB_SERVER>, then server, username, and password are
+When you do not specify a C<server>-url, but have an environment variable
+C<PERL_COUCH_DB_SERVER>, then server url, username, and password are
 derived from it.
-
-B<Note:> you can only instantiate extensions of this class.
 
 =requires version $version
 You have to specify the version of the server you expect to answer your
@@ -101,15 +103,15 @@ The $version can be a string or a version object (see "man version").
 =option  server URL
 =default server "http://127.0.0.1:5984"
 The default server to connect to, by URL.  See C<< etc/local.ini[chttpd] >>
-The server will be named 'local'.
+This server will be named 'local'.
 
 You can add more servers using M<addClient()>.  In such case, you probably
-do not want this default client to be created as well: then explicitly
-set C<server =&gt; undef> here.
+do not want this default client to be created as well.  To achieve this,
+explicitly set C<server =&gt; undef> here.
 
 =option  auth 'BASIC'|'COOKIE'
 =default auth 'BASIC'
-Authentication method to be used.
+Authentication method to be used by default for each client.
 
 =option  username STRING
 =default username C<undef>
@@ -199,6 +201,10 @@ sub api() { $_[0]->{CD_api} }
 Create a client object which handles a server.  All options are passed
 to M<Couch::DB::Client>.  The C<couch> parameter is added for you.
 The client will also be added via M<addClient()>, and is returned.
+
+It may be useful to create to clients to the same server: one with admin
+rights, and one without.  Or clients to different nodes, to create
+fail-over.
 =cut
 
 sub createClient(%)
@@ -249,11 +255,16 @@ sub client($)
 }
 
 =method call $method, $path, %options
-Call some couchDB server, to get work done.
+Call some couchDB server, to get work done.  This is the base for any
+interaction with the server.  You should not need to call this yourself,
+because module C<Couch::DB> is a complete implementation.
 
 =option  delay BOOLEAN
 =default delay C<false>
-See M<Couch::DB::Result> chapter DETAILS about delayed requests.
+[PARTIAL]
+Do not execute the server call yet, but prepare it only in a way that
+it can be combined with other clients in parallel.
+See M<Couch::DB::Result> chapter L</DETAILS> about delayed requests.
 
 =option  query HASH
 =default query C<undef>
@@ -261,7 +272,7 @@ Query parameters for the request.
 
 =option  send  HASH
 =default send  C<undef>
-The content to be sent with POST and PUT methods.  The paramer is required
+The content to be sent with POST and PUT methods.
 in those cases, even when there is nothing to pass on, simply to be
 explicit about that.
 
@@ -281,33 +292,17 @@ A function (sub) which transforms the data of the CouchDB answer into useful Per
 values and objects.  See M<Couch::DB::toPerl()>.
 =cut
 
-my %to_query = (
-	'JSON::PP::Boolean' => sub { $_[0] ? 'true' : 'false' },
-	'Couch::DB::Node'   => sub { $_[0]->name },
-);
-
 sub call($$%)
 {	my ($self, $method, $path, %args) = @_;
 	$args{method}   = $method;
 	$args{path}     = $path;
+	$args{query}  ||= {};
 
 	my $headers     = $args{headers} ||= {};
 	$headers->{Accept} ||= 'application/json';
 
 use Data::Dumper;
 warn "CALL ", Dumper \%args;
-
-	if(my $query = delete $args{query}) 
-	{	# Cleanup the query
-		my %query = %$query;
-
-		foreach my $key (keys %$query)
-		{	my $conv = $to_query{ref $query{$key}} or next;
-			$query{$key} = $conv->($query{$key});
-		}
-
-		$args{query} = \%query;
-	}
 
     defined $args{send} || ($method ne 'POST' && $method ne 'PUT')
 		or panic "No send in $method $path";
@@ -324,8 +319,9 @@ warn "CALL ", Dumper \%args;
 	else
 	{	@clients = $self->clients;
 	}
-	@clients or panic "No clients";   #XXX to improve
+	@clients or error __x"No clients can run {method} {path}.", method => $method, path => $path;
 
+	my $introduced = $args{introduced};
 	$self->check(exists $args{$_}, $_ => delete $args{$_}, "Endpoint '$method $path'")
 		for qw/removed introduced deprecated/;
 
@@ -339,7 +335,7 @@ warn "CALL ", Dumper \%args;
   CLIENT:
 	foreach my $client (@clients)
 	{
-		! $introduced || $introduced <= $client->version
+		! $introduced || $client->version >= $introduced
 			or next CLIENT;  # server release too old
 
 		$self->_callClient($result, $client, %args)
@@ -386,10 +382,11 @@ sub _resultsConfig($%)
 =section Interface starting points
 
 =method db $name, %options
-Define a dabase.  The database may not exist yet.
+Define a dabase.  The database may not exist yet.  Calling this
+method does nothing with the CouchDB server.
 
   my $db = $couch->db('authors');
-  $db->create(...) if $db->isMissing;
+  $db->ping or $db->create(...);
 
 =cut
 
@@ -412,7 +409,7 @@ sub searchAnalyse(%)
 {	my ($self, %args) = @_;
 
 	my %send = (
-		analyzer => (delete $args{analyzer} or panic "No analyzer specified."),
+		analyzer => delete $args{analyzer} // panic "No analyzer specified.",
 		text     => delete $args{text}     // panic "No text to inspect specified.",
 	);
 
@@ -424,8 +421,8 @@ sub searchAnalyse(%)
 }
 
 =method node $name
-Returns a M<Couch::DB::Node> object with the $name.  If it does not exist
-yet, it gets created, otherwise reused.
+Returns a M<Couch::DB::Node>-object with the $name.  If the object does not
+exist yet, it gets created, otherwise reused.
 =cut
 
 sub node($)
@@ -434,8 +431,9 @@ sub node($)
 }
 
 =method cluster
-Returns a M<Couch::DB::Cluster> object, which organizes calls to
-manipulate replication, sharding, and related jobs.
+Returns a M<Couch::DB::Cluster>-object, which organizes calls to
+manipulate replication, sharding, and related jobs.  This will always
+return the same object.
 =cut
 
 sub cluster() { $_[0]->{CD_cluster} ||= Couch::DB::Cluster->new(couch => $_[0]) }
@@ -444,8 +442,12 @@ sub cluster() { $_[0]->{CD_cluster} ||= Couch::DB::Cluster->new(couch => $_[0]) 
 =section Conversions
 
 =method toPerl \%data, $type, @keys
-Convert all fields with @keys in the $data into object of $type.
-Fields which do not exist are left alone.
+Convert all fields with @keys in the %data HASH into object
+of $type.  Fields which do not exist are ignored.
+
+As default JSON to Perl translations are currently defined:
+C<abs_uri>, C<epoch>, C<isotime>, C<mailtime>, C<version>, and
+C<node>.
 =cut
 
 my %default_toperl = (  # sub ($couch, $name, $datum) returns value/object
@@ -473,6 +475,8 @@ sub toPerl($$@)
 }
 
 =method listToPerl $set, $type, @data|\@data
+Returns a LIST from all elements in the LIST @data or the ARRAY, each
+converted from JSON to pure Perl according to rule $type.
 =cut
 
 sub listToPerl
@@ -488,16 +492,17 @@ Fields which do not exist are left alone.
 
 my %default_tojson = (  # sub ($couch, $name, $datum) returns JSON
 	# All known backends support these booleans
-	bool      => sub { $_[2] ? JSON::PP::true : JSON::PP::false },
+	bool => sub { $_[2] ? JSON::PP::true : JSON::PP::false },
 
 	# All known URL implementations correctly overload stringify
-	uri       => sub { "$_[2]" },
+	uri  => sub { "$_[2]" },
 
-	node      => sub { my $n = $_[2]; blessed $n ? $n->name : undef },
+	node => sub { my $n = $_[2]; blessed $n ? $n->name : $n },
 
-	# In Perl, the int might come from text.  The JSON will write "6".
-	# But the server side JSON is type sensitive.
-	int       => sub { defined $_[2] ? int($_[2]) : undef },
+	# In Perl, the int might come from text (for instance a configuration
+	# file.  In that case, the JSON::XS will write "6".  But the server-side
+	# JSON is type sensitive and may crash.
+	int  => sub { defined $_[2] ? int($_[2]) : undef },
 );
 
 sub _toJsonHandler($)
@@ -516,14 +521,14 @@ sub toJSON($@)
 }
 
 =method toQuery \%data, $type, @keys
-Convert the named fields in the %data into a Query compatible format.
-Fields which do not exist are left alone.
+Convert the named fields in the %data HASH into a Query compatible
+format.  Fields which do not exist are left alone.
 =cut
 
-# Extends/overrides the toJSON converters
+# Extend/override the list of toJSON converters
 my %default_toquery = (
 	bool => sub { $_[2] ? 'true' : 'false' },
-	json => sub { json_encode $_[2] },
+	json => sub { encode_json $_[2] },
 );
 
 sub _toQueryHandler($)
@@ -560,46 +565,51 @@ If the $condition it true (usually the existence of some parameter), then
 check whether api limitiations apply.
 
 Parameter $change is either C<removed>, C<introduced>, or C<deprecated> (as
-string).  The C<version> is taken from the CouchDB API documentation.
-The $what is describing the element, to be used is error or warning messages.
+strings).  The C<version> is taken from the CouchDB API documentation.
+The $what describes the element, to be used in error or warning messages.
 =cut
 
-my %surpress_depr;
+my (%surpress_depr, %surpress_intro);
+
 sub check($$$$)
-{	defined $_->[1] or return $_[0];
+{	defined $_[3] or return $_[0];
 	my ($self, $element, $change, $version, $what) = @_;
 
-	my $cv = version->parse($v =~ /^\d+\.\d+$/ ? "$v.0" : $v);  # sometime without 3rd
-	if($check eq 'removed')
+	# API-doc versions are sometimes without 3rd part.
+	my $cv = version->parse($version);
+
+	if($change eq 'removed')
 	{	$self->api < $cv
 			or error __x"{what} got removed in {release}, but you specified api {api}.",
 				what => $what, release => $version, api => $self->api;
 	}
-	elsif($check eq 'introduced')
-	{	$self->api >= $cv
-			or warning __x"{what} was introduced in {release} but you specified api {api}.",
+	elsif($change eq 'introduced')
+	{	$self->api >= $cv && ! $surpress_intro{$what}++
+			or warning __x"{what} was introduced in {release}, but you specified api {api}.",
 				what => $what, release => $version, api => $self->api;
 	}
-	elsif($check eq 'deprecated')
+	elsif($change eq 'deprecated')
 	{	$self->api >= $cv && ! $surpress_depr{$what}++
 			or warning __x"{what} got deprecated in api {release}.",
 					what => $what, release => $version;
 	}
-	else { panic "$check $cv $what" }
+	else { panic "$change $cv $what" }
 
 	$self;
 }
 
 =method requestUUIDs $count, %options
 [CouchDB API "GET /_uuids", since 2.0, UNTESTED]
-Returns a LIST of UUIDS, when the call was successful.
+Returns UUIDs (Universally unique identifiers), when the call was
+successful.  Better use M<freshUUIDs()>.  It is faster to use Perl
+modules to generate UUIDs.
 =cut
 
 sub requestUUIDs($%)
 {	my ($self, $count, %args) = @_;
 
 	$self->call(GET => '/_uuids',
-		introduced => '2.0',
+		introduced => '2.0.0',
 		query      => { count => $count },
 		$self->_resultsConfig(\%args),
 	);
@@ -634,6 +644,8 @@ sub freshUUIDs($%)
 =section Other
 =cut
 
+#### Extension which perform some tasks which are framework object specific.
+
 # Returns the JSON structure which is part of the response by the CouchDB
 # server.  Usually, this is the bofy of the response.  In multipart
 # responses, it is the first part.
@@ -652,32 +664,32 @@ sub _messageContent($) { panic "must be extended" }
 
 =section Thick interface
 
-The CouchDB client interface is based on HTTP.  It is really easy
-to create JSON and use a UserAgent to send it to the CouchDB server.
-All other CPAN modules which support CouchDB stick on this level
-of abstraction.  Not C<Couch::DB>.
+The CouchDB client interface is based on HTTP.  It is really easy to
+create JSON, and then use a UserAgent to send it to the CouchDB server.
+All other CPAN modules which support CouchDB stick on this level of
+support; not C<Couch::DB>.
 
-When your library is very low-level, your program needs to put
-effort to create an abstraction around it to make it useable.  In
-case the library offers that abstraction, you need to write much
-less code.
+When your library is very low-level, your program needs to put effort
+to create an abstraction around it itself.  In case the library offers
+that abstraction, you need to write much less code.
 
 The Perl programming language works with functions, methods, and
-objects so why would your libary require you to play with URLs?
+objects, so why would your libary require you to play with URLs?
 So, C<Couch::DB> has the following extra features:
 =over 4
 =item *
-Calls have a functional name, and are grouped into objects: the URL
-processing is totally abstracted away;
+Calls have a functional name, and are grouped into objects: the
+endpoint URL processing is totally abstracted away;
 =item *
 Define multiple clients at the same time, for automatic fail-over,
-read and write separation, or parallellism;
+read, write, and permission separation, or parallellism;
 =item *
 Resolving differences between CouchDB-server instances.  You may
 even run different CouchDB versions on your nodes;
 =item *
 JSON-types do not match Perl's type concept: this module will
-convert boolean and integer parameters from perl to JSON transparently;
+convert boolean and integer parameters (and more) from Perl to
+JSON and back transparently;
 =item *
 Offer error handling and event processing on each call;
 =item *
@@ -697,23 +709,24 @@ boolean to produce C<false> in case of an error.  So typically:
 
   my $couch  = Couch::DB::Mojolicious->new(version => '3.3.3');
   my $result = $couch->requestUUIDs(100);
-  $results or die;
+  $result or die;
 
   my $uuids  = $result->values->{uuids};
 
 This CouchDB library hides the fact that endpoint C</_uuids> has been called.
-It also hides the UserAgent which is used to collect the data.
+It also hides the client (UserAgent) which was used to collect the data.
 
 =subsection Type conversions
 
 With the C<values()> method, conversions between JSON syntax and pure
 Perl are done.
 
-More importantly: this library also converts parameters from Perl
-space into JSON space.  POST and PUT parameters travel in JSON documents.
+More importantly: this library also converts parameters from Perl space
+into JSON space.  POST and PUT parameters travel in JSON documents.
 In JSON, a boolean is C<true> and C<false> (without quotes).  In Perl,
 these are C<undef> and C<1> (and many alternatives).  For anything besides
-your own documents, this C<Couch::DB> will hide these differences for you!
+your own documents, C<Couch::DB> will totally hide these differences
+for you!
 
 =subsection Generic parameters
 

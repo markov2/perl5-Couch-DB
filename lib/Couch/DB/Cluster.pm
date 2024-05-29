@@ -76,7 +76,7 @@ sub clusterState(%)
 		if @need;
 
 	$self->couch->call(GET => '/_cluster_setup',
-		introduced => '2.0',
+		introduced => '2.0.0',
 		query      => \%query,
 		$self->couch->_resultsConfig(\%args),
 	);
@@ -96,7 +96,7 @@ sub clusterSetup(%)
 		or error __x"Explicitly name one client for clusterSetup().";
 
 	$self->couch->call(POST => '/_cluster_setup',
-		introduced => '2.0',
+		introduced => '2.0.0',
 		send       => \%args,
 		$self->couch->_resultsConfig(\%args),
 	);
@@ -123,7 +123,7 @@ sub reshardStatus(%)
 	$path   .= '/state' if delete $args{counts};
 
 	$self->couch->call(GET => $path,
-		introduced => '2.4',
+		introduced => '2.4.0',
 		$self->couch->_resultsConfig(\%args),
 	);
 }
@@ -152,7 +152,7 @@ sub resharding(%)
 	);
 
 	$self->couch->call(PUT => '/_reshard/state',
-		introduced => '2.4',
+		introduced => '2.4.0',
 		send       => \%send,
 		$self->couch->_resultsConfig(\%args),
 	);
@@ -186,7 +186,7 @@ sub reshardJobs(%)
 {	my ($self, %args) = @_;
 
 	$self->couch->call(GET => '/_reshard/jobs',
-		introduced => '2.4',
+		introduced => '2.4.0',
 		$self->couch->_resultsConfig(\%args),
 		to_values  => \&__reshardJobsValues,
 	);
@@ -215,7 +215,7 @@ sub reshardCreate(%)
 	#XXX The spec in CouchDB API doc 3.3.3 lists request param 'node' twice.
 
 	$self->couch->call(POST => '/_reshard/jobs',
-		introduced => '2.4',
+		introduced => '2.4.0',
 		send       => \%args,
 		to_values  => \&__reshardCreateValues,
 		%config,
@@ -240,7 +240,7 @@ sub reshardJob($%)
 {	my ($self, $jobid, %args) = @_;
 
 	$self->couch->call(GET => "/_reshard/jobs/$jobid",
-		introduced => '2.4',
+		introduced => '2.4.0',
 		$self->couch->_resultsConfig(\%args),
 		to_values  => \&__reshardJobValues,
 	);
@@ -255,7 +255,7 @@ sub reshardJobRemove($%)
 {	my ($self, $jobid, %args) = @_;
 
 	$self->couch->call(DELETE => "/_reshard/jobs/$jobid",
-		introduced => '2.4',
+		introduced => '2.4.0',
 		$self->couch->_resultsConfig(\%args),
 	);
 }
@@ -270,7 +270,7 @@ sub reshardJobState($%)
 
 	#XXX in the 3.3.3 docs, "Request JSON Object" should read "Response ..."
 	$self->couch->call(GET => "/_reshard/job/$jobid/state",
-		introduced => '2.4',
+		introduced => '2.4.0',
 		$self->couch->_resultsConfig(\%args),
 	);
 }
@@ -295,7 +295,7 @@ sub reshardJobChange($%)
 	);
 
 	$self->couch->call(PUT => "/_reshard/job/$jobid/state",
-		introduced => '2.4',
+		introduced => '2.4.0',
 		send       => \%send,
 		$self->couch->_resultsConfig(\%args),
 	);
@@ -327,7 +327,7 @@ sub shardsForDB($%)
 {	my ($self, $db, %args) = @_;
 
 	$self->couch->call(GET => $db->_pathToDB('_shards'),
-		introduced => '2.0',
+		introduced => '2.0.0',
 		to_values  => \&__dbshards,
 		$self->couch->_resultsConfig(\%args),
 	);
@@ -351,7 +351,7 @@ sub shardsForDoc($%)
 	my $db = $doc->db;
 
 	$self->couch->call(GET => $db->_pathToDB('_shards/'.$doc->id),
-		introduced => '2.0',
+		introduced => '2.0.0',
 		to_values  => \&__docshards,
 		$self->couch->_resultsConfig(\%args),
 	);

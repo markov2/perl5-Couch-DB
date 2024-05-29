@@ -89,7 +89,7 @@ sub create($%)
 		->check($data{lists}, removed    => '4.0.0', 'DesignDoc create() option list'),
 		->check($data{show},  deprecated => '3.0.0', 'DesignDoc create() option show'),
 		->check($data{show},  removed    => '4.0.0', 'DesignDoc create() option show'),
-		->check($data{rewrites}, deprecated => '3.0', 'DesignDoc create() option rewrites');
+		->check($data{rewrites}, deprecated => '3.0.0', 'DesignDoc create() option rewrites');
 
 	#XXX Do we need more parameter conversions in the nested queries?
 
@@ -186,7 +186,7 @@ sub findIndex($%)
 
 	#XXX extract documents which include_docs
 	$couch->call(GET => $self->_pathToDDoc('_search/' . uri_escape $index),
-		introduced => '3.0',
+		introduced => '3.0.0',
 		query      => $search,
 		$couch->_resultsConfig(\%args),
 	);
@@ -200,7 +200,7 @@ sub infoIndex
 {	my ($self, $index, %args) = @_;
 
 	$self->couch->call(GET => $self->_pathToDDoc('_search_info/' . uri_escape($index)),
-		introduced => '3.0',
+		introduced => '3.0.0',
 		$self->couch->_resultsConfig(\%args),
 	);
 }
@@ -208,62 +208,21 @@ sub infoIndex
 #-------------
 =section Views
 
-=method findView $view, %options
+=method viewFind $view, %options
 [CouchDB API "GET /{db}/_design/{ddoc}/_view/{view}"],
-[CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}", UNTESTED ]
-[CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}/queries", UNTESTED ]
-Executes the specified view function.  The C<GET> alternative is never used.
+[CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}", UNTESTED],
+[CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}/queries", UNTESTED],
+[CouchDB API "GET /{db}/_partition/{partition}/_design/{ddoc}/_view/{view}", UNTESTED]
 
-=option  search $search|ARRAY
-=default search []
+Executes the specified view function.
+
+This work is handled in M<Couch::DB::Database::listDocuments()>.  See that method for
+%options and results.
 =cut
 
-sub __searchValues($$)
-{	my ($result, $raw) = @_;
-	#XXX When 'include_docs', then convert doc info in ::Documents with attachements.
-	$raw;
-}
-
-sub findView($%)
+sub viewFind($%)
 {	my ($self, $view, %args) = @_;
-	my $couch = $self->couch;
-
-	my @search = flat delete $args{search};
-	my @send;
-	foreach my $search (@search)
-	{	my $send = %$search;
-		$couch
-			->toJSON($send, bool => qw/conflicts descending group include_docs attachments
-				att_encoding_info inclusive_end reducs sorted stable update_seq/)
-			->toJSON($send, int  => qw/group_level limit skip/)
-			->check($send{attachments}, introduced => '1.6.0', 'Search attribute "attachments"')
-			->check($send{att_encoding_info}, introduced => '1.6.0', 'Search attribute "att_encoding_info"')
-			->check($send{sorted}, introduced => '2.0.0', 'Search attribute "sorted"')
-			->check($send{stable}, introduced => '2.1.0', 'Search attribute "stable"')
-			->check($send{update}, introduced => '2.1.0', 'Search attribute "update"');
-		}
-		push @send, $send;
-	}
-
-	my ($method, $path, $send) = (GET => $self->_pathToDoc('_view/'.uri_escape($view)), undef);
-	my $send;
-	if(@send)
-	{	$method = 'POST';
-		if(@search==1)
-		{	$send = $send[0];
-		}
-		else
-		{	$couch->check(1, introduced => '2.2', 'Bulk queries');
-			$send = +{ queries => \@send };
-			$path .= '/queries';
-		}
-	}
-
-	$couch->call($method => $path,
-		send      => $send,
-		to_values => \&__searchValues,
-		$couch->_resultsConfig(\%args),
-	);
+	$self->db->listDocuments(view => $view, design => $self, %args);
 }
 
 #-------------
@@ -289,8 +248,8 @@ sub show($%)
 	}
 
 	$couch->call(GET => $path,
-		deprecated => '3.0',
-		removed    => '4.0',
+		deprecated => '3.0.0',
+		removed    => '4.0.0',
 		$couch->_resultsConfig(\%args),
 	);
 }
@@ -312,8 +271,8 @@ sub list($$%)
 	my $path = $self->_pathToDoc('_list/' . uri_escape($function) . $other . '/' . uri_escape($view));
 
 	$couch->call(GET => $path,
-		deprecated => '3.0',
-		removed    => '4.0',
+		deprecated => '3.0.0',
+		removed    => '4.0.0',
 		$couch->_resultsConfig(\%args),
 	);
 }
@@ -336,8 +295,8 @@ sub show($%)
 	}
 
 	$couch->call(POST => $path,
-		deprecated => '3.0',
-		removed    => '4.0',
+		deprecated => '3.0.0',
+		removed    => '4.0.0',
 		send       => { },
 		$couch->_resultsConfig(\%args),
 	);

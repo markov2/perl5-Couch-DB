@@ -21,13 +21,13 @@ Couch::DB::Client - connect to a CouchDB node
 =chapter SYNOPSIS
 
   my $client = Couch::DB::Client->new(couch => $couchdb, ...);
-  $couchdb->addClient($client);
+  $couch->addClient($client);
 
-  my $client = $couchdb->createClient(...);  # same in one step
+  my $client = $couch->createClient(...);  # same in one step
 
   # Even simpler
-  my $couchdb = Couch::DB::Mojo->new(server => ...);
-  my $client  = $couchdb->client('local');   # default client
+  my $couch  = Couch::DB::Mojolicious->new(server => ...);
+  my $client = $couchdb->client('local');   # default client
 
 =chapter DESCRIPTION
 
@@ -424,8 +424,8 @@ sub databaseInfo(%)
 	$self->_clientIsMe(\%args);
 
 	my ($method, $query, $body, $intro) = $args{keys}
-	  ?	(POST => undef,  +{ keys => delete $args{keys} }, '2.2')
-	  :	(GET  => $self->_db_keyfilter(\%args), undef, '3.2');
+	  ?	(POST => undef,  +{ keys => delete $args{keys} }, '2.2.0')
+	  :	(GET  => $self->_db_keyfilter(\%args), undef, '3.2.0');
 
 	$self->couch->call($method => '/_dbs_info',
 		introduced => $intro,
@@ -453,7 +453,7 @@ sub dbUpdates(%)
 	my $query  = \%args;
 
 	$self->couch->call(GET => '/_db_updates',
-		introduced => '1.4',
+		introduced => '1.4.0',
 		query      => $query,
 		%config,
 	);
@@ -485,7 +485,7 @@ sub clusterNodes(%)
 	my $send   = \%args;
 
 	$self->couch->call(GET => '/_membership',
-		introduced => '2.0',
+		introduced => '2.0.0',
 		send       => $send,
 		to_values  => \&__clusterNodeValues,
 		%config,
@@ -602,7 +602,7 @@ sub __replDocsValues($$)
 {	my ($result, $raw) = @_;
 	my $couch   = $result->couch;
 	my $values  = dclone $raw;
-	$values->{docs} = [ map $self->__replDocValues($result, $_), @{$values->{docs} || []} ];
+	$values->{docs} = [ map __replDocValues($result, $_), @{$values->{docs} || []} ];
 	$values;
 }
 
@@ -711,7 +711,7 @@ sub serverStatus(%)
 	$self->_clientIsMe(\%args);
 
 	$self->couch->call(GET => '/_up',
-		introduced => '2.0',
+		introduced => '2.0.0',
 		$self->couch->_resultsConfig(\%args),
 	);
 }
