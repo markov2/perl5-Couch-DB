@@ -130,7 +130,7 @@ C<password> to login to any created client.
 =option  to_perl HASH
 =default to_perl C<< +{ } >>
 A table with converter name and CODE, to override/add the default JSON to PERL
-object conversions for M<values()>.  See M<toPerl()> and M<listToPerl()>.
+object conversions for M<Couch::DB::Result::values()>.  See M<toPerl()> and M<listToPerl()>.
 
 =option  to_json HASH
 =default to_json C<< +{ } >>
