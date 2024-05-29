@@ -25,21 +25,27 @@ Couch::DB::Result - the reply of a CouchDB server call
 =chapter SYNOPSIS
 
   # Any call to the CouchDB server result in this object.
+  # But call() is for internal library use: avoid!
   my $result = $couch->call($method, $path, %call_options);
 
   if($result->isReady) { ... }
-  unless($result)      { ... }   # same
+  if($result)          { ... }   # same
+  $result or die;
 
-  my $doc = $result->doc;      # Couch::DB::Document
+  my $data = $result->answer;    # raw JSON response
+  my $val  = $result->values;    # interpreted response
 
   # It's not always needed to inspect the document
-  if($result->ok)      { ... }
+  if($result->{ok})    { ... }
 
 =chapter DESCRIPTION
 
 The result of a call has many faces: it can be a usage error, a server
 issue, empty, paged, or even delayed.  This Result object is able to
 handle them all.  B<Read the DETAILS chapter below, to understand them all.>
+
+This result objects are pretty heavy: it collects request, response, and much
+more.  So: let them run out-of-scope once you have collected your C<values()>.
 
 =chapter OVERLOADING
 
@@ -81,8 +87,6 @@ sub init($)
 
 	$self->{CDR_couch}     = delete $args->{couch} or panic;
 	weaken $self->{CDR_couch};
-#use Data::Dumper;
-#warn "RESULT INIT=", Dumper $args;
 
 	$self->{CDR_on_final}  = [ flat delete $args->{on_final} ];
 	$self->{CDR_on_error}  = [ flat delete $args->{on_error} ];
