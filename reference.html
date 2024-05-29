@@ -28,13 +28,13 @@
   complete.  Below, you find the follow conditions.
   <table id="status-explain">
   <tr><td>DONE</td>
-      <td class="count">31</td>
+      <td class="count">32</td>
       <td>Minimally tested.</td></tr>
   <tr><td>PARTIAL</td>
       <td class="count">4</td>
       <td>Minimally tested, not completely implemented.</td></tr>
   <tr><td>UNTESTED</td>
-      <td class="count">89</td>
+      <td class="count">88</td>
       <td>Implemented but never tried.</td></tr>
   <tr><td>TODO</td>
       <td class="count">2</td>
@@ -495,7 +495,7 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/common.html#get--db-_design-ddoc-_info">GET /{db}/_design/{ddoc}/_info</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use">$ddoc-&gt;info(%options)</td></tr>
+      <td class="use">$ddoc-&gt;details(%options)</td></tr>
   <tr><td class="descr"><p>Returns view index information for the specified design document</p></td>
       <td class="status"></td>
       <td class="use"></td></tr>
@@ -537,14 +537,14 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/search.html#get--db-_design-ddoc-_search-index">GET /{db}/_design/{ddoc}/_search/{index}</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use">$ddoc-&gt;findIndex($index, %options)</td></tr>
+      <td class="use">$ddoc-&gt;indexFind($index, %options)</td></tr>
   <tr><td class="descr"><p>Returns results for the specified search index</p></td>
       <td class="status"></td>
       <td class="use"></td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/search.html#get--db-_design-ddoc-_search_info-index">GET /{db}/_design/{ddoc}/_search_info/{index}</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use">$ddoc-&gt;infoIndex($index, %options)</td></tr>
+      <td class="use">$ddoc-&gt;indexDetails($index, %options)</td></tr>
   <tr><td class="descr"><p>Returns metadata for the specified search index</p></td>
       <td class="status"></td>
       <td class="use"></td></tr>
@@ -579,14 +579,14 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/render.html#post--db-_design-ddoc-_update-func">POST /{db}/_design/{ddoc}/_update/{func}</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use">$ddoc-&gt;update($function, %options)</td></tr>
+      <td class="use">$ddoc-&gt;applyUpdate($function, %options)</td></tr>
   <tr><td class="descr"><p>Executes an update function against the null document</p></td>
       <td class="status"></td>
       <td class="use"></td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/render.html#put--db-_design-ddoc-_update-func-docid">POST /{db}/_design/{ddoc}/_update/{func}/{docid}</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use">$ddoc-&gt;update($function, %options)</td></tr>
+      <td class="use">$ddoc-&gt;applyUpdate($function, %options)</td></tr>
   <tr><td class="descr"><p>Executes an update function against the specified document</p></td>
       <td class="status"></td>
       <td class="use"></td></tr>
@@ -669,8 +669,8 @@
       <td class="use"></td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#post--db-_find">POST /{db}/_find</a></td>
-      <td class="status">UNTESTED</td>
-      <td class="use">$db-&gt;find($search, %options)</td></tr>
+      <td class="status">DONE</td>
+      <td class="use">$db-&gt;find([\%search, %options])</td></tr>
   <tr><td class="descr"><p>Find documents within a given database</p></td>
       <td class="status"></td>
       <td class="use"></td></tr>
@@ -684,10 +684,10 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#post--db-_index">POST /{db}/_index</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use">$db-&gt;createIndex(%options)</td></tr>
+      <td class="use">$db-&gt;createIndex(\%filter, %options)</td></tr>
   <tr><td class="descr"><p>Create a new index.</p></td>
       <td class="status">UNTESTED</td>
-      <td class="use">$ddoc-&gt;createIndex(%options)</td></tr>
+      <td class="use">$ddoc-&gt;createIndex(\%filter, %options)</td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#delete--db-_index-designdoc-json-name">DELETE /{db}/_index/{designdoc}/json/{name}</a></td>
       <td class="status">UNTESTED</td>
@@ -754,7 +754,7 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#post--db-_partition-partition_id-_find">POST /{db}/_partition/{partition_id}/_find</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use">$db-&gt;find($search, %options)</td></tr>
+      <td class="use">$db-&gt;find([\%search, %options])</td></tr>
   <tr><td class="descr"><p>Query the partition specified by ``partition_id``</p></td>
       <td class="status"></td>
       <td class="use"></td></tr>

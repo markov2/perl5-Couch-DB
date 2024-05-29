@@ -88,7 +88,7 @@ sub _callClient($$%)
 
 	my $ua  = $client->userAgent;
 	my %headers = ( %{$client->headers}, %{delete $args{headers}} );
-warn "HEADERS = ", join ';', %headers;
+#warn "HEADERS = ", join ';', %headers;
 
 	my $send = delete $args{send};
 	my @body
@@ -138,7 +138,6 @@ sub _attachment($$)
 		return $part->asset->slurp
 			if $disp && $disp =~ /filename="([^"]+)"/ && $1 eq $name;
 	}
-warn "NOT FOUND";
 	undef;
 }
 

@@ -301,32 +301,18 @@ To bridge the gap between your program and JSON data received, Couch::DB
 provides templated conversions.  This conversion scheme also attempts to
 hide protocol changes between CouchDB server versions.
 
-  my $result = $couch->client('_local')->serverInfo;
+  my $result = $couch->client('local')->serverInfo;
   result or die;
 
   # Try to avoid this:
   print $result->answer->{version}; # string
 
   # Use this instead:
-  print $result->value->{version};  # version object
-
-The M<value()> and M<values()> methods accept a $path which describes
-the position of the required value in the raw data.  Then, it knows
-the type of data, and converts it into convenient Perl objects.
+  print $result->values->{version};  # version object
 
 In some cases, data is added or modified for convenience: to make it
 compatible with the version your program has been written for.  See
-M<Couch::DB::new(version)>.
-
-The following data-types are used:
-=over 4
-=item * version
-Returned as M<version> object
-=item * timestamps
-Returned as M<DateTime> object
-=item * links
-Returned as backend specific URL object
-=back
+M<Couch::DB::new(api)>.
 
 =cut
 

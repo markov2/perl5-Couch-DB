@@ -130,7 +130,7 @@ C<password> to login to any created client.
 =option  to_perl HASH
 =default to_perl C<< +{ } >>
 A table with converter name and CODE, to override/add the default JSON to PERL
-object conversions for M<value()>.  See M<toPerl()> and M<listToPerl()>.
+object conversions for M<values()>.  See M<toPerl()> and M<listToPerl()>.
 
 =option  to_json HASH
 =default to_json C<< +{ } >>
@@ -368,8 +368,8 @@ sub call($$%)
 	$headers->{Accept} ||= 'application/json';
 	$headers->{'Content-Type'} ||= 'application/json';
 
-use Data::Dumper;
-warn "CALL ", Dumper \%args;
+#use Data::Dumper;
+#warn "CALL ", Dumper \%args;
 
     defined $args{send} || ($method ne 'POST' && $method ne 'PUT')
 		or panic "No send in $method $path";
@@ -499,7 +499,7 @@ Fields which do not exist are left alone.
 
 my %default_tojson = (  # sub ($couch, $name, $datum) returns JSON
 	# All known backends support these booleans
-	bool => sub { $_[2] ? JSON::PP::true : JSON::PP::false },
+	bool => sub { $_[2] ? $JSON::true : $JSON::false },
 
 	# All known URL implementations correctly overload stringify
 	uri  => sub { "$_[2]" },
@@ -723,8 +723,8 @@ It also hides the client (UserAgent) which was used to collect the data.
 
 =subsection Type conversions
 
-With the C<values()> method, conversions between JSON syntax and pure
-Perl are done.
+With the C<Couch::DB::Result::values()> method, conversions between JSON
+syntax and pure Perl are done.
 
 More importantly: this library also converts parameters from Perl space
 into JSON space.  POST and PUT parameters travel in JSON documents.
@@ -770,4 +770,5 @@ without success.  The CODE gets the result object as only parameter.
 A CODE (sub) which is called when the interaction with the server has been completed.
 This may happen much later, when combined with C<_delay>.  The CODE gets the result
 object as only parameter.
+=back
 =cut

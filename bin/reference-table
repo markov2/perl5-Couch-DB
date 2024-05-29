@@ -207,7 +207,7 @@ __HEADER
 
 	foreach my $index (sort { $a->{endpoint} cmp $b->{endpoint} || $a->{method} cmp $b->{method}} values %index)
 	{	my @impls = @{$impls{$index->{call}} || [ ]};
-		@impls <= 2 or panic $index->{call};  # CSS descr issue
+		@impls <= 2 or die $index->{call};  # CSS descr issue
 
 		my $first = shift @impls || { status => 'MISSING', use => '' };
 

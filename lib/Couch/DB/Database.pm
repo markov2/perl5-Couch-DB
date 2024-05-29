@@ -116,7 +116,8 @@ sub exists()
 
 Collect information from the database, for instance about its clustering.
 
-=option
+=option  partition $partition
+=default partition C<undef>
 =cut
 
 sub __detailsValues($$)

@@ -119,7 +119,7 @@ sub couch() { $_[0]->{CDC_couch} }
 Returns the URL of the server which is addressed by this client.
 
 Which type of object is used, depends on the event framework.  For instance
-a M<Mojo::URL> when using M<Couch::DB::Mojo>.
+a M<Mojo::URL> when using M<Couch::DB::Mojolicious>.
 =cut
 
 sub server() { $_[0]->{CDC_server} }
@@ -128,7 +128,7 @@ sub server() { $_[0]->{CDC_server} }
 Returns the user-agent object which connects to the servers.
 
 Which type of object is used, depends on the event framework. for instance
-a M<Mojo::UserAgent> when using M<Couch::DB::Mojo>.
+a M<Mojo::UserAgent> when using M<Couch::DB::Mojolicious>.
 =cut
 
 sub userAgent() { $_[0]->{CDC_ua} }
@@ -370,33 +370,30 @@ sub activeTasks(%)
 Returns the selected database names as present on the connected CouchDB
 instance.
 
-As %options, you can specify a key filter: specify a subset of keys to be
-returned.  These options are C<descending> (boolean)
-C<startkey>, C<endkey>, C<limit>, and C<skip>.
+=option  search \%search
+=default search C<undef>
+You can specify a name (=key) filter: specify a subset of names to be
+returned.
 =cut
 
-sub _db_keyfilter($)
-{	my ($self, $args) = @_;
+sub __dbNameFilter($)
+{	my ($self, $search) = @_;
 
-	my $filter = +{
-		descending => delete $args->{descending},
-		startkey   => delete $args->{startkey} || delete $args->{start_key},
-		endkey     => delete $args->{endkey}   || delete $args->{end_key},
-		limit      => delete $args->{limit},
-		skip       => delete $args->{skip},
-	};
-	$self->couch->toJSON($filter, bool => qw/descending/);
-
-	$filter;
+	my $query = +{ %$search };
+	$self->couch
+		->toQuery($query, bool => qw/descending/)
+		->toQuery($query, json => qw/endkey end_key startkey start_key/);
+	$query;
 }
 
-#XXX it is unclear why the database names are referred to as "keys".
 sub databaseNames(%)
 {	my ($self, %args) = @_;
 	$self->_clientIsMe(\%args);
 
+	my $search = delete $args{search} || {};
+
 	$self->couch->call(GET => '/_all_dbs',
-		query => $self->_db_keyfilter(\%args),
+		query => $self->__dbNameFilter($search),
 		$self->couch->_resultsConfig(\%args),
 	);
 }
@@ -404,33 +401,40 @@ sub databaseNames(%)
 =method databaseInfo %options
  [CouchDB API "GET /_dbs_info", since 3.2]
  [CouchDB API "POST /_dbs_info", since 2.2]
-Returns detailed information about the selected database keys,
-on the connected CouchDB instance.  Both the GET and POST
-alternatives produce the same structures.
+Returns detailed information about the selected database keys, on the
+connected CouchDB instance.  Both the GET and POST alternatives produce
+the same structures.
 
-When you provide a C<keys> option, then those database details are
-collected.  Otherwise, you can use the filter options described by
-M<databaseKeys()>.
+When both C<keys> and C<search> are missing, then all databases are
+reported.
 
-=option  keys ARRAY
-=default keys C<undef>
+=option  names ARRAY
+=default names C<undef>
 When you provide explicit database keys, then only those are displayed.
 The number of keys is limited by the C<max_db_number_for_dbs_info_req>
 configuration parameter, which defaults to 100.
+
+=option  search \%search
+=default search C<undef>
+Use the filter options described by M<databaseNames()>.
+
 =cut
 
 sub databaseInfo(%)
 {	my ($self, %args) = @_;
 	$self->_clientIsMe(\%args);
 
-	my ($method, $query, $body, $intro) = $args{keys}
-	  ?	(POST => undef,  +{ keys => delete $args{keys} }, '2.2.0')
-	  :	(GET  => $self->_db_keyfilter(\%args), undef, '3.2.0');
+	my $names  = delete $args{names};
+	my $search = delete $args{search} || {};
+
+	my ($method, $query, $send, $intro) = $names
+	  ?	(POST => undef,  +{ keys => $names }, '2.2.0')
+	  :	(GET  => $self->_dbNameFilter($search), undef, '3.2.0');
 
 	$self->couch->call($method => '/_dbs_info',
 		introduced => $intro,
 		query      => $query,
-		send       => $body,
+		send       => $send,
 		$self->couch->_resultsConfig(\%args),
 	);
 }
