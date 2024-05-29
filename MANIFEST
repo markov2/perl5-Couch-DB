@@ -1,7 +1,7 @@
 ChangeLog
 MANIFEST
 Makefile.PL
-README.pm
+README.md
 bin/reference-table
 lib/Couch/DB.pm
 lib/Couch/DB/Client.pm
