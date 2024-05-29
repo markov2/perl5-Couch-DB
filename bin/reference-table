@@ -160,9 +160,11 @@ sub create_index()
     TD.api { background: white }
     TD.api A { text-decoration: none; font-family: monospace }
     TD.use { font-family: monospace }
+	TD.descr P { margin-bottom: 10px }
     TH { text-align: left }
     .count { text-align: right }
-	TABLE#status-explain { margin-left: 3em }
+	TABLE#status-explain { padding-left: 3em }
+	TABLE#references { padding: 2ex 3em; }
   </style>
 </head>
 <body>
@@ -205,6 +207,8 @@ __HEADER
 
 	foreach my $index (sort { $a->{endpoint} cmp $b->{endpoint} || $a->{method} cmp $b->{method}} values %index)
 	{	my @impls = @{$impls{$index->{call}} || [ ]};
+		@impls <= 2 or panic $index->{call};  # CSS descr issue
+
 		my $first = shift @impls || { status => 'MISSING', use => '' };
 
 		print <<__ROW1;
@@ -217,23 +221,18 @@ __ROW1
 		my $sec   = shift @impls || { status => '', use => '' };
 
 		print <<__ROW2;
-  <tr><td>$index->{descr}</td>
+  <tr><td class="descr"><p>$index->{descr}</p></td>
       <td class="status">$sec->{status}</td>
       <td class="use">$sec->{use}</td></tr>
 __ROW2
 
+=pod
 		while(my $impl = shift @impls)
 		{	print <<__ROWS;
   <tr><td>&nbsp;</td>
       <td class="status">$impl->{status}</td>
       <td class="use">$impl->{use}</td></tr>
 __ROWS
-		}
-
-=pod
-		foreach my $impl (@$impls)
-		{	printf "%-50.50s %-8s %-11s %s\n",
-				$index->{endpoint}, $index->{method}, $impl->{status} || 'TODO', $impl->{use} || '';
 		}
 =cut
 
