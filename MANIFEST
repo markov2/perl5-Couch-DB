@@ -1,6 +1,6 @@
 bin/reference-table
 ChangeLog
-index.html
+reference.html
 lib/Couch/DB.pm
 lib/Couch/DB/Client.pm
 lib/Couch/DB/Cluster.pm

@@ -62,4 +62,7 @@ HTML_OUTPUT     = ../public_html/couch-db/html
 HTML_DOCROOT    = /couch-db/html
 HTML_PACKAGE    = ../public_html/couch-db/htmlpkg
 
+reference::
+	bin/reference-table >reference.html
+
 __POSTAMBLE
