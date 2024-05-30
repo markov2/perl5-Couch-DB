@@ -5,7 +5,9 @@ use strict;
 use LWP::UserAgent    ();
 use HTML::TreeBuilder ();
 use File::Slurper     qw(read_text read_lines write_text);
+use URI::Escape       qw(uri_escape);
 use Getopt::Long      qw(GetOptions);
+use HTML::Entities    qw(encode_entities);
 
 use Data::Dumper;
 $Data::Dumper::Indent = 1;
@@ -13,6 +15,7 @@ $Data::Dumper::Indent = 1;
 my $couchdb_api   = 'https://docs.couchdb.org/en/stable';
 my $couchdb_index = "$couchdb_api/http-routingtable.html";
 my $couchdb_cache = '/tmp/couch-cache';
+my $metacpan      = 'https://metacpan.org/dist/Couch-DB/view/';
 
 GetOptions
 	'refresh|r!' => \(my $refresh = 0),
@@ -95,11 +98,13 @@ sub fill_impls()
 			next MODULE;
 		}
 
+		my $manpage  = $metacpan . ($file =~ s/\.pm$/.pod/r);
+
 		foreach my $line (read_lines $file)
 		{	$package = $1
 				if $line =~ m/^package\s+([\w:]+)/;
 
-			$last_use = "$module->{base}-&gt;$1($2)"
+			$last_use = "$module->{base}->$1($2)"
 				if $line =~ m/^=method\s+(\w+)\s*(.*)/;
 
 			my ($call, $status) = $line =~ /\[CouchDB API "([^"]+)".*?(|UNTESTED|TODO|UNSUPPORTED|PARTIAL)\]/
@@ -107,13 +112,16 @@ sub fill_impls()
 
 			my ($method, $endpoint) = split " ", $call, 2;
 
+			my $link = $manpage . '#' . uri_escape($last_use =~ s/.*->/\$obj->/r =~ s/\s/-/gr);
+			my $use  = '<a href="' . $link . '">' . encode_entities($last_use) . '</a>';
+
 			my %impl = (
 				package  => $package,
 				call     => $call,
 				status   => $status || 'DONE',
 				method   => $method,
 				endpoint => $endpoint,
-				use      => ($status eq 'UNSUPPORTED' ? '' : $last_use),
+				use      => ($status eq 'UNSUPPORTED' ? '' : $use),
 			);
 
 			push @{$impls{$call}}, \%impl;
@@ -157,15 +165,17 @@ sub create_index()
   <meta charset="utf-8" />
 
   <style>
-    TR.first { margin-top: 4px }
-    TD.api { background: white }
-    TD.api A { text-decoration: none; font-family: monospace }
-    TD.use { font-family: monospace }
-	TD.descr P { margin-bottom: 10px }
+    TR.first  { margin-top: 4px }
+    TD        { vertical-align: top }
+    TD.api    { background: white }
+    TD.use    { background: yellow }
+    TD.api  A { text-decoration: none; font-family: monospace }
+    TD.use  A { text-decoration: none; font-family: monospace }
+	TD.descr P { margin: 0 0 10px 0; }
     TH { text-align: left }
     .count { text-align: right }
 	TABLE#status-explain { padding-left: 3em }
-	TABLE#references { padding: 2ex 3em; }
+	TABLE#cdb2mod { padding: 2ex 3em; }
   </style>
 </head>
 <body>
@@ -199,8 +209,8 @@ sub create_index()
 
   <h2>Reference table</h2>
 
-  <table id="references">
-  <tr><th>API 3.3.3 and official summary</th>
+  <table id="cdb2mod">
+  <tr><th style="width: 50%">API 3.3.3 and official summary</th>
       <th>impl status</th>
       <th>Couch::DB use</th></tr>
 
@@ -219,13 +229,17 @@ __HEADER
       <td class="use">$first->{use}</td></tr>
 __ROW1
 
-		my $sec   = shift @impls || { status => '', use => '' };
+		my $sec   = shift @impls;
 
-		print <<__ROW2;
+		print $sec ? <<__ROW2a : <<__ROW2b;
   <tr><td class="descr"><p>$index->{descr}</p></td>
       <td class="status">$sec->{status}</td>
       <td class="use">$sec->{use}</td></tr>
-__ROW2
+__ROW2a
+  <tr><td class="descr"><p>$index->{descr}</p></td>
+      <td></td>
+      <td></td></tr>
+__ROW2b
 
 	}
 
