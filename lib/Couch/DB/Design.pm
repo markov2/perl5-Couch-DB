@@ -198,6 +198,7 @@ sub indexFind($%)
 	$couch->call(GET => $self->_pathToDDoc('_search/' . uri_escape $index),
 		introduced => '3.0.0',
 		query      => $query,
+		paginate   => 1,
 		to_values  => sub { $self->__indexValues($_[0], $_[1], db => $self->db, full_docs => $search->{include_docs}) },
 		$couch->_resultsConfig(\%args),
 	);

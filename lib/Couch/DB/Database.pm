@@ -815,6 +815,7 @@ sub find($%)
 
 	$self->couch->call(POST => "$path/_find",
 		send      => $self->_findPrepare(POST => $search),
+		paginate  => 1,
 		to_values => sub { $self->__findValues(@_) },
 		$self->couch->_resultsConfig(\%args),
 	);
@@ -828,7 +829,9 @@ sub _findPrepare($$)
 
 	$self->couch
 		->toJSON($s, bool => qw/conflicts update stable execution_stats/)
-		->toJSON($s, int  => qw/limit sip r/);
+		->toJSON($s, int  => qw/limit sip r/)
+		#XXX Undocumented when this got deprecated
+		->check(exists $s->{stale}, deprecated => '3.0.0', 'Database find(stale)');
 
 	$s;
 }

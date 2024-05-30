@@ -78,6 +78,11 @@ Called each time when the result CODE changes to be "not a success".
 =default  to_values <keep data>
 Provide a sub which translates incoming JSON data from the server, into
 pure perl.
+
+=option   next HASH
+=default  next C<undef>
+Contains the raw information about the request which produced this result,
+to be used for pagination.
 =cut
 
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
@@ -92,6 +97,7 @@ sub init($)
 	$self->{CDR_on_error}  = [ flat delete $args->{on_error} ];
 	$self->{CDR_code}      = HTTP_MULTIPLE_CHOICES;
 	$self->{CDR_to_values} = delete $args->{to_values} || sub { $_[1] };
+	$self->{CDR_next}      = delete $args->{next};
 	$self;
 }
 
@@ -140,6 +146,19 @@ sub message()
 	$self->{CDR_msg} || $default_code_texts{$self->code} || $self->codeName;
 }
 
+=method status $code, $message
+Set the $code and $message to something else.  Your program should
+probably not do this: it's the library which determines how the result
+needs to be interpreted.
+=cut
+
+sub status($$)
+{	my ($self, $code, $msg) = @_;
+	$self->{CDR_code} = $code;
+	$self->{CDR_msg}  = $msg;
+	$self;
+}
+
 #-------------
 =section When the document is collected
 
@@ -148,15 +167,29 @@ Which client M<Couch::DB::Client> was used in the last action.  Initially,
 none.  When the results are ready, the client is known.
 
 =method request
+Returns the request (framework specific) object which was used to collect
+the data.
+
 =method response
+When the call was completed, this will return the (framework specific) object
+which contains the response received.
 =cut
 
 sub client()    { $_[0]->{CDR_client} }
 sub request()   { $_[0]->{CDR_request} }
 sub response()  { $_[0]->{CDR_response} }
 
+=method next
+When the call supports pagination, this structure will have captured anything
+you need to know about how to collect the next page.  This structure does not
+contain objects, so can be serialized into a session.
+=cut
+
+sub next()      { $_[0]->{CDR_next} }
+
 =method answer %options
-Returns the received json answer as HASH of raw data.
+When the response was received, this returns the received json answer
+as HASH of raw data: the bare result of the request.
 
 You can better use the M<values()> method, which returns the data in a far more
 Perlish way: as Perl booleans, DateTime objects, and so on.
@@ -187,6 +220,44 @@ sub values(@)
 	$self->{CDR_values} ||= $self->{CDR_to_values}->($self, $self->answer);
 }
 
+=method nextPage %options
+[UNTESTED]
+Repeat the request which lead to this result, to receive the next batch
+of answers.  This is only supported by a small set of (search) endpoints.
+This uses the C<bookmark> token. Do not combine it with the C<skip>
+search option (which is probably ignored).
+
+=example paging through result
+  my $page1 = $couch->find;
+  my $docs1 = $page1->answer->{docs};
+  my $page2 = $page1->nextPage;
+  my $docs2 = $page2->answer->{docs};
+
+=example paging via a session
+  my $page1 = $couch->find;
+  my $docs1 = $page1->answer->{docs};
+  $session->save(next => serialized $page1->next);
+  ...
+  my $next  = deserialize $session->load('next');
+  my $page2 = $couch->call($next);
+  my $docs2 = $page2->answer->{docs};
+=cut
+
+sub nextPage(%)
+{	my ($self, %options) = @_;
+
+	$self->isReady
+		or panic "The results are not available yet, not ready.";
+
+	my $next     = $self->next
+		or panic "This call does not support pagination.";
+
+	$self
+		or error __x"The previous page had an error";
+
+	$self->couch->call($next);
+}
+
 #-------------
 =section When the collecting is delayed
 
@@ -198,7 +269,7 @@ sub setFinalResult($%)
 {	my ($self, $data, %args) = @_;
 	my $code = delete $data->{code} || HTTP_OK;
 
-	$self->{CDR_client}   = delete $data->{client} or panic "No client";
+	$self->{CDR_client}   = my $client = delete $data->{client} or panic "No client";
 	weaken $self->{CDR_client};
 
 	$self->{CDR_request}  = delete $data->{request};
@@ -208,8 +279,15 @@ sub setFinalResult($%)
 
 	$_->($self) for @{$self->{CDR_on_final}};
 
-	unless(is_success $code)
+	if(is_success $code)
+	{	if(my $next = $self->next)
+		{	$next->{client}   = $client->name;   # no objects!
+			$next->{bookmark} = $self->answer->{bookmark};
+		}
+	}
+	else
 	{	$_->($self) for @{$self->{CDR_on_error}};
+		#XXX what to do with pagination here?
 	}
 
 	$self;
@@ -234,24 +312,6 @@ collect the document.
 =cut
 
 sub delayPlan() { $_[0]->{CDR_delayed} }
-
-#-------------
-=section Other
-=cut
-
-=method status $code, $message
-Set the $code and $message to something else.  Your program should
-probably not do this: it's the library which determines how the result
-needs to be interpreted.
-=cut
-
-sub status($$)
-{	my ($self, $code, $msg) = @_;
-	$self->{CDR_code} = $code;
-	$self->{CDR_msg}  = $msg;
-
-	$self;
-}
 
 #-------------
 =chapter DETAILS

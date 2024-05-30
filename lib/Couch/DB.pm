@@ -320,10 +320,15 @@ sub client($)
 	first { $_->name eq $name } $self->clients;   # never many: no HASH needed
 }
 
-=method call $method, $path, %options
+=method call \%options|($method, $path, %options)
 Call some couchDB server, to get work done.  This is the base for any
-interaction with the server.  You should not need to call this yourself,
-because module C<Couch::DB> is a complete implementation.
+interaction with the server.
+
+=required method 'GET'|'POST'|...
+HTTP transport method.  Positional parameter when a LIST is passed.
+
+=required path $url
+HTTP endpoint.  Positional parameter when a LIST is passed.
 
 =option  delay BOOLEAN
 =default delay C<false>
@@ -356,12 +361,25 @@ a subset of the defined clients.
 =default to_values C<undef>
 A function (sub) which transforms the data of the CouchDB answer into useful Perl
 values and objects.  See M<Couch::DB::toPerl()>.
+
+=option  paginate BOOLEAN
+=default paginate C<false>
+This call supports pagination via bookmarks.
+This enables the use of M<Couch::DB::Result::nextPage()>.
+
+=option  bookmark STRING
+=default bookmark C<undef>
+When you magically come up with the same query, and a related
+bookmark (save C<< $result->next >> in the session?), then you
+get a next page.
 =cut
 
 sub call($$%)
-{	my ($self, $method, $path, %args) = @_;
-	$args{method}   = $method;
-	$args{path}     = $path;
+{	my $self = shift;
+	my %args = @_==1 ? %{$_[0]} : (method => shift, path => shift, @_);
+
+	my $method = $args{method};
+	my $path   = $args{path};
 	$args{query}  ||= {};
 
 	my $headers     = $args{headers} ||= {};
@@ -373,6 +391,9 @@ sub call($$%)
 
     defined $args{send} || ($method ne 'POST' && $method ne 'PUT')
 		or panic "No send in $method $path";
+
+	($method eq 'GET' ? $args{query} : $args{send})->{bookmark} = delete $args{bookmark}
+		if exists $args{bookmark};
 
 	### On this level, we pick a client.  Extensions implement the transport.
 
@@ -394,9 +415,10 @@ sub call($$%)
 
 	my $result  = Couch::DB::Result->new(
 		couch     => $self,
-		to_values => delete $args{to_values},
-		on_errors => delete $args{on_errors},
-		on_final  => delete $args{on_final},
+		to_values => $args{to_values},
+		on_error  => $args{on_error},
+		on_final  => $args{on_final},
+		next      => ($args{paginate} ? \%args : undef),
 	);
 
   CLIENT:
