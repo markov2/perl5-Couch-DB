@@ -47,6 +47,10 @@ This implementation provides a B<thick interface>: a far higher level
 of abstraction than the other modules. This should make your work much,
 much easier.
 
+Also, open F<https://perl.overmeer.net/couch-db/reference.html>
+in a browser window, as useful cross-reference: parameters for CouchDB
+are not documented in this Perl documentation!
+
 B<Please read> the L</DETAILS> section, further down, at least once
 before you start!
 
@@ -84,7 +88,8 @@ clear where to find a certain end-point: C<< /{db} >> will be in
 M<Couch::DB::Database>.  A major exception is anything what has to
 do with replication and sharding: this is bundled in M<Couch::DB::Cluster>.
 
-Have a look at F<...index...>
+Have a look at F<https://perl.overmeer.net/couch-db/reference.html>.
+Keep that page open in your browser while developing.
 
 =chapter METHODS
 
@@ -324,10 +329,10 @@ sub client($)
 Call some couchDB server, to get work done.  This is the base for any
 interaction with the server.
 
-=required method 'GET'|'POST'|...
+=requires method 'GET'|'POST'|...
 HTTP transport method.  Positional parameter when a LIST is passed.
 
-=required path $url
+=requires path $url
 HTTP endpoint.  Positional parameter when a LIST is passed.
 
 =option  delay BOOLEAN

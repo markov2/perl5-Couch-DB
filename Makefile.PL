@@ -65,5 +65,6 @@ HTML_PACKAGE    = ../public_html/couch-db/htmlpkg
 
 reference::
 	bin/reference-table >reference.html
+	cp reference.html ../public_html/couch-db/reference.html
 
 __POSTAMBLE

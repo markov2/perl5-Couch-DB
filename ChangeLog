@@ -8,6 +8,7 @@ version 0.002:
 	Improvements:
 	- implemented pagination with $result->nextPage (untested)
 	- many documentation fixes
+	- make cross-reference page available.
 
 version 0.001: Wed 29 May 18:19:12 CEST 2024
 

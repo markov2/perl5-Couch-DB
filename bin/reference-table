@@ -182,7 +182,7 @@ sub create_index()
   <table id="status-explain">
   <tr><td>DONE</td>
       <td class="count">$status_counts{DONE}</td>
-      <td>Minimally tested.</td></tr>
+      <td>Minimally tested: visual inspection only.</td></tr>
   <tr><td>PARTIAL</td>
       <td class="count">$status_counts{PARTIAL}</td>
       <td>Minimally tested, not completely implemented.</td></tr>
