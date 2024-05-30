@@ -49,6 +49,7 @@ add interpretation on fields which do not start with '_'.
 
 =method exists %option
  [CouchDB API "HEAD /{db}/_design/{ddoc}"]
+
 Returns the HTTP Headers containing a minimal amount of information about the
 specified design document.
 
@@ -67,6 +68,7 @@ sub create($%)
 
 =method update \%data, %options
  [CouchDB API "PUT /{db}/_design/{ddoc}"]
+
 Options C<filters>, C<lists>, C<shows>, and C<updates> are HASHes which
 map names to fragments of code written in programming language C<language>
 (usually erlang or javascript).

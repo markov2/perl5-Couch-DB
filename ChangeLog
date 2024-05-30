@@ -5,6 +5,9 @@
 
 version 0.002:
 
+	Fixes:
+	- include Couch::DB::Design
+
 	Improvements:
 	- implemented pagination with $result->nextPage (untested)
 	- many documentation fixes
