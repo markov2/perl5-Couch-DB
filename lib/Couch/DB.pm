@@ -240,6 +240,7 @@ sub db($%)
 
 =method searchAnalyse %options
  [CouchDB API "POST /_search_analyze", since 3.0, UNTESTED]
+
 Check what the build-in Lucene tokenizer(s) will do with your text.
 
 =requires analyzer KIND
@@ -338,6 +339,7 @@ HTTP endpoint.  Positional parameter when a LIST is passed.
 =option  delay BOOLEAN
 =default delay C<false>
  [PARTIAL]
+
 Do not execute the server call yet, but prepare it only in a way that
 it can be combined with other clients in parallel.
 See M<Couch::DB::Result> chapter L</DETAILS> about delayed requests.
@@ -587,6 +589,7 @@ is beautified.
 
 =option  compact BOOLEAN
 =default compact C<false>
+Produce compact (no white-space) JSON.
 =cut
 
 sub jsonText($%)
@@ -634,6 +637,7 @@ sub check($$$$)
 
 =method requestUUIDs $count, %options
  [CouchDB API "GET /_uuids", since 2.0, UNTESTED]
+
 Returns UUIDs (Universally unique identifiers), when the call was
 successful.  Better use M<freshUUIDs()>.  It is faster to use Perl
 modules to generate UUIDs.
@@ -651,6 +655,7 @@ sub requestUUIDs($%)
 
 =method freshUUIDs $count, %options
  [UNTESTED]
+
 Returns a $count number of UUIDs in a LIST.  This uses M<requestUUIDs()> to get
 a bunch at the same time, for efficiency.  You may get fewer than you want, but
 only when the server is not sending them.

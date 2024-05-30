@@ -145,6 +145,7 @@ sub headers($) { $_[0]->{CDC_hdrs} }
 
 =method login %options
  [CouchDB API "POST /_session", UNTESTED]
+
 Get a Cookie: Cookie authentication.
 
 B<TODO>: implement refreshing of the session.
@@ -195,6 +196,7 @@ sub login(%)
 
 =method session %options
  [CouchDB API "GET /_session", UNTESTED]
+
 Returns information about the current session, like information about the
 user who is logged-in.  Part of the reply is the "userCtx" (user context)
 which displays the roles of this user, and its name.
@@ -223,6 +225,8 @@ sub session(%)
 
 =method logout %options
  [CouchDB API "DELETE /_session", UNTESTED]
+
+Terminate the session.
 =cut
 
 sub logout(%)
@@ -236,6 +240,7 @@ sub logout(%)
 
 =method roles
  [UNTESTED]
+
 Returns a LIST of all roles this client can perform.
 =cut
 
@@ -247,6 +252,7 @@ sub roles()
 
 =method hasRole $role
  [UNTESTED]
+
 Return 'true' if (this user logged-in to the server with) this client can perform
 a certain role.
 
@@ -259,16 +265,18 @@ sub hasRole($) { first { $_[1] eq $_ } $_[0]->roles }
 #-------------
 =section Server information
 
-B<All CouchDB API calls> documented below, support %options like C<_delay>
+B<All CouchDB API calls> documented below, support C<%options> like C<_delay>
 and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
-# These are only for web-interfaces
-# [CouchDB API "GET /favicon.ico", UNSUPPORTED]
-# [CouchDB API "GET /_utils", UNSUPPORTED]
-# [CouchDB API "GET /_utils/", UNSUPPORTED]
+These are only for web-interfaces:
+
+ [CouchDB API "GET /favicon.ico", UNSUPPORTED]
+ [CouchDB API "GET /_utils", UNSUPPORTED]
+ [CouchDB API "GET /_utils/", UNSUPPORTED]
 
 =method serverInfo %options
  [CouchDB API "GET /"]
+
 Query details about the server this client is connected to.
 Returns a M<Couch::DB::Result> object.
 
@@ -337,6 +345,7 @@ sub version()
 
 =method activeTasks %options
  [CouchDB API "GET /_active_tasks"]
+
 Query details about the (maintenance) tasks which are currently running in the
 connected server.  Returns a M<Couch::DB::Result> object.
 =cut
@@ -367,6 +376,7 @@ sub activeTasks(%)
 
 =method databaseNames %options
  [CouchDB API "GET /_all_dbs"]
+
 Returns the selected database names as present on the connected CouchDB
 instance.
 
@@ -401,6 +411,7 @@ sub databaseNames(%)
 =method databaseInfo %options
  [CouchDB API "GET /_dbs_info", since 3.2]
  [CouchDB API "POST /_dbs_info", since 2.2]
+
 Returns detailed information about the selected database keys, on the
 connected CouchDB instance.  Both the GET and POST alternatives produce
 the same structures.
@@ -441,6 +452,7 @@ sub databaseInfo(%)
 
 =method dbUpdates
  [CouchDB API "GET /_db_updates", since 1.4, UNTESTED]
+
 Get a feed of database changes, mainly for debugging purposes.
 
 All %options are used as parameters: C<feed> (type),
@@ -465,6 +477,7 @@ sub dbUpdates(%)
 
 =method clusterNodes %options
  [CouchDB API "GET /_membership", since 2.0, UNTESTED]
+
 List all known nodes, and those currently used for the cluster.
 =cut
 
@@ -498,6 +511,7 @@ sub clusterNodes(%)
 
 =method replicate %options
  [CouchDB API "POST /_replicate", UNTESTED]
+
 Configure replication: configure and stop.
 
 All %options are posted as parameters.
@@ -542,6 +556,7 @@ sub replicate(%)
 
 =method replicationJobs %options
  [CouchDB API "GET /_scheduler/jobs", UNTESTED]
+
 Returns information about current replication jobs (which preform tasks), on
 this CouchDB server instance.  The results are ordered by replication ID.
 
@@ -585,6 +600,8 @@ sub replicationJobs(%)
 =method replicationDocs %options
  [CouchDB API "GET /_scheduler/docs", UNTESTED]
  [CouchDB API "GET /_scheduler/docs/{replicator_db}", UNTESTED]
+
+Retrieve information about replication documents.
 
 =option  dbname NAME
 =default dbname C<_replicator>
@@ -635,6 +652,8 @@ sub replicationDocs(%)
 =method replicationDoc $doc|$docid, %options
  [CouchDB API "GET /_scheduler/docs/{replicator_db}/{docid}", UNTESTED]
 
+Retrieve information about a particular replication document.
+
 =option  dbname NAME
 =default dbname C<_replicator>
 Pass a C<dbname> for the database which contains the replication information.
@@ -665,6 +684,7 @@ sub replicationDoc($%)
 
 =method nodeName $name, %options
  [CouchDB API "GET /_node/{node-name}", UNTESTED]
+
 The only useful application is with the abstract name C<_local>, which will
 return you the name of the node represented by the CouchDB instance.
 =cut
@@ -706,6 +726,7 @@ sub node()
 
 =method serverStatus
  [CouchDB API "GET /_up", since 2.0, UNTESTED]
+
 Probably you want to use M<serverIsUp()>, because this reply contains little
 information.
 =cut
@@ -722,6 +743,7 @@ sub serverStatus(%)
 
 =method serverIsUp
  [UNTESTED]
+
 Returns a true value when the server status is "ok".
 =cut
 
@@ -730,9 +752,5 @@ sub serverIsUp()
 	my $result = $self->serverStatus;
 	$result && $result->values->{status} eq 'ok';
 }
-
-#-------------
-=section Other
-=cut
 
 1;

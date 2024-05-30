@@ -106,6 +106,7 @@ sub update($%)
 
 =method details %options
  [CouchDB API "GET /{db}/_design/{ddoc}/_info", UNTESTED]
+
 Obtains information about the specified design document, including the
 index, index size and current status of the design document and associated
 index information.
@@ -153,6 +154,8 @@ sub createIndex($%)
 
 =method deleteIndex $index, %options
  [CouchDB API "DELETE /{db}/_index/{designdoc}/json/{name}", UNTESTED]
+
+Remove an index from this design document.
 =cut
 
 sub deleteIndex($%)
@@ -164,6 +167,7 @@ sub deleteIndex($%)
 
 =method indexFind $index, %options
  [CouchDB API "GET /{db}/_design/{ddoc}/_search/{index}", UNTESTED]
+
 Executes a search request against the named $index.
 
 When you have used C<include_docs>, then the documents can be found in
@@ -208,6 +212,8 @@ sub indexFind($%)
 
 =method indexDetails $index, %options
  [CouchDB API "GET /{db}/_design/{ddoc}/_search_info/{index}", UNTESTED]
+
+Returns metadata for the specified search index.
 =cut
 
 sub indexDetails($%)
@@ -247,6 +253,7 @@ sub viewFind($%)
  [CouchDB API "POST /{db}/_design/{ddoc}/_show/{func}", deprecated 3.0, removed 4.0, UNTESTED]
  [CouchDB API "GET /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED]
+
 Apply show $function on the document.
 
 =option  doc $document|$docid
@@ -274,8 +281,11 @@ sub show($%)
  [CouchDB API "GET /{db}/_design/{ddoc}/_list/{func}/{other-ddoc}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_list/{func}/{other-ddoc}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
 
+Executes a list function against the view.
+
 =option  view_ddoc $ddoc|$ddocid
 =default view_ddoc C<undef>
+When the $view resides in a differen design.
 =cut
 
 sub list($$%)
@@ -294,6 +304,8 @@ sub list($$%)
 =method applyUpdate $function, %options
  [CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}", UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}/{docid}", UNTESTED]
+
+Executes an update function against a document.
 
 =option  doc $document|$docid
 =default doc C<null>

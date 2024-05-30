@@ -85,6 +85,7 @@ and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
 =method ping %options
  [CouchDB API "HEAD /{db}"]
+
 Check whether the database exists.  You may get some useful response
 headers, but nothing more: the response body is empty.
 =cut
@@ -143,6 +144,7 @@ sub details(%)
 
 =method create %options
  [CouchDB API "PUT /{db}"]
+
 Create a new database.  The result object will have code HTTP_CREATED when the
 database is successfully created.  When the database already exists, it
 returns HTTP_PRECONDITION_FAILED and an error in the body.
@@ -170,6 +172,7 @@ sub create(%)
 
 =method remove %options
  [CouchDB API "DELETE /{db}"]
+
 Remove the database.
 =cut
 
@@ -183,6 +186,7 @@ sub remove(%)
 
 =method userRoles %options
  [CouchDB API "GET /{db}/_security"]
+
 Returns the users who have access to the database, including their roles
 (permissions).
 
@@ -201,6 +205,7 @@ sub userRoles(%)
 
 =method userRolesChange %options
  [CouchDB API "PUT /{db}/_security", UNTESTED]
+
 Returns the users who have access to the database, including their roles
 (permissions).
 
@@ -227,6 +232,8 @@ sub userRolesChange(%)
 =method changes %options
  [CouchDB API "GET /{db}/_changes", TODO]
  [CouchDB API "POST /{db}/_changes", TODO]
+
+Feed of changes made on this database.
 =cut
 
 sub changes { ... }
@@ -234,6 +241,7 @@ sub changes { ... }
 =method compact %options
  [CouchDB API "POST /{db}/_compact"]
  [CouchDB API "POST /{db}/_compact/{ddoc}", UNTESTED]
+
 Instruct the database files to be compacted.  By default, the data gets
 compacted.
 
@@ -258,6 +266,8 @@ sub compact(%)
 
 =method ensureFullCommit %options
  [CouchDB API "POST /{db}/_ensure_full_commit", deprecated 3.0.0]
+
+Support for old replicators.
 =cut
 
 sub __ensure($$)
@@ -281,6 +291,7 @@ sub ensureFullCommit(%)
 
 =method purgeDocuments \%plan, %options
  [CouchDB API "POST /{db}/_purge", UNTESTED]
+
 Remove selected document revisions from the database.
 
 A deleted document is only marked as being deleted, but exists until
@@ -301,6 +312,7 @@ sub purgeDocuments($%)
 
 =method purgeRecordsLimit %options
  [CouchDB API "GET /{db}/_purged_infos_limit", UNTESTED]
+
 Returns the soft maximum number of records kept about deleting records.
 =cut
 
@@ -316,6 +328,7 @@ sub purgeRecordsLimit(%)
 
 =method purgeRecordsLimitSet $limit, %options
  [CouchDB API "PUT /{db}/_purged_infos_limit", UNTESTED]
+
 Set a new soft limit.  The default is 1000.
 =cut
 
@@ -332,6 +345,8 @@ sub purgeRecordsLimitSet($%)
 
 =method purgeUnusedViews %options
  [CouchDB API "POST /{db}/_view_cleanup", UNTESTED]
+
+Removes view files that are not used by any design document.
 =cut
 
 sub purgeUnusedViews(%)
@@ -345,6 +360,7 @@ sub purgeUnusedViews(%)
 
 =method revisionsMissing \%plan, %options
  [CouchDB API "POST /{db}/_missing_revs", UNTESTED]
+
 With given a list of document revisions, returns the document revisions
 that do not exist in the database.
 =cut
@@ -361,6 +377,7 @@ sub revisionsMissing($%)
 
 =method revisionsDiff \%plan, %options
  [CouchDB API "POST /{db}/_revs_diff", UNTESTED]
+
 With given a list of document revisions, returns the document revisions
 that do not exist in the database.
 =cut
@@ -377,6 +394,7 @@ sub revisionsDiff($%)
 
 =method revisionLimit %options
  [CouchDB API "GET /{db}/_revs_limit", UNTESTED]
+
 Returns the soft maximum number of records kept about deleting records.
 =cut
 
@@ -392,6 +410,7 @@ sub revisionLimit(%)
 
 =method revisionLimitSet $limit, %options
  [CouchDB API "PUT /{db}/_revs_limit", UNTESTED]
+
 Set a new soft limit.  The default is 1000.
 =cut
 
@@ -413,6 +432,7 @@ sub revisionLimitSet($%)
  [CouchDB API "GET /{db}/_design_docs", UNTESTED]
  [CouchDB API "POST /{db}/_design_docs", UNTESTED]
  [CouchDB API "POST /{db}/_design_docs/queries", UNTESTED]
+
 Get some design documents.  The search query looks very much like a generic
 view search, but a few parameters are added and missing.
 
@@ -420,7 +440,8 @@ If there are searches, then C<GET> is used, otherwise the C<POST> version.
 The returned structure depends on the searches and the number of searches.
 
 =option  search \%query|ARRAY
-=default search []
+=default search [ +{} ]
+One or more search queries to be run.  The default returns all designs.
 =cut
 
 sub listDesigns(%)
@@ -469,6 +490,7 @@ also call C<Couch::DB::Design::createIndex()>.
 
 =option  design $design|$ddocid
 =default design C<undef>
+When no design document is specified, then one will be created.
 =cut
 
 sub createIndex($%)
@@ -490,6 +512,7 @@ sub createIndex($%)
 
 =method listIndexes %options
  [CouchDB API "GET /{db}/_index", UNTESTED]
+
 Collect all indexes for the database.
 =cut
 
@@ -521,6 +544,7 @@ sub doc($%)
 
 =method updateDocuments \@docs, %options
  [CouchDB API "POST /{db}/_bulk_docs", UNTESTED]
+
 Insert, update, and delete multiple documents in one go.  This is more efficient
 than saving them one by one.
 
@@ -606,6 +630,7 @@ sub updateDocuments($%)
 
 =method inspectDocuments \@docs, %options
  [CouchDB API "POST /{db}/_bulk_get", UNTESTED]
+
 Return information on multiple documents at the same time.
 
 =option  revs BOOLEAN

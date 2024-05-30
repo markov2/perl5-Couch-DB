@@ -245,6 +245,7 @@ and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
 =method exists %option
  [CouchDB API "HEAD /{db}/{docid}"]
+
 Check whether the document exists.  You may get some useful response headers.
 
 =example
@@ -261,6 +262,7 @@ sub exists(%)
 
 =method create \%data, %options
  [CouchDB API "POST /{db}"]
+
 Save this document for the first time to the database. Your content of the
 document is in %data.  When you pick your own document ids, you can also use
 M<update()> for a first save.
@@ -303,6 +305,7 @@ sub create($%)
 =method update \%data, %options
  [CouchDB API "PUT /{db}/{docid}"]
  [CouchDB API "PUT /{db}/_local/{docid}"]
+
 Save a new revision of this document to the database.  If docid is new,
 then it will be created, otherwise a new revision is added.  Your content
 of the document is in %data.
@@ -337,6 +340,7 @@ sub update($%)
 =method get %options
  [CouchDB API "GET /{db}/{docid}"]
  [CouchDB API "GET /{db}/_local/{docid}"]
+
 Retrieve document data and information from the database.  There are a zillion
 of %options to collect additional meta-data.
 
@@ -385,6 +389,7 @@ sub get(%)
 =method delete %options
  [CouchDB API "DELETE /{db}/{docid}"]
  [CouchDB API "DELETE /{db}/_local/{docid}"]
+
 Flag the document to be deleted.  A new revision is created, which reflects this.
 Only later, when all replications know it and compaction is run, the document
 versions will disappear.
@@ -415,6 +420,7 @@ sub delete(%)
 =method cloneInto $doc, %options
  [CouchDB API "COPY /{db}/{docid}", PARTIAL]
  [CouchDB API "COPY /{db}/_local/{docid}", PARTIAL]
+
 See also M<appendTo()>.
 
 As %options, C<batch> and C<rev>.
@@ -448,8 +454,8 @@ sub cloneInto($%)
 =method appendTo $doc, %options
  [CouchDB API "COPY /{db}/{docid}", PARTIAL]
  [CouchDB API "COPY /{db}/_local/{docid}", PARTIAL]
-See also M<cloneInto()>.
 
+See also M<cloneInto()>.
 As %options: C<batch> and C<rev>.
 
 =example appending one document into an other
@@ -516,6 +522,7 @@ sub attExists($%)
 
 =method attLoad $name, %options
  [CouchDB API "GET /{db}/{docid}/{attname}", UNTESTED]
+
 Load the data of the attachment into this Document.
 
 If the content-type of the attachment is C<application/octet-stream>,
@@ -571,6 +578,8 @@ sub attSave($$%)
 
 =method attDelete $name, %options
  [CouchDB API "DELETE /{db}/{docid}/{attname}", UNTESTED]
+
+Deletes an attachment of this document.
 =cut
 
 sub attDelete($$$%)
