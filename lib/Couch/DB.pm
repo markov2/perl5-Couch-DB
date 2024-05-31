@@ -753,17 +753,30 @@ boolean to produce C<false> in case of an error.  So typically:
 This CouchDB library hides the fact that endpoint C</_uuids> has been called.
 It also hides the client (UserAgent) which was used to collect the data.
 
+You could also write
+
+  my $uuids  = $couch->requestUUIDs(100)->values->{uuids};
+
+because "values()" will terminate when the database call did not result
+in a successful answer.  Last alternative:
+
+   my @uuids = $couch->freshUUIDs(100);
+
+Besides calls, there are all kinds of facility methods, which add
+further abstraction from the server connection.
+
 =subsection Type conversions
 
-With the C<Couch::DB::Result::values()> method, conversions between JSON
-syntax and pure Perl are done.
+With the M<Couch::DB::Result::values()> method, conversions between JSON
+syntax and pure Perl are done.  This also hides database interface changes
+for you, based on your M<new(api)> setting.  Avoid M<Couch::DB::Result::answers()>,
+which gives the uninterpreted, unabstracted results.
 
-More importantly: this library also converts parameters from Perl space
-into JSON space.  POST and PUT parameters travel in JSON documents.
-In JSON, a boolean is C<true> and C<false> (without quotes).  In Perl,
-these are C<undef> and C<1> (and many alternatives).  For anything besides
-your own documents, C<Couch::DB> will totally hide these differences
-for you!
+This library also converts parameters from Perl space into JSON space.
+POST and PUT parameters travel in JSON documents.  In JSON, a boolean is
+C<true> and C<false> (without quotes).  In Perl, these are C<undef> and
+C<1> (and many alternatives).  For anything besides your own documents,
+C<Couch::DB> will totally hide these differences for you!
 
 =subsection Generic parameters
 
