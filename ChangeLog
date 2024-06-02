@@ -4,6 +4,8 @@
 	  Attributes refer to people who made contributions in ideas and bug-reports.
 
 version 0.003:
+	Fixes:
+	- require HTTP::Status 6.39 for default_status_name() [cpantesters]
 
 version 0.002: Fri 31 May 10:27:47 CEST 2024
 

@@ -13,9 +13,9 @@ use Scalar::Util  qw(weaken);
 my %couch_code_names   = ();   # I think I saw them somewhere.  Maybe none
 
 my %default_code_texts = (  # do not construct them all the time again
-	HTTP_OK					=> 'Data collected successfully.',
-	HTTP_CONTINUE			=> 'The data collection is delayed.',
-	HTTP_MULTIPLE_CHOICES	=> 'The Result object does not know what to do, yet.',
+	&HTTP_OK				=> 'Data collected successfully.',
+	&HTTP_CONTINUE			=> 'The data collection is delayed.',
+	&HTTP_MULTIPLE_CHOICES	=> 'The Result object does not know what to do, yet.',
 );
 
 =chapter NAME
