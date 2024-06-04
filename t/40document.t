@@ -2,9 +2,9 @@
 
 use Test::More;
 use HTTP::Status    qw(HTTP_OK);
-use Couch::DB::Util qw(simplified);
 
 use lib 'lib', 't';
+use Couch::DB::Util qw(simplified);
 use Test;
 
 #$dump_answers = 1;

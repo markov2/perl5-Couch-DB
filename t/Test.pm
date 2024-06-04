@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2024 Mark Overmeer <mark@overmeer.net>
+# SPDX-License-Identifier: Artistic-2.0
 
 #!!! leading blank to make Pause ignore this package
    package Test;

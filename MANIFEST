@@ -15,4 +15,11 @@ lib/Couch/DB/Result.pm
 lib/Couch/DB/Util.pm
 reference.html
 t/00use.t
+t/01util.t
+t/10result.t
+t/11events.t
+t/20client.t
+t/30database.t
+t/40document.t
+t/Test.pm
 xt/99pod.t
