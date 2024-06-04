@@ -10,6 +10,7 @@ version 0.003:
 
 	Improvements:
 	- add ::Util functions pile(), apply_tree(), and simplified().
+	- add tests to the distribution.
 
 version 0.002: Fri 31 May 10:27:47 CEST 2024
 
