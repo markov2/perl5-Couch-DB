@@ -192,8 +192,7 @@ sub reshardJobs(%)
 
 	$self->couch->call(GET => '/_reshard/jobs',
 		introduced => '2.4.0',
-		$self->couch->_resultsConfig(\%args),
-		to_values  => \&__reshardJobsValues,
+		$self->couch->_resultsConfig(\%args, on_values => \&__reshardJobsValues),
 	);
 }
 
@@ -219,8 +218,7 @@ sub reshardStart($%)
 	$self->couch->call(POST => '/_reshard/jobs',
 		introduced => '2.4.0',
 		send       => $create,
-		to_values  => \&__reshardStartValues,
-		$self->couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args, on_values => \&__reshardStartValues),
 	);
 }
 
@@ -244,8 +242,7 @@ sub reshardJob($%)
 
 	$self->couch->call(GET => "/_reshard/jobs/$jobid",
 		introduced => '2.4.0',
-		$self->couch->_resultsConfig(\%args),
-		to_values  => \&__reshardJobValues,
+		$self->couch->_resultsConfig(\%args, on_values => \&__reshardJobValues),
 	);
 }
 
@@ -327,8 +324,7 @@ sub shardsForDB($%)
 
 	$self->couch->call(GET => $db->_pathToDB('_shards'),
 		introduced => '2.0.0',
-		to_values  => \&__dbshards,
-		$self->couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args, on_values => \&__dbshards),
 	);
 }
 
@@ -352,8 +348,7 @@ sub shardsForDoc($%)
 
 	$self->couch->call(GET => $db->_pathToDB('_shards/'.$doc->id),
 		introduced => '2.0.0',
-		to_values  => \&__docshards,
-		$self->couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args, on_values => \&__docshards),
 	);
 }
 

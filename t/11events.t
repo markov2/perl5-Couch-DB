@@ -31,12 +31,24 @@ my $c  = $db->create(on_chain => sub {
 ok defined $c, 'Create with on_chain';
 isa_ok $c, 'Couch::DB::Result';
 ok !!$c, '... success;';
-ok defined $c1, '... chain called';
+ok defined $c1, '... on_chain called';
 ok !@cmore, '... no extra parameters expected';
 is refaddr($c), refaddr($c1), '... chain return = last return';
 
 #### on_final
-#XXX
+
+my ($f1, @fmore);
+my $f = $db->ping(on_final => sub {
+	my ($f1, @fmore) = @_;
+	1;
+});
+ok defined $f, 'Ping with on_final';
+isa_ok $f, 'Couch::DB::Result';
+ok !!$f, '... success';
+ok defined $f1, '... on_final called';
+ok !@fmore, '... no extra parameters expected';
+is refaddr($f), refaddr($f1), '... final return does nothing';
+
 
 #### on_error
 #XXX

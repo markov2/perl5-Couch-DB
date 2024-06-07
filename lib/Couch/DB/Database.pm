@@ -137,8 +137,7 @@ sub details(%)
 	#XXX zero in old nodes?
 
 	$self->couch->call(GET => $self->_pathToDB($part ? '_partition/'.uri_escape($part) : undef),
-		to_values  => \&__detailsValues,
-		$self->couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args, on_values => \&__detailsValues),
 	);
 }
 
@@ -284,8 +283,7 @@ sub ensureFullCommit(%)
 	$self->couch->call(POST => $self->_pathToDB('_ensure_full_commit'),
 		deprecated => '3.0.0',
 		send       => { },
-		to_values  => \&__ensure,
-		$self->couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args, on_values => \&__ensure),
 	);
 }
 
@@ -428,28 +426,26 @@ sub revisionLimitSet($%)
 #-------------
 =section Designs and Indexes
 
-=method listDesigns
+=method listDesigns [\%search|\@%search, %options]
  [CouchDB API "GET /{db}/_design_docs", UNTESTED]
  [CouchDB API "POST /{db}/_design_docs", UNTESTED]
  [CouchDB API "POST /{db}/_design_docs/queries", UNTESTED]
 
-Get some design documents.  The search query looks very much like a generic
-view search, but a few parameters are added and missing.
+Pass one or more %search queries to be run.  The default returns all designs.
+The search query looks very much like a generic view search, but a few
+parameters are added and missing.
 
 If there are searches, then C<GET> is used, otherwise the C<POST> version.
 The returned structure depends on the searches and the number of searches.
-
-=option  search \%query|ARRAY
-=default search [ +{} ]
-One or more search queries to be run.  The default returns all designs.
 =cut
 
-sub listDesigns(%)
-{	my ($self, %args) = @_;
+sub listDesigns(;$%)
+{	my ($self, $search, %args) = @_;
 	my $couch   = $self->couch;
+	my @search  = flat $search;
 
 	my ($method, $path, $send) = (GET => $self->_pathToDB('_design_docs'), undef);
-	if(my @search  = flat delete $args{search})
+	if(@search)
 	{	$method = 'POST';
 	 	my @s   = map $self->_designPrepare($method, $_), @search;
 
@@ -658,7 +654,7 @@ sub inspectDocuments($%)
 	);
 }
 
-=method listDocuments %options
+=method listDocuments [\%search|\@%search, %options]
  [CouchDB API "GET /{db}/_all_docs", UNTESTED]
  [CouchDB API "POST /{db}/_all_docs", UNTESTED]
  [CouchDB API "POST /{db}/_all_docs/queries", UNTESTED]
@@ -673,9 +669,6 @@ The returned structure depends on the searches and the number of searches.
 
 The usual way to use this method with a view, is by calling
 M<Couch::DB::Design::viewFind()>.
-
-=option  search \%view|ARRAY
-=default search []
 
 =option  local  BOOLEAN
 =default local C<false>
@@ -692,6 +685,7 @@ Restrict the search to the named view.  Requires the C<design> document.
 
 =option  design $ddoc|$ddoc_id
 =default design C<undef>
+Usually called via M<Couch::DB::Design::viewFind()>.
 
 =cut
 
@@ -719,11 +713,11 @@ sub __listValues($$%)
 	$values;
 }
 
-sub listDocuments(%)
-{	my ($self, %args) = @_;
+sub listDocuments(;$%)
+{	my ($self, $search, %args) = @_;
 	my $couch  = $self->couch;
 
-	my @search = flat delete $args{search};
+	my @search = flat $search;
 	my $part   = delete $args{partition};
 	my $local  = delete $args{local};
 	my $view   = delete $args{view};
@@ -762,8 +756,9 @@ sub listDocuments(%)
 
 	$couch->call($method => $path,
 		@params,
-		to_values => sub { $self->__listValues($_[0], $_[1], local => $local) },
-		$couch->_resultsConfig(\%args),
+		$couch->_resultsConfig(\%args,
+			on_values => sub { $self->__listValues($_[0], $_[1], local => $local) },
+		),
 	);
 }
 
@@ -839,10 +834,8 @@ sub find($%)
 	$path     .= '/_partition/'. uri_espace($part) if $part;
 
 	$self->couch->call(POST => "$path/_find",
-		send      => $self->_findPrepare(POST => $search),
-		paginate  => 1,
-		to_values => sub { $self->__findValues(@_) },
-		$self->couch->_resultsConfig(\%args),
+		send   => $self->_findPrepare(POST => $search),
+		$self->couch->_resultsPaging(\%args, on_values => sub { $self->__findValues(@_) }),
 	);
 }
 

@@ -3,12 +3,12 @@
 
 package Couch::DB::Result;
 
-use Couch::DB::Util     qw(flat);
+use Couch::DB::Util     qw(flat pile);
 use Couch::DB::Document ();
 
 use Log::Report   'couch-db';
 use HTTP::Status  qw(is_success status_constant_name HTTP_OK HTTP_CONTINUE HTTP_MULTIPLE_CHOICES);
-use Scalar::Util  qw(weaken);
+use Scalar::Util  qw(weaken blessed);
 
 my %couch_code_names   = ();   # I think I saw them somewhere.  Maybe none
 
@@ -64,25 +64,29 @@ use overload
 
 =c_method new %options
 
+For details on the C<on_*> event handlers, see M<Couch::DB/DETAILS>.
+
 =requires couch M<Couch::DB>-object
 
 =option   on_final CODE|ARRAY
-=default  on_final [ ]
+=default  on_final C<< [ ] >>
 Called when the Result object has either an error or an success.
 
 =option   on_error CODE|ARRAY
-=default  on_error [ ]
+=default  on_error C<< [ ] >>
 Called each time when the result CODE changes to be "not a success".
 
-=option   to_values CODE
-=default  to_values <keep data>
+=option   on_values CODE|ARRAY
+=default  on_values C<< [ ] >>
 Provide a sub which translates incoming JSON data from the server, into
 pure perl.
 
-=option   next HASH
-=default  next C<undef>
-Contains the raw information about the request which produced this result,
-to be used for pagination.
+=option   on_chain CODE|ARRAY
+=default  on_chain C<< [ ] >>
+When a request was completed, a new request can be made immediately.  This
+is especially usefull in combination with C<_delay>, and with internal
+logic.
+=option  
 =cut
 
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
@@ -93,11 +97,13 @@ sub init($)
 	$self->{CDR_couch}     = delete $args->{couch} or panic;
 	weaken $self->{CDR_couch};
 
-	$self->{CDR_on_final}  = [ flat delete $args->{on_final} ];
-	$self->{CDR_on_error}  = [ flat delete $args->{on_error} ];
+	$self->{CDR_on_final}  = pile delete $args->{on_final};
+	$self->{CDR_on_error}  = pile delete $args->{on_error};
+	$self->{CDR_on_chain}  = pile delete $args->{on_chain};
+	$self->{CDR_on_values} = pile delete $args->{on_values};
 	$self->{CDR_code}      = HTTP_MULTIPLE_CHOICES;
-	$self->{CDR_to_values} = delete $args->{to_values} || sub { $_[1] };
-	$self->{CDR_next}      = delete $args->{next};
+	$self->{CDR_page}      = delete $args->{paging};
+
 	$self;
 }
 
@@ -179,14 +185,6 @@ sub client()    { $_[0]->{CDR_client} }
 sub request()   { $_[0]->{CDR_request} }
 sub response()  { $_[0]->{CDR_response} }
 
-=method next
-When the call supports pagination, this structure will have captured anything
-you need to know about how to collect the next page.  This structure does not
-contain objects, so can be serialized into a session.
-=cut
-
-sub next()      { $_[0]->{CDR_next} }
-
 =method answer %options
 When the response was received, this returns the received json answer
 as HASH of raw data: the bare result of the request.
@@ -217,46 +215,96 @@ The raw data is returned with M<answer()>.  See L</DETAILS> below.
 
 sub values(@)
 {	my $self = shift;
-	$self->{CDR_values} ||= $self->{CDR_to_values}->($self, $self->answer);
+	return $self->{CDR_values} if exists $self->{CDR_values};
+
+	my $values = $self->answer;
+	$values = $_->($self, $values) for reverse @{$self->{CDR_on_values}};
+	$self->{CDR_values} = $values;
 }
 
-=method nextPage %options
-[UNTESTED]
-Repeat the request which lead to this result, to receive the next batch
-of answers.  This is only supported by a small set of (search) endpoints.
-This uses the C<bookmark> token. Do not combine it with the C<skip>
-search option (which is probably ignored).
+#-------------
+=section Paging through results
 
-=example paging through result
-  my $page1 = $couch->find;
-  my $docs1 = $page1->answer->{docs};
-  my $page2 = $page1->nextPage;
-  my $docs2 = $page2->answer->{docs};
+=method pagingState %options
+Returns information about the logical next page for this response, in a format
+which can be saved into a session.
 
-=example paging via a session
-  my $page1 = $couch->find;
-  my $docs1 = $page1->answer->{docs};
-  $session->save(next => serialized $page1->next);
-  ...
-  my $next  = deserialize $session->load('next');
-  my $page2 = $couch->call($next);
-  my $docs2 = $page2->answer->{docs};
+=option  max_bookmarks INTEGER
+=default max_bookmarks 10
+When you save this paging information into a session cookie, you should not
+store many bookmarks, because they are pretty large and do not compress.  Random
+bookmarks are thrown away.  Set to '0' to disable this restriction.
 =cut
 
-sub nextPage(%)
-{	my ($self, %options) = @_;
+sub pagingState(%)
+{	my ($self, %args) = @_;
+	my $next = $self->nextPageSettings;
+	$next->{harvester} = defined $next->{harvester} ? 'CODE' : 'DEFAULT';
+	$next->{client}    = $self->client->name;
 
-	$self->isReady
-		or panic "The results are not available yet, not ready.";
+	if(my $maxbook = delete $args{max_bookmarks} // 10)
+	{	my $bookmarks = $next->{bookmarks};
+		$next->{bookmarks} = +{ (%$bookmarks)[0..(2*$maxbook-1)] } if keys %$bookmarks > $maxbook;
+	}
 
-	my $next     = $self->next
-		or panic "This call does not support pagination.";
-
-	$self
-		or error __x"The previous page had an error";
-
-	$self->couch->call($next);
+	$next;
 }
+
+# The next is used r/w when _succeed is a result object, and when results
+# have arrived.
+
+sub _thisPage() { $_[0]->{CDR_page} or panic "Call does not support paging." }
+
+=method nextPageSettings
+Returns the details for the next page to be collected.  When you need these
+details to be saved outside the program, than use M<pagingState()>.
+=cut
+
+sub nextPageSettings()
+{	my $self = shift;
+	my %next = %{$self->_thisPage};
+	delete $next{harvested};
+	$next{skip} += @{$self->page};
+use Data::Dumper;
+warn "NEXT PAGE=", Dumper \%next;
+	\%next;
+}
+
+=method page
+Returns an ARRAY with the elements collected (harvested) for this page.
+When there are less elements than the requested page size, then there
+are no more elements in the collections.
+=cut
+
+sub page() { $_[0]->_thisPage->{harvested} }
+
+sub _pageAdd($@)
+{	my $this     = shift->_thisPage;
+	my $bookmark = shift;
+	my $page     = $this->{harvested};
+	$this->{end_reached} = ! @_;
+	push @$page, @_;
+	$this->{bookmarks}{$this->{skip} + @$page} = $bookmark if defined $bookmark;
+	$page;
+}
+
+=method pageIsPartial
+Returns a true value when there should be made another attempt to fill the
+page upto the the requested page size.
+=cut
+
+sub pageIsPartial()
+{	my $this = shift->_thisPage;
+warn "HARVESTED=". @{$this->{harvested}} . ", ".$this->{page_size};
+	$this->{end_reached} || @{$this->{harvested}} < $this->{page_size};
+}
+
+=method isLastPage
+Returns a true value when there are no more page elements to be expected.  The
+M<page()> may already be empty.
+=cut
+
+sub isLastPage() { $_[0]->_thisPage->{end_reached} }
 
 #-------------
 =section When the collecting is delayed
@@ -272,25 +320,29 @@ sub setFinalResult($%)
 	$self->{CDR_client}   = my $client = delete $data->{client} or panic "No client";
 	weaken $self->{CDR_client};
 
+	$self->{CDR_ready}    = 1;
 	$self->{CDR_request}  = delete $data->{request};
 	$self->{CDR_response} = delete $data->{response};
 	$self->status($code, delete $data->{message});
-	$self->{CDR_ready}    = 1;
 
-	$_->($self) for @{$self->{CDR_on_final}};
-
-	if(is_success $code)
-	{	if(my $next = $self->next)
-		{	$next->{client}   = $client->name;   # no objects!
-			$next->{bookmark} = $self->answer->{bookmark};
-		}
-	}
-	else
+	unless(is_success $code)
 	{	$_->($self) for @{$self->{CDR_on_error}};
 		#XXX what to do with pagination here?
 	}
 
-	$self;
+	$_->($self) for @{$self->{CDR_on_final}};
+
+	# First run inner chains, working towards outer
+	my @chains = @{$self->{CDR_on_chain} || []};
+	my $tail   = $self;
+
+	while(@chains && $tail)
+ 	{	$tail = (pop @chains)->($tail);
+		blessed $tail && $tail->isa('Couch::DB::Result')
+			or panic "Chain must return a Result object";
+	}
+
+	$tail;
 }
 
 =method setResultDelayed $plan, %options

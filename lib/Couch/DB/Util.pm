@@ -11,7 +11,8 @@ use Log::Report 'couch-db';
 use Data::Dumper ();
 use Scalar::Util qw(blessed);
 
-our @EXPORT_OK = qw/flat pile apply_tree simplified/;
+our @EXPORT_OK   = qw/flat pile apply_tree simplified/;
+our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
 sub import
 {	my $class  = shift;
@@ -77,7 +78,7 @@ sub simplified($$)
 	my $v = apply_tree $data, sub ($) {
 		my $e = shift;
 		    ! blessed $e         ? $e
-		  : $e->isa('DateTime')  ? "DATEtIME($e)"
+		  : $e->isa('DateTime')  ? "DATETIME($e)"
 		  : $e->isa('Couch::DB::Document') ? 'DOCUMENT('.$e->id.')'
 		  : $e->isa('JSON::PP::Boolean')   ? ($e ? 'BOOL(true)' : 'BOOL(false)')
 		  : $e->isa('version')   ? "VERSION($e)"

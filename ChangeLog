@@ -5,6 +5,10 @@
 
 version 0.003:
 
+	Changes:
+	- moved some 'search' options to positional params.
+	- changed paging implementation.
+
 	Fixes:
 	- require HTTP::Status 6.39 for default_status_name() [cpantesters]
 

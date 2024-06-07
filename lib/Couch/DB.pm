@@ -13,15 +13,15 @@ use Couch::DB::Design   ();
 use Couch::DB::Node     ();
 use Couch::DB::Util     qw(flat);
 
-use Scalar::Util      qw(blessed);
-use List::Util        qw(first);
 use DateTime          ();
-use DateTime::Format::Mail    ();
 use DateTime::Format::ISO8601 ();
+use DateTime::Format::Mail    ();
+use JSON              qw/encode_json/;
+use List::Util        qw(first min);
+use Scalar::Util      qw(blessed);
+use Storable          qw/dclone/;
 use URI               ();
 use URI::Escape       qw/uri_escape uri_unescape/;
-use JSON              qw/encode_json/;
-use Storable          qw/dclone/;
 
 use constant
 {	DEFAULT_SERVER => 'http://127.0.0.1:5984',
@@ -326,15 +326,9 @@ sub client($)
 	first { $_->name eq $name } $self->clients;   # never many: no HASH needed
 }
 
-=method call \%options|($method, $path, %options)
+=method call $method, $path, %options
 Call some couchDB server, to get work done.  This is the base for any
 interaction with the server.
-
-=requires method 'GET'|'POST'|...
-HTTP transport method.  Positional parameter when a LIST is passed.
-
-=requires path $url
-HTTP endpoint.  Positional parameter when a LIST is passed.
 
 =option  delay BOOLEAN
 =default delay C<false>
@@ -354,6 +348,12 @@ The content to be sent with POST and PUT methods.
 in those cases, even when there is nothing to pass on, simply to be
 explicit about that.
 
+=option  on_chain   CODE
+=default on_chain   C<undef>
+When the call ends successfully, then run the chain code.  Event
+C<on_error> and C<on_final> are only called on the last results of
+the chain.
+
 =option  clients ARRAY|$role
 =default clients C<undef>
 Explicitly use only the specified clients (M<Couch::DB::Client>-objects)
@@ -364,30 +364,27 @@ a subset of the defined clients.
 =option  client M<Couch::DB::Client>
 =default client C<undef>
 
-=option  to_values CODE
-=default to_values C<undef>
-A function (sub) which transforms the data of the CouchDB answer into useful Perl
-values and objects.  See M<Couch::DB::toPerl()>.
+=option  on_values CODE
+=default on_values C<undef>
+A function (sub) which transforms the data of the CouchDB answer into
+useful Perl values and objects.  See M<Couch::DB::toPerl()>.
+The function is called with the result and a partially or unprocessed
+reponse (answer).  That data shall not be modified.  Return a new
+data-structure which contains the processed information, which may
+reuse parts which are not modified.
 
-=option  paginate BOOLEAN
-=default paginate C<false>
-This call supports pagination via bookmarks.
-This enables the use of M<Couch::DB::Result::nextPage()>.
-
-=option  bookmark STRING
-=default bookmark C<undef>
-When you magically come up with the same query, and a related
-bookmark (save C<< $result->next >> in the session?), then you
-get a next page.
+=option  paging HASH
+=default paging {}
+When the endpoint support paging, then its needed configuration
+data has been collected in here.  This enables the use of C<_succeed>,
+C<_page>, C<skip>, and friends.  See examples in section L</Pagination>.
 =cut
 
 sub call($$%)
-{	my $self = shift;
-	my %args = @_==1 ? %{$_[0]} : (method => shift, path => shift, @_);
-
-	my $method = $args{method};
-	my $path   = $args{path};
-	$args{query}  ||= {};
+{	my ($self, $method, $path, %args) = @_;
+	$args{method}   = $method;
+	$args{path}     = $path;
+	$args{query}  ||= my $query = {};
 
 	my $headers     = $args{headers} ||= {};
 	$headers->{Accept} ||= 'application/json';
@@ -396,11 +393,27 @@ sub call($$%)
 #use Data::Dumper;
 #warn "CALL ", Dumper \%args;
 
-    defined $args{send} || ($method ne 'POST' && $method ne 'PUT')
+    my $send = $args{send};
+	defined $send || ($method ne 'POST' && $method ne 'PUT')
 		or panic "No send in $method $path";
 
-	($method eq 'GET' ? $args{query} : $args{send})->{bookmark} = delete $args{bookmark}
-		if exists $args{bookmark};
+	if(my $paging = $args{paging})
+	{	# Translate paging status into call parameters
+		my $params   = $method eq 'GET' ? $query : $send;
+		my $progress = @{$paging->{harvested}};      # within a page
+		my $skip     = $paging->{skip} + $progress;
+		$params->{bookmark} = $paging->{bookmarks}{$skip};   # may be undef
+		$params->{skip}     = $params->{bookmark} ? 0 : $skip;
+		$params->{limit}    = min $paging->{page_size} - $progress, $paging->{req_max};
+
+		if(my $client = $paging->{client})
+		{	# No free choices for clients once we are on page 2
+			$args{client} = $client;
+			delete $args{clients};
+		}
+use Data::Dumper;
+warn "PAGING PARAMS = ", Dumper $params;
+	}
 
 	### On this level, we pick a client.  Extensions implement the transport.
 
@@ -422,10 +435,11 @@ sub call($$%)
 
 	my $result  = Couch::DB::Result->new(
 		couch     => $self,
-		to_values => $args{to_values},
+		on_values => $args{on_values},
 		on_error  => $args{on_error},
 		on_final  => $args{on_final},
-		next      => ($args{paginate} ? \%args : undef),
+		on_chain  => $args{on_chain},
+		paging    => $args{paging},
 	);
 
   CLIENT:
@@ -444,34 +458,102 @@ sub call($$%)
 
 sub _callClient { panic "must be extended" }
 
-# Described in the DETAILS below
+# Described in the DETAILS below, non-paging commands
 sub _resultsConfig($%)
 {	my ($self, $args, @more) = @_;
 	my %config;
+
 	exists $args->{"_$_"} && ($config{$_} = delete $args->{"_$_"})
 		for qw/delay client clients headers/;
 
-	exists $args->{$_} && ($config{$_} = delete $args->{$_})
-		for qw/on_error on_final/;
+	exists $args->{$_} && (push @{$config{$_}}, delete $args->{$_})
+		for qw/on_error on_final on_chain on_values/;
 
 	while(@more)
 	{	my ($key, $value) = (shift @more, shift @more);
-		if($key eq 'headers')
+		if($key eq '_headers')
 		{	# Headers are added, as default only
 			my $headers = $config{headers} ||= {};
 			exists $headers->{$_} or ($headers->{$_} = $value->{$_}) for keys %$value;
 			next;
 		}
 		elsif($key =~ /^on_/)
-		{	# Events are added to list of events
-			$config{$key} = exists $config{$key} ? [ flat $config{$key}, $value ] : $value;
+		{	push @{$config{$key}}, $value;
 		}
 		else
 		{	# Other parameters used as default
 			exists $config{$key} or $config{$key} = $value;
 		}
 	}
+
+	keys %$args and warn "Unused call parameters: ", join ', ', sort keys %$args;
 	%config;
+}
+
+# Described in the DETAILS below, paging commands
+sub _resultsPaging($%)
+{	my ($self, $args, @more) = @_;
+
+	my %state = (harvested => []);
+	my $succ;  # successor
+	if(my $succeeds = delete $args->{_succeed})
+	{	delete $args->{_clients}; # no client switching within paging
+
+		if(blessed $succeeds && $succeeds->isa('Couch::DB::Result'))
+		{	# continue from living previous result
+			$succ = $succeeds->nextPageSettings;
+			$args->{_client} = $succeeds->client;
+		}
+		else
+		{	# continue from resurrected from Result->pagingState()
+			my $h = $succeeds->{harvester}
+				or panic "_succeed does not contain data from pagingState() nor is a Result object.";
+
+			$h eq 'DEFAULT' || $args->{_harvester}
+				or panic "Harvester does not survive pagingState(), resupply.";
+
+			$succ  = $succeeds;
+			$args->{_client} = $succeeds->{client};
+		}
+	}
+
+	$state{harvester} = my $harvester = delete $args->{_harvester} || $succ->{harvester};
+	$state{page_size} = delete $args->{_page_size} || $succ->{page_size} || 25;
+	$state{req_max}   = delete $args->{limit}      || $succ->{req_max}   || $state{page_size};
+
+	if(defined($state{skip} = delete $args->{skip}))
+	{	! defined $args->{_page} or panic "Do not use skip and _page together";
+	}
+	elsif(my $page = delete $args->{_page})
+	{	$state{skip}  = ($page - 1) * $state{page_size};
+	}
+	else
+	{	$state{skip}  = $succ->{skip} || 0;
+	}
+
+	$state{bookmarks} = $succ->{bookmarks} ||= { };
+	if(my $b = delete $args->{_bookmark})
+	{	$state{bookmarks}{$state{skip}} = $b;
+	}
+
+	$harvester ||= sub { $_[0]->values->{docs} };
+	my $collect_find = sub {
+		my $result = shift;
+		$result->_pageAdd($result->answer->{bookmark}, flat $harvester->($result)) if $result;
+		$result;
+	};
+
+	my $continue_partial = sub {
+		my $result = shift;
+		warn "NOT YET IMPLEMENTED" if $result->pageIsPartial;   #XXX
+		$result;
+	};
+
+	# When less elements are returned
+	return
+	( $self->_resultsConfig($args, @more, on_final => $collect_find, on_chain => $continue_partial),
+	   paging => \%state,
+	);
 }
 
 #-------------
@@ -609,8 +691,8 @@ The $what describes the element, to be used in error or warning messages.
 my (%surpress_depr, %surpress_intro);
 
 sub check($$$$)
-{	defined $_[3] or return $_[0];
-	my ($self, $element, $change, $version, $what) = @_;
+{	$_[1] or return $_[0];
+	my ($self, $condition, $change, $version, $what) = @_;
 
 	# API-doc versions are sometimes without 3rd part.
 	my $cv = version->parse($version);
@@ -808,13 +890,120 @@ Besides, at the moment we support the following events:
 
 =over 4
 =item * C<on_error> =E<gt> CODE or ARRAY-of-CODE
-A CODE (sub) which is called when the interaction with the server has been completed
-without success.  The CODE gets the result object as only parameter.
+A CODE (sub) which is called when the interaction with the server has
+been completed without success.  The CODE gets the result object as
+only parameter.
 
 =item * C<on_final> =E<gt> CODE or ARRAY-of-CODE
-A CODE (sub) which is called when the interaction with the server has been completed.
-This may happen much later, when combined with C<_delay>.  The CODE gets the result
-object as only parameter.
+A CODE (sub) which is called when the interaction with the server has
+been completed.  This may happen much later, when combined with C<_delay>.
+The CODE gets the result object as only parameter, and returns a result
+object which might be different... as calls can be chained.
+
+=item * C<on_chain> =E<gt> CODE
+Run the CODE after the call has been processed.  It works as if the
+changed logic is run after the call, with the difference is that this
+next step is defined before the call has been made.  This sometimes
+produces a nicer interface (like paging).
+
 =back
+
+=section Pagination
+
+Searches tend to give a large number of anwers.  CouchDB calls will refuse
+to return too many answers at a time (typically 25).  When you need more
+answers, you will need more calls.
+
+To get more answers, there are two mechanisms: some calls provide a
+C<skip> and C<limit>.  Other calls implement the more sofisticated
+bookmark mechanism.  Both mechanisms are supported by the C<_succeed>
+mechanism.
+
+B<Be aware> that you shall provide the same query parameters to each
+call of the search method.  Succession may be broken when you change
+some parameters: it is not fully documented which ones and how are
+needed to continue, so simply pass all.  Probably, it is save to change
+the C<limit>.
+
+When the seach method supports bookmarks, then do not provide a C<skip>
+(after the initial request).
+
+To manage paged results, selected calls support the following options:
+
+=over 4
+=item * C<_page> =E<gt> INTEGER (default 1)
+Start-point of returned results, for calls which support paging.
+Pages are numbered starting from 1.  When available, bookmarks will
+be used for next pages.  Succeeding searches will automatically move
+through pages (see examples)
+
+=item * C<_page_size> =E<gt> INTEGER (default 25)
+The CouchDB server will often not give you more than 25 or 50 answers at a time,
+but you do not want to know.
+
+=item * C<_succeed> =E<gt> $result or $result->paging
+Make this query as successor of a previous query.  Some requests support paging
+(via bookmarks).  See examples in a section below.
+
+=item * C<_harvester> =E<gt> CODE
+How or what to extract per request.  You may add other information, like collecting
+response objects.  The CODE returns the extract LIST of objects/elements. Collection
+for a page stops once that combined list reaches C<_page_size>.
+
+=item * C<_bookmark> =E<gt> STRING
+If you accidentally know the bookmark for the search.  Usually, this is automatically
+picked-up via C<_succeed>.
+=back
+
+=example paging through result
+Get page by page, where you may use the C<limit> parameter to request
+for a number of elements.  Do not use C<skip>, except in the first call.
+The C<_succeed> handling will play tricks with C<_page>, C<_harvester>,
+and C<_client> which you do not wish to know.
+
+  my $page1 = $couch->find(%params, limit => 12, skip => 300);
+  my $docs1 = $page1->answer->{docs};
+  my $page2 = $couch->find(%params, _succeed => $page1)
+  my $docs2 = $page2->answer->{docs};
+
+=example paging via a session
+When you cannot ask for pages within a continuous process, because the
+page is shown to a user who has to take action to see an other page,
+then save the pagingState.  The state cannot contain code references, so
+when you have a specific harvester, than you need to resupply it.
+
+  my $page1 = $couch->find(%params);
+  my $docs1 = $page1->answer->{docs};
+  $session->save(current => serialized $page1->pagingState);
+  ...
+  my $prev  = deserialize $session->load('current');
+  my $page2 = $couch->find(%params, _succeed => $prev);
+  my $docs2 = $page2->answer->{docs};
+
+=example get all results
+Handle the responses which are coming in one by one.  This is useful
+when the documents (with attachements?) are large.
+
+  my $page;
+  while($page = $couch->find(%params, _succeed => $page))
+  {   my $docs = $page->values->{docs};
+      @$docs or last;    # nothing left
+      ...;    # use the docs
+  }
+  $page or die "Stopped somewhere with ". $page->message;
+
+=example get one page of results
+You can jump back and forward in the pages: bookmarks will remember the
+pages already seen.
+
+  my $page1 = $couch->find(%params,
+	limit      => 10,  # results per server request
+	_page_size => 50,  # results until complete
+    _page      =>  4,  # start point, may use bookmark
+    _harvester => sub { $_[0]->values->{docs} }, # default
+  );
+  my @docs1 = $page1->elements;
+  my $page2 = $couch->find(%params, _succeed => $page1);
+  my @docs2 = $page2->elements;
 
 =cut

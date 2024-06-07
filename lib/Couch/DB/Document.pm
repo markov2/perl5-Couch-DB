@@ -78,7 +78,7 @@ sub init($)
 
 sub _consume($$)
 {	my ($self, $result, $data) = @_;
-	my $id       = delete $data->{_id};
+	my $id       = $self->{CDD_id} = delete $data->{_id};
 	my $rev      = delete $data->{_rev};
 
 	# Add all received '_' labels to the existing info.
@@ -333,7 +333,7 @@ sub update($%)
 	$couch->call(PUT => $self->_pathToDoc,
 		query    => \%query,
 		send     => $data,
-		$couch->_resultsConfig(\%args, on_final => sub { $self->__saved($_[0], $data) }),
+		$couch->_resultsConfig(\%args, on_final => sub { $self->__created($_[0], $data) }),
 	);
 }
 
@@ -381,7 +381,7 @@ sub get(%)
 		query    => \%query,
 		$couch->_resultsConfig(\%args,
 			on_final => sub { $self->__get($_[0], \%args) },
-			headers  => { Accept => $args{attachments} ? 'multipart/related' : 'application/json' },
+			_headers => { Accept => $args{attachments} ? 'multipart/related' : 'application/json' },
 		),
 	);
 }
@@ -446,7 +446,7 @@ sub cloneInto($%)
 		query    => \%query,
 		$couch->_resultsConfig(\%args,
 			on_final => sub { $self->__delete($_[0]) },
-			headers  => +{ Destination => $to->id },
+			_headers => +{ Destination => $to->id },
 		),
 	);
 }
@@ -481,7 +481,7 @@ sub appendTo($%)
 		query    => \%query,
 		$couch->_resultsConfig(\%args,
 			on_final => sub { $self->__delete($_[0]) },
-			headers  => +{ Destination => $to->id . "?rev=$dest_rev" },
+			_headers => +{ Destination => $to->id . "?rev=$dest_rev" },
 		),
 	);
 }
@@ -571,7 +571,7 @@ sub attSave($$%)
 		query => \%query,
 		send  => $data,
 		$self->couch->_resultsConfig(\%args,
-			headers => { "Content-Type" => $type },
+			_headers => { 'Content-Type' => $type },
 		),
 	);
 }

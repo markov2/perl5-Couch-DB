@@ -204,9 +204,9 @@ sub indexFind($%)
 	$couch->call(GET => $self->_pathToDDoc('_search/' . uri_escape $index),
 		introduced => '3.0.0',
 		query      => $query,
-		paginate   => 1,
-		to_values  => sub { $self->__indexValues($_[0], $_[1], db => $self->db, full_docs => $search->{include_docs}) },
-		$couch->_resultsConfig(\%args),
+		$couch->_resultsPaging(\%args,
+			on_values  => sub { $self->__indexValues($_[0], $_[1], db => $self->db, full_docs => $search->{include_docs}) },
+		),
 	);
 }
 
@@ -228,7 +228,7 @@ sub indexDetails($%)
 #-------------
 =section Views
 
-=method viewFind $view, %options
+=method viewFind $view, [\%search|\@%search), %options]
  [CouchDB API "GET /{db}/_design/{ddoc}/_view/{view}"]
  [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}/queries", UNTESTED]
@@ -240,33 +240,28 @@ This work is handled in M<Couch::DB::Database::listDocuments()>.  See that metho
 %options and results.
 =cut
 
-sub viewFind($%)
-{	my ($self, $view, %args) = @_;
-	$self->db->listDocuments(view => $view, design => $self, %args);
+sub viewFind($;$%)
+{	my ($self, $view, $search, %args) = @_;
+	$self->db->listDocuments($search, view => $view, design => $self, %args);
 }
 
 #-------------
 =section Functions
 
-=method show $function, %options
+=method show $function, [$doc|$docid|undef, %options]
  [CouchDB API "GET /{db}/_design/{ddoc}/_show/{func}", deprecated 3.0, removed 4.0, UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_show/{func}", deprecated 3.0, removed 4.0, UNTESTED]
  [CouchDB API "GET /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED]
 
-Apply show $function on the document.
-
-=option  doc $document|$docid
-=default doc C<null>
-Run the function on the specified document, by default a C<null> document.
+Apply show $function on the document, as specified by id or object.  By default or explicit
+undef, a C<null> document will be used.
 =cut
 
-sub show($%)
-{	my ($self, $function, %args) = @_;
+sub show($;$%)
+{	my ($self, $function, $doc, %args) = @_;
 	my $path = $self->_pathToDoc('_show/'.uri_escape($function));
-	if(my $doc = delete $args{doc})
-	{	$path .= '/' . (blessed $doc ? $doc->id : $doc);
-	}
+	$path .= '/' . (blessed $doc ? $doc->id : $doc) if defined $doc;
 
 	$self->couch->call(GET => $path,
 		deprecated => '3.0.0',
@@ -301,25 +296,20 @@ sub list($$%)
 	);
 }
 
-=method applyUpdate $function, %options
+=method applyUpdate $function, [$doc|$docid|undef, %options]
  [CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}", UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}/{docid}", UNTESTED]
 
-Executes an update function against a document.
+See what the update function would change.  The update $function is run
+on a document, specified by id or object.  By default or explicit undef,
+a C<null> (missing) document will be used.
 
-=option  doc $document|$docid
-=default doc C<null>
-Run the function on the specified document.  By default, the function is applied to
-a C<null> (missing) document.
 =cut
 
 sub applyUpdate($%)
-{	my ($self, $function, %args) = @_;
+{	my ($self, $function, $doc, %args) = @_;
 	my $path = $self->_pathToDoc('_update/'.uri_escape($function));
-
-	if(my $doc = delete $args{doc})
-	{	$path .= '/' . (blessed $doc ? $doc->id : $doc);
-	}
+	$path .= '/' . (blessed $doc ? $doc->id : $doc) if defined $doc;
 
 	$self->couch->call(POST => $path,
 		deprecated => '3.0.0',

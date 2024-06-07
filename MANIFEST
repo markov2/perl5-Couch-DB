@@ -18,6 +18,7 @@ t/00use.t
 t/01util.t
 t/10result.t
 t/11events.t
+t/12paging.t
 t/20client.t
 t/30database.t
 t/40document.t

@@ -47,6 +47,17 @@ is_deeply pile(1,2,[3, 4]), [ 1, 2, 3, 4 ], 'pile 4';
 
 ### apply_tree
 
+diag 'test apply_tree';
+
+is_deeply apply_tree(undef, sub { $_[0] }),  undef, '... undef';
+is_deeply apply_tree(42,    sub { - $_[0] }),  -42, '... single';
+is_deeply apply_tree({},    sub {     742 }),   {}, '... single';
+
+is_deeply apply_tree
+  ( { a =>  1, b =>  2, c => [ { d =>  3, e =>  4 },  5,  6 ], f => [ ], g => { } }, sub { $_[0] + 10 } ),
+    { a => 11, b => 12, c => [ { d => 13, e => 14 }, 15, 16 ], f => [ ], g => { } }, "... complex tree";
+
+
 ### simplified
 
 diag 'test simplified';
