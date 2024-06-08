@@ -26,7 +26,7 @@ is $c->code, HTTP_CREATED, '... http created';
 is $c->message, 'Created', '... http message';
 ok defined $c->request, '... http request: '.ref($c->request);
 ok defined $c->response, '... http response'.ref($c->response);
-$debug && warn $c->response->to_string;
+$trace && warn $c->response->to_string;
 
 is_deeply $c->answer, { ok => JSON::PP::true }, '... expected answer';
 is $c->values, $c->answer, '... no special values to convert';

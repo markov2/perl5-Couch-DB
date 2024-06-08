@@ -39,7 +39,7 @@ is refaddr($c), refaddr($c1), '... chain return = last return';
 
 my ($f1, @fmore);
 my $f = $db->ping(on_final => sub {
-	my ($f1, @fmore) = @_;
+	($f1, @fmore) = @_;
 	1;
 });
 ok defined $f, 'Ping with on_final';
@@ -48,7 +48,6 @@ ok !!$f, '... success';
 ok defined $f1, '... on_final called';
 ok !@fmore, '... no extra parameters expected';
 is refaddr($f), refaddr($f1), '... final return does nothing';
-
 
 #### on_error
 #XXX

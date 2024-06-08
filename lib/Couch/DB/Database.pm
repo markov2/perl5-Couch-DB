@@ -805,6 +805,8 @@ data is not included.
 
 The default search will select everything (uses a blank HASH as required
 C<selector>).  By default, the number of results has a C<limit> of 25.
+Pass C<limit> and C<skip> in %options with other pagination control,
+not %search.
 
 =option  partition $partition
 =default partition C<undef>

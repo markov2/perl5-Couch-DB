@@ -401,18 +401,26 @@ sub call($$%)
 	{	# Translate paging status into call parameters
 		my $params   = $method eq 'GET' ? $query : $send;
 		my $progress = @{$paging->{harvested}};      # within a page
-		my $skip     = $paging->{skip} + $progress;
-		$params->{bookmark} = $paging->{bookmarks}{$skip};   # may be undef
-		$params->{skip}     = $params->{bookmark} ? 0 : $skip;
-		$params->{limit}    = min $paging->{page_size} - $progress, $paging->{req_max};
+#use Data::Dumper;
+#warn "PAGING IN=", Dumper $paging;
+		$params->{limit} = min $paging->{page_size} - $progress, $paging->{req_max};
+
+		my $start    = $paging->{start};
+		if(my $bookmark = $paging->{bookmarks}{$start + $progress})
+		{	$params->{bookmark} = $bookmark;
+			$params->{skip}     = $paging->{skip};
+		}
+		else
+		{	delete $params->{bookmark};
+			$params->{skip}     = $start + $progress + $paging->{skip};
+		}
 
 		if(my $client = $paging->{client})
 		{	# No free choices for clients once we are on page 2
 			$args{client} = $client;
 			delete $args{clients};
 		}
-use Data::Dumper;
-warn "PAGING PARAMS = ", Dumper $params;
+#warn "PAGING PARAMS = ", Dumper $params;
 	}
 
 	### On this level, we pick a client.  Extensions implement the transport.
@@ -517,41 +525,37 @@ sub _resultsPaging($%)
 		}
 	}
 
+	$state{start}     = $succ->{start} || 0;
+	$state{skip}      = delete $args->{skip} || 0;
 	$state{harvester} = my $harvester = delete $args->{_harvester} || $succ->{harvester};
 	$state{page_size} = delete $args->{_page_size} || $succ->{page_size} || 25;
-	$state{req_max}   = delete $args->{limit}      || $succ->{req_max}   || $state{page_size};
+	$state{req_max}   = delete $args->{limit}      || $succ->{req_max}   || 100;
 
-	if(defined($state{skip} = delete $args->{skip}))
-	{	! defined $args->{_page} or panic "Do not use skip and _page together";
-	}
-	elsif(my $page = delete $args->{_page})
-	{	$state{skip}  = ($page - 1) * $state{page_size};
-	}
-	else
-	{	$state{skip}  = $succ->{skip} || 0;
+	if(my $page = delete $args->{_page})
+	{	$state{start}  = ($page - 1) * $state{page_size};
 	}
 
 	$state{bookmarks} = $succ->{bookmarks} ||= { };
 	if(my $b = delete $args->{_bookmark})
-	{	$state{bookmarks}{$state{skip}} = $b;
+	{	$state{bookmarks}{$state{start}} = $b;
 	}
 
 	$harvester ||= sub { $_[0]->values->{docs} };
-	my $collect_find = sub {
-		my $result = shift;
-		$result->_pageAdd($result->answer->{bookmark}, flat $harvester->($result)) if $result;
-		$result;
-	};
-
 	my $continue_partial = sub {
 		my $result = shift;
-		warn "NOT YET IMPLEMENTED" if $result->pageIsPartial;   #XXX
+		if($result)
+		{	my @found = flat $harvester->($result);
+			$result->_pageAdd($result->answer->{bookmark}, @found) if @found;
+
+$result->_pageAdd if $result->pageIsPartial;
+#warn "NOT YET IMPLEMENTED" if $result->pageIsPartial;   #XXX
+		}
 		$result;
 	};
 
 	# When less elements are returned
 	return
-	( $self->_resultsConfig($args, @more, on_final => $collect_find, on_chain => $continue_partial),
+	( $self->_resultsConfig($args, @more, on_chain => $continue_partial),
 	   paging => \%state,
 	);
 }
@@ -851,7 +855,7 @@ further abstraction from the server connection.
 
 With the M<Couch::DB::Result::values()> method, conversions between JSON
 syntax and pure Perl are done.  This also hides database interface changes
-for you, based on your M<new(api)> setting.  Avoid M<Couch::DB::Result::answers()>,
+for you, based on your M<new(api)> setting.  Avoid M<Couch::DB::Result::answer()>,
 which gives the uninterpreted, unabstracted results.
 
 This library also converts parameters from Perl space into JSON space.
@@ -915,18 +919,15 @@ to return too many answers at a time (typically 25).  When you need more
 answers, you will need more calls.
 
 To get more answers, there are two mechanisms: some calls provide a
-C<skip> and C<limit>.  Other calls implement the more sofisticated
-bookmark mechanism.  Both mechanisms are supported by the C<_succeed>
-mechanism.
+C<skip> and C<limit> only.  Other calls implement the more sofisticated
+bookmark mechanism.  Both mechanisms are abstracted away by the
+C<_succeed> mechanism.
 
 B<Be aware> that you shall provide the same query parameters to each
 call of the search method.  Succession may be broken when you change
 some parameters: it is not fully documented which ones and how are
 needed to continue, so simply pass all.  Probably, it is save to change
 the C<limit>.
-
-When the seach method supports bookmarks, then do not provide a C<skip>
-(after the initial request).
 
 To manage paged results, selected calls support the following options:
 
@@ -938,21 +939,31 @@ be used for next pages.  Succeeding searches will automatically move
 through pages (see examples)
 
 =item * C<_page_size> =E<gt> INTEGER (default 25)
-The CouchDB server will often not give you more than 25 or 50 answers at a time,
-but you do not want to know.
+The CouchDB server will often not give you more than 25 or 50 answers
+at a time, but you do not want to know.
 
 =item * C<_succeed> =E<gt> $result or $result->paging
-Make this query as successor of a previous query.  Some requests support paging
-(via bookmarks).  See examples in a section below.
+Make this query as successor of a previous query.  Some requests support
+paging (via bookmarks).  See examples in a section below.
 
 =item * C<_harvester> =E<gt> CODE
-How or what to extract per request.  You may add other information, like collecting
-response objects.  The CODE returns the extract LIST of objects/elements. Collection
-for a page stops once that combined list reaches C<_page_size>.
+How or what to extract per request.  You may add other information,
+like collecting response objects.  The CODE returns the extract LIST of
+objects/elements. Collection for a page stops once that combined list
+reaches C<_page_size>.
 
 =item * C<_bookmark> =E<gt> STRING
-If you accidentally know the bookmark for the search.  Usually, this is automatically
-picked-up via C<_succeed>.
+If you accidentally know the bookmark for the search.  Usually, this is
+automatically picked-up via C<_succeed>.
+
+=item * C<skip> =E<gt> INTEGER
+Do not return this amount of first following elements.
+B<Be warned:> use as %option, not as search parameter.
+
+=item * C<limit> =E<gt> INTEGER
+Do not request more than C<limit> number of results per request.  May be
+less than C<_page_size>.
+B<Be warned:> use as %option, not as search parameter.
 =back
 
 =example paging through result
@@ -961,10 +972,10 @@ for a number of elements.  Do not use C<skip>, except in the first call.
 The C<_succeed> handling will play tricks with C<_page>, C<_harvester>,
 and C<_client> which you do not wish to know.
 
-  my $page1 = $couch->find(%params, limit => 12, skip => 300);
-  my $docs1 = $page1->answer->{docs};
-  my $page2 = $couch->find(%params, _succeed => $page1)
-  my $docs2 = $page2->answer->{docs};
+  my $page1 = $couch->find(\%search, limit => 12, skip => 300);
+  my $docs1 = $page1->page;
+  my $page2 = $couch->find(\%search, _succeed => $page1);
+  my $docs2 = $page2->page;
 
 =example paging via a session
 When you cannot ask for pages within a continuous process, because the
@@ -972,38 +983,38 @@ page is shown to a user who has to take action to see an other page,
 then save the pagingState.  The state cannot contain code references, so
 when you have a specific harvester, than you need to resupply it.
 
-  my $page1 = $couch->find(%params);
-  my $docs1 = $page1->answer->{docs};
+  my $page1 = $couch->find(\%search);
+  my $docs1 = $page1->page;
   $session->save(current => serialized $page1->pagingState);
   ...
   my $prev  = deserialize $session->load('current');
-  my $page2 = $couch->find(%params, _succeed => $prev);
-  my $docs2 = $page2->answer->{docs};
+  my $page2 = $couch->find(\%search, _succeed => $prev);
+  my $docs2 = $page2->page;
 
 =example get all results
 Handle the responses which are coming in one by one.  This is useful
 when the documents (with attachements?) are large.
 
-  my $page;
-  while($page = $couch->find(%params, _succeed => $page))
-  {   my $docs = $page->values->{docs};
+  my $list;
+  while($list = $couch->find(\%search, _succeed => $list))
+  {   my $docs = $list->page;
       @$docs or last;    # nothing left
       ...;    # use the docs
   }
-  $page or die "Stopped somewhere with ". $page->message;
+  $list or die "Stopped somewhere with ". $list->message;
 
 =example get one page of results
 You can jump back and forward in the pages: bookmarks will remember the
 pages already seen.
 
-  my $page1 = $couch->find(%params,
+  my $page4 = $couch->find(\%search,
 	limit      => 10,  # results per server request
 	_page_size => 50,  # results until complete
     _page      =>  4,  # start point, may use bookmark
     _harvester => sub { $_[0]->values->{docs} }, # default
   );
-  my @docs1 = $page1->elements;
-  my $page2 = $couch->find(%params, _succeed => $page1);
-  my @docs2 = $page2->elements;
+  my $docs4 = $page4->page;
+  my $page5 = $couch->find(\%search, _succeed => $page4);
+  my $docs5 = $page5->page;
 
 =cut

@@ -7,7 +7,7 @@ use lib 'lib', 't';
 use Couch::DB::Util qw(simplified);
 use Test;
 
-$dump_answers = 1;
+#$dump_answers = 1;
 #$dump_values  = 1;
 #$trace = 1;
 
@@ -20,7 +20,7 @@ my $db = $couch->db('test');
 _result removed          => $db->remove;
 _result create           => $db->create;
 
-foreach my $docnr (1..70)
+foreach my $docnr (01..70)
 {	my $r = $db->doc("doc$docnr")->create({nr => $docnr});
 	$r or die $r->response->to_string;
 }
@@ -36,8 +36,9 @@ is_deeply $p1{paging}, +{
 	harvester => undef,
 	harvested => [],
 	page_size => 25,
-	req_max   => 25,
+	req_max   => 100,
 	skip      => 0,
+	start     => 0,
 }, '... defaults';
 
 my %p2 = $couch->_resultsPaging( +{
@@ -49,14 +50,15 @@ my %p2 = $couch->_resultsPaging( +{
 });
 ok keys %p2, 'Paging with all settings';
 
-warn Dumper \%p2;
+#warn Dumper \%p2;
 is_deeply $p2{paging}, +{
 	bookmarks => { 140 => 'abc' },
 	harvester => "MYCODE",
 	harvested => [],
 	page_size => 35,
 	req_max => 10,
-	skip => 140,
+	skip => 0,
+	start => 140,
 }, '... all fresh';
 
 
@@ -82,7 +84,7 @@ ok $_->isa('Couch::DB::Document'), '... is doc '.$_->id
 
 my $f2 = _result find_page2 => $db->find($query, _succeed => $f1);
 my $this2 = $f2->_thisPage;
-warn "THIS 2: ", Dumper $this2;
+#warn "THIS 2: ", Dumper $this2;
 ok exists $this2->{bookmarks}{25}, '... remembered bookmark';
 ok exists $this2->{bookmarks}{50}, '... caught new bookmark';
 cmp_ok @{$this2->{harvested}}, '==', 25, '... harvested new';
@@ -99,10 +101,10 @@ ok $_->isa('Couch::DB::Document'), '... is doc '.$_->id
 
 my $f3 = _result find_page3 => $db->find($query, _succeed => $f2);
 my $this3 = $f3->_thisPage;
-warn "THIS 3: ", Dumper $this3;
+#warn "THIS 3: ", Dumper $this3;
 ok exists $this3->{bookmarks}{25}, '... remembered bookmark 1';
 ok exists $this3->{bookmarks}{50}, '... remembered bookmark 2';
-cmp_ok keys %{$this3->{bookmarks}}, '==', 2, '... no new bookmark';
+cmp_ok keys %{$this3->{bookmarks}}, '==', 3, '... new bookmark 3';
 
 cmp_ok @{$this3->{harvested}}, '==', 20, '... harvested new';
 

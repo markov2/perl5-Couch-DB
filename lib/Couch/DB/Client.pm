@@ -86,7 +86,7 @@ sub init($)
 	$self->{CDC_ua}     = delete $args->{user_agent} or panic "Requires 'user_agent'";
 	$self->{CDC_uuids}  = [];
 
-	$self->{CDC_couch}  = delete $args->{couch}      or panic "Requires 'couch'";
+	$self->{CDC_couch}  = delete $args->{couch} or panic "Requires 'couch'";
 	weaken $self->{CDC_couch};
 
 	$self->{CDC_hdrs}   = my $headers = delete $args->{headers} || {};
@@ -161,9 +161,9 @@ the indicated location.
 
 sub _clientIsMe($)   # check no client parameter is used
 {	my ($self, $args) = @_;
-	defined $args->{client} and panic "No parameter 'client' allowed.";
-	$args->{clients} && @{delete $args->{clients}} and panic "No parameter 'clients' allowed.";
-	$args->{client} = $self;
+	defined $args->{_client} and panic "No parameter 'client' allowed.";
+	$args->{_clients} && @{delete $args->{_clients}} and panic "No parameter '_clients' allowed.";
+	$args->{_client} = $self;
 }
 
 sub login(%)

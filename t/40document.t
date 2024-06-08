@@ -34,7 +34,7 @@ $trace && warn Dumper [ $t1->revisions ];
 _result t1_att1_save     => $t1->attSave(att1 => 'unsorted bytes');
 
 my $t2 = $db->doc('testdoc1');
-my $r2 = _result t1_get => $t2->get(
+my $r2 = _result t1_get => $t2->get({
 	attachments => 1,
 	att_encoding_info => 1,
 	conflicts => 1,
@@ -44,7 +44,7 @@ my $r2 = _result t1_get => $t2->get(
 	meta => 1,
 	revs => 1,
 	revs_info => 1,
-);
+});
 
 $trace && warn "INFO=", Dumper $t2->_info;
 $trace && warn "LATEST=", Dumper $t2->latest;

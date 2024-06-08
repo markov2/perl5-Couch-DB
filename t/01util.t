@@ -16,8 +16,6 @@ use DateTime ();
 
 ### flat
 
-diag 'test flat';
-
 is_deeply [ flat ],       [ ], 'empty';
 is_deeply [ flat undef ], [ ], 'undef';
 is_deeply [ flat 1 ],     [ 1 ], 'one';
@@ -37,8 +35,6 @@ is_deeply [ flat 1, [ 2, 3, 4], 5 ], [1..5], 'combined';
 
 ### pile
 
-diag 'test pile';
-
 is_deeply pile(), [ ], 'pile empty';
 is_deeply pile(undef), [ ], 'pile undef';
 is_deeply pile(1,2,3), [ 1, 2, 3 ], 'pile 3';
@@ -46,8 +42,6 @@ is_deeply pile([0, 1],2,3), [ 0, 1, 2, 3 ], 'pile 0';
 is_deeply pile(1,2,[3, 4]), [ 1, 2, 3, 4 ], 'pile 4';
 
 ### apply_tree
-
-diag 'test apply_tree';
 
 is_deeply apply_tree(undef, sub { $_[0] }),  undef, '... undef';
 is_deeply apply_tree(42,    sub { - $_[0] }),  -42, '... single';
@@ -59,8 +53,6 @@ is_deeply apply_tree
 
 
 ### simplified
-
-diag 'test simplified';
 
 my $dt = DateTime->now;
 my $dts = "DATETIME($dt)";

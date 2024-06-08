@@ -337,7 +337,7 @@ sub update($%)
 	);
 }
 
-=method get %options
+=method get [\%flags, %options]
  [CouchDB API "GET /{db}/{docid}"]
  [CouchDB API "GET /{db}/_local/{docid}"]
 
@@ -358,29 +358,29 @@ received will get merged into this object's attributes.
 =cut
 
 sub __get($$)
-{	my ($self, $result, $query) = @_;
+{	my ($self, $result, $flags) = @_;
 	$result or return;   # do nothing on unsuccessful access
 	$self->_consume($result, $result->answer);
 
-	# The query here, is the Perl version of the query, so bool=perl bool
-	$query->{conflicts} = $query->{deleted_conflicts} = $query->{revs_info} = 1
-		if $query->{meta};
+	# meta is a shortcut for other flags
+	$flags->{conflicts} = $flags->{deleted_conflicts} = $flags->{revs_info} = 1
+		if $flags->{meta};
 
-	$self->{CDD_query}      = $query;
+	$self->{CDD_flags}      = $flags;
 }
 
 sub get(%)
-{	my ($self, %args) = @_;
+{	my ($self, $flags, %args) = @_;
 	my $couch = $self->couch;
 
-	my %query  = %args;
+	my %query  = $flags ? %$flags : ();
 	$couch->toQuery(\%query, bool => qw/attachments att_encoding_info conflicts
 		deleted_conflicts latest local_seq meta revs revs_info/);
 
 	$couch->call(GET => $self->_pathToDoc,
 		query    => \%query,
 		$couch->_resultsConfig(\%args,
-			on_final => sub { $self->__get($_[0], \%args) },
+			on_final => sub { $self->__get($_[0], $flags) },
 			_headers => { Accept => $args{attachments} ? 'multipart/related' : 'application/json' },
 		),
 	);

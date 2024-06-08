@@ -107,6 +107,7 @@ sub _callClient($$%)
 			request  => $tx->req,
 			response => $response,
 			code     => $response->code,
+			message  => $response->message,
 		});
 	});
 

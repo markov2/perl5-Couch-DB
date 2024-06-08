@@ -64,7 +64,7 @@ use overload
 
 =c_method new %options
 
-For details on the C<on_*> event handlers, see M<Couch::DB/DETAILS>.
+For details on the C<on_*> event handlers, see L<Couch::DB/DETAILS>.
 
 =requires couch M<Couch::DB>-object
 
@@ -86,7 +86,11 @@ pure perl.
 When a request was completed, a new request can be made immediately.  This
 is especially usefull in combination with C<_delay>, and with internal
 logic.
-=option  
+
+=option   paging HASH
+=default  paging C<undef>
+When a call support paging, internal information about it is passed in
+this HASH.
 =cut
 
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
@@ -264,9 +268,9 @@ sub nextPageSettings()
 {	my $self = shift;
 	my %next = %{$self->_thisPage};
 	delete $next{harvested};
-	$next{skip} += @{$self->page};
-use Data::Dumper;
-warn "NEXT PAGE=", Dumper \%next;
+	$next{start} += (delete $next{skip}) + @{$self->page};
+#use Data::Dumper;
+#warn "NEXT PAGE=", Dumper \%next;
 	\%next;
 }
 
@@ -284,7 +288,8 @@ sub _pageAdd($@)
 	my $page     = $this->{harvested};
 	$this->{end_reached} = ! @_;
 	push @$page, @_;
-	$this->{bookmarks}{$this->{skip} + @$page} = $bookmark if defined $bookmark;
+	$this->{bookmarks}{$this->{start} + $this->{skip} + @$page} = $bookmark
+		if defined $bookmark;
 	$page;
 }
 
@@ -295,7 +300,6 @@ page upto the the requested page size.
 
 sub pageIsPartial()
 {	my $this = shift->_thisPage;
-warn "HARVESTED=". @{$this->{harvested}} . ", ".$this->{page_size};
 	$this->{end_reached} || @{$this->{harvested}} < $this->{page_size};
 }
 
