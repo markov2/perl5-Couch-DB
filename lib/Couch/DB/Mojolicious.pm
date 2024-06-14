@@ -82,15 +82,16 @@ sub _callClient($$%)
 	my $method  = delete $args{method} or panic;
 	my $delay   = delete $args{delay}  || 0;
 	my $path    = delete $args{path};
-	my $url     = $client->server->clone->path($path);
-
-	$url->query(delete $args{query});
+	my $query   = delete $args{query};
+	my $send    = delete $args{send};
 
 	my $ua  = $client->userAgent;
 	my %headers = ( %{$client->headers}, %{delete $args{headers}} );
 #warn "HEADERS = ", join ';', %headers;
 
-	my $send = delete $args{send};
+	my $url     = $client->server->clone->path($path);
+	$url->query($query) if $query;
+
 	my @body
 	  = ! defined $send ? ()
 	  : $headers{'Content-Type'} eq 'application/json' ? (json => $send)
@@ -143,9 +144,5 @@ sub _attachment($$)
 }
 
 sub _messageContent($) { $_[1]->body }
-
-#-------------
-=section Other
-=cut
 
 1;

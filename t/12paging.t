@@ -104,11 +104,11 @@ my $this3 = $f3->_thisPage;
 #warn "THIS 3: ", Dumper $this3;
 ok exists $this3->{bookmarks}{25}, '... remembered bookmark 1';
 ok exists $this3->{bookmarks}{50}, '... remembered bookmark 2';
-cmp_ok keys %{$this3->{bookmarks}}, '==', 3, '... new bookmark 3';
+cmp_ok keys %{$this3->{bookmarks}}, '==', 3, '... bookmarks on page 3';
 
 cmp_ok @{$this3->{harvested}}, '==', 20, '... harvested new';
 
-ok $f3->pageIsPartial, '... partial page';
+ok ! $f3->pageIsPartial, '... not full but also not partial page';
 ok $f3->isLastPage, '... last page';
 my $docs3 = $f3->page;
 cmp_ok @$docs3, '==', 20, '... page';
