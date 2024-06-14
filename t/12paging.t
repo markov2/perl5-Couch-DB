@@ -118,7 +118,7 @@ ok $_->isa('Couch::DB::Document'), '... is doc '.$_->id
 
 ### find, all at once
 
-my $f5 =  _result find_all => $db->find($query, _page_size => -1);
+my $f5 =  _result find_all => $db->find($query, _all => 1);
 my $docs5 = $f5->page;
 cmp_ok @$docs5, '==', 70, '.. all at once';
 

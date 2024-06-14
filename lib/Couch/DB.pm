@@ -522,13 +522,13 @@ sub _resultsPaging($%)
 
 	$state{start}     = $succ->{start} || 0;
 	$state{skip}      = delete $args->{skip} || 0;
+	$state{all}       = delete $args->{_all} || 0;
 	$state{harvester} = my $harvester = delete $args->{_harvester} || $succ->{harvester};
 	$state{page_size} = my $size = delete $args->{_page_size} || $succ->{page_size} || 25;
 	$state{req_max}   = delete $args->{limit} || $succ->{req_max} || 100;
 
 	if(my $page = delete $args->{_page})
-	{	$size > 0 or panic "Do not specify a _page together with a _page_size of -1 (=all)";
-		$state{start}  = ($page - 1) * $size;
+	{	$state{start}  = ($page - 1) * $state{page_size};
 	}
 
 	$state{bookmarks} = $succ->{bookmarks} ||= { };
@@ -556,8 +556,7 @@ sub _pageRequest($$$$)
 	my $progress = @{$paging->{harvested}};      # within the page
 	my $start    = $paging->{start};
 
-	$params->{limit} = $paging->{page_size}==-1 ? $paging->{req_max}
-		: (min $paging->{page_size} - $progress, $paging->{req_max});
+	$params->{limit} = $paging->{all} ? $paging->{req_max} : (min $paging->{page_size} - $progress, $paging->{req_max});
 
 	if(my $bookmark = $paging->{bookmarks}{$start + $progress})
 	{	$params->{bookmark} = $bookmark;
@@ -941,6 +940,13 @@ the C<limit>.
 To manage paged results, selected calls support the following options:
 
 =over 4
+=item * C<all> =E<gt> BOOLEAN (default false)
+Return all results at once.  This may involve multiple calls, like
+when the page size is larger than what the server wants to produce
+in one go.
+
+Do not use this when you expect many or large results.
+
 =item * C<_page> =E<gt> INTEGER (default 1)
 Start-point of returned results, for calls which support paging.
 Pages are numbered starting from 1.  When available, bookmarks will
@@ -950,9 +956,6 @@ through pages (see examples)
 =item * C<_page_size> =E<gt> INTEGER (default 25)
 The CouchDB server will often not give you more than 25 or 50 answers
 at a time, but you do not want to know.
-
-When C<_page_size> is C<-1> (ALL), then you get all results is one go.
-Do not use this when you expect many large results.
 
 =item * C<_succeed> =E<gt> $result or $result->paging
 Make this query as successor of a previous query.  Some requests support
@@ -1033,7 +1036,7 @@ pages already seen.
 Do not attempt this unless you know there there is a limited number of
 results, maybe just a bit more than a page.
 
-  my $all   = $couch->find(\%search, _page_size => -1) or die;
+  my $all   = $couch->find(\%search, _all => 1) or die;
   my $docs6 = $all->page;
 
 =cut

@@ -304,8 +304,7 @@ page upto the the requested page size.
 
 sub pageIsPartial()
 {	my $this = shift->_thisPage;
-	! $this->{end_reached} &&
-	($this->{page_size}==-1 || @{$this->{harvested}} < $this->{page_size});
+	! $this->{end_reached} && ($this->{all} || @{$this->{harvested}} < $this->{page_size});
 }
 
 =method isLastPage
