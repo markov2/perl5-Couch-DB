@@ -523,11 +523,12 @@ sub _resultsPaging($%)
 	$state{start}     = $succ->{start} || 0;
 	$state{skip}      = delete $args->{skip} || 0;
 	$state{harvester} = my $harvester = delete $args->{_harvester} || $succ->{harvester};
-	$state{page_size} = delete $args->{_page_size} || $succ->{page_size} || 25;
-	$state{req_max}   = delete $args->{limit}      || $succ->{req_max}   || 100;
+	$state{page_size} = my $size = delete $args->{_page_size} || $succ->{page_size} || 25;
+	$state{req_max}   = delete $args->{limit} || $succ->{req_max} || 100;
 
 	if(my $page = delete $args->{_page})
-	{	$state{start}  = ($page - 1) * $state{page_size};
+	{	$size > 0 or panic "Do not specify a _page together with a _page_size of -1 (=all)";
+		$state{start}  = ($page - 1) * $size;
 	}
 
 	$state{bookmarks} = $succ->{bookmarks} ||= { };
@@ -554,7 +555,9 @@ sub _pageRequest($$$$)
 	my $params   = $method eq 'GET' ? $query : $send;
 	my $progress = @{$paging->{harvested}};      # within the page
 	my $start    = $paging->{start};
-	$params->{limit} = min $paging->{page_size} - $progress, $paging->{req_max};
+
+	$params->{limit} = $paging->{page_size}==-1 ? $paging->{req_max}
+		: (min $paging->{page_size} - $progress, $paging->{req_max});
 
 	if(my $bookmark = $paging->{bookmarks}{$start + $progress})
 	{	$params->{bookmark} = $bookmark;
@@ -778,10 +781,10 @@ sub freshUUIDs($%)
 # Returns the JSON structure which is part of the response by the CouchDB
 # server.  Usually, this is the bofy of the response.  In multipart
 # responses, it is the first part.
-sub _extractAnswer($) { panic "must be extended" }
+sub _extractAnswer($)  { panic "must be extended" }
 
 # The the decoded named extension from the multipart message
-sub _attachment($$)   { panic "must be extended" }
+sub _attachment($$)    { panic "must be extended" }
 
 # Extract the decoded body of the message
 sub _messageContent($) { panic "must be extended" }
@@ -948,6 +951,9 @@ through pages (see examples)
 The CouchDB server will often not give you more than 25 or 50 answers
 at a time, but you do not want to know.
 
+When C<_page_size> is C<-1> (ALL), then you get all results is one go.
+Do not use this when you expect many large results.
+
 =item * C<_succeed> =E<gt> $result or $result->paging
 Make this query as successor of a previous query.  Some requests support
 paging (via bookmarks).  See examples in a section below.
@@ -997,7 +1003,7 @@ when you have a specific harvester, than you need to resupply it.
   my $page2 = $couch->find(\%search, _succeed => $prev);
   my $docs2 = $page2->page;
 
-=example get all results
+=example get all results in a loop
 Handle the responses which are coming in one by one.  This is useful
 when the documents (with attachements?) are large.
 
@@ -1022,5 +1028,12 @@ pages already seen.
   my $docs4 = $page4->page;
   my $page5 = $couch->find(\%search, _succeed => $page4);
   my $docs5 = $page5->page;
+
+=example get all results in one call
+Do not attempt this unless you know there there is a limited number of
+results, maybe just a bit more than a page.
+
+  my $all   = $couch->find(\%search, _page_size => -1) or die;
+  my $docs6 = $all->page;
 
 =cut

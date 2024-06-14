@@ -116,6 +116,12 @@ cmp_ok @$docs3, '==', 20, '... page';
 ok $_->isa('Couch::DB::Document'), '... is doc '.$_->id 
 	for @$docs3;
 
+### find, all at once
+
+my $f5 =  _result find_all => $db->find($query, _page_size => -1);
+my $docs5 = $f5->page;
+cmp_ok @$docs5, '==', 70, '.. all at once';
+
 ####### Cleanup
 _result removed          => $db->remove;
 
