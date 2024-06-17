@@ -983,9 +983,10 @@ a single page requires multiple requests to the CouchDB server, this map
 will happen on the moment each response has been received, which may help
 to create a better interactive experience.
 
-You need to have the CODE return at least a single scalar (may be zero)
-to be fit in the "page", because an empty list will stop requesting the
-query.
+Your CODE may return the harvested object, but also something small
+(even undef) which will free-up the memory use of the object immediately.
+However: at least return a single scalar (it will be returned in the
+"page"), because an empty list signals "end of results".
 
 =item * C<skip> =E<gt> INTEGER
 Do not return this amount of first following elements.
