@@ -128,6 +128,8 @@ cmp_ok @$docs5, '==', 70, '.. all at once';
 
 ### find, map
 
+ok 1, 'New call: find_all_map';  # map runs before _result reports test label
+
 sub map6($$)
 {   my ($result, $doc) = @_;
 	isa_ok $result, 'Couch::DB::Result', '...';
