@@ -244,6 +244,7 @@ sub pagingState(%)
 {	my ($self, %args) = @_;
 	my $next = $self->nextPageSettings;
 	$next->{harvester} = defined $next->{harvester} ? 'CODE' : 'DEFAULT';
+	$next->{map}       = defined $next->{map} ? 'CODE' : 'NONE';
 	$next->{client}    = $self->client->name;
 
 	if(my $maxbook = delete $args{max_bookmarks} // 10)

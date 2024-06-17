@@ -515,6 +515,9 @@ sub _resultsPaging($%)
 			$h eq 'DEFAULT' || $args->{_harvester}
 				or panic "Harvester does not survive pagingState(), resupply.";
 
+			$succeeds->{map} eq 'NONE' || $args->{_map}
+				or panic "Map does not survive pagingState(), resupply.";
+
 			$succ  = $succeeds;
 			$args->{_client} = $succeeds->{client};
 		}
@@ -523,6 +526,7 @@ sub _resultsPaging($%)
 	$state{start}     = $succ->{start} || 0;
 	$state{skip}      = delete $args->{skip} || 0;
 	$state{all}       = delete $args->{_all} || 0;
+	$state{map}       = my $map = delete $args->{_map} || $succ->{map};
 	$state{harvester} = my $harvester = delete $args->{_harvester} || $succ->{harvester};
 	$state{page_size} = my $size = delete $args->{_page_size} || $succ->{page_size} || 25;
 	$state{req_max}   = delete $args->{limit} || $succ->{req_max} || 100;
@@ -539,7 +543,8 @@ sub _resultsPaging($%)
 	$harvester ||= sub { $_[0]->values->{docs} };
 	my $harvest = sub {
 		my $result = shift or return;
-		my @found = flat $harvester->($result);
+		my @found  = flat $harvester->($result);
+		@found     = map $map->($result, $_), @found if $map;
 		$result->_pageAdd($result->answer->{bookmark}, @found);  # also call with 0
 	};
 
@@ -971,6 +976,17 @@ reaches C<_page_size>.
 If you accidentally know the bookmark for the search.  Usually, this is
 automatically picked-up via C<_succeed>.
 
+=item * C<_map> =E<gt> CODE
+Call the CODE on each of the (defined) harvested page elements.  The CODE
+is called with the result object, and one of the harvested elements.  When
+a single page requires multiple requests to the CouchDB server, this map
+will happen on the moment each response has been received, which may help
+to create a better interactive experience.
+
+You need to have the CODE return at least a single scalar (may be zero)
+to be fit in the "page", because an empty list will stop requesting the
+query.
+
 =item * C<skip> =E<gt> INTEGER
 Do not return this amount of first following elements.
 B<Be warned:> use as %option, not as search parameter.
@@ -1038,5 +1054,13 @@ results, maybe just a bit more than a page.
 
   my $all   = $couch->find(\%search, _all => 1) or die;
   my $docs6 = $all->page;
+
+=example processing results when they arrive
+When a page (may) require multiple calls to the server, this may enhance
+the user experience.
+
+  sub do_something($$) { my ($result, $doc) = @_; ...; 42 }
+  my $all = $couch->find(\%search, _all => 1, _map => \&do_something);
+  # $all->page will no show elements containing '42'.
 
 =cut
