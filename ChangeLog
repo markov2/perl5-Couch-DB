@@ -5,6 +5,9 @@
 
 version 0.005:
 
+	Improvements:
+	- added test for some cluster commands.
+
 version 0.004: Mon 17 Jun 09:20:52 CEST 2024
 
 	Improvements:

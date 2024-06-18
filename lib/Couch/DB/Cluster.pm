@@ -9,6 +9,7 @@ use Log::Report 'couch-db';
 
 use Scalar::Util  qw(weaken);
 use URI::Escape   qw(uri_escape);
+use Storable      qw(dclone);
 
 =chapter NAME
 
@@ -58,7 +59,7 @@ B<All CouchDB API calls> documented below, support %options like C<_delay>
 and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
 =method clusterState %options
- [CouchDB API "GET /_cluster_setup", since 2.0, UNTESTED]
+ [CouchDB API "GET /_cluster_setup", since 2.0]
 
 Describes the status of this CouchDB instance is in the cluster.
 Option C<ensure_dbs_exist>.
@@ -66,9 +67,6 @@ Option C<ensure_dbs_exist>.
 
 sub clusterState(%)
 {	my ($self, %args) = @_;
-
-	$args{client} || @{$args{client} || []}==1
-		or error __x"Explicitly name one client for clusterState().";
 
 	my %query;
 	my @need = flat delete $args{ensure_dbs_exists};
@@ -82,23 +80,22 @@ sub clusterState(%)
 	);
 }
 
-=method clusterSetup %options
+=method clusterSetup $config, %options
  [CouchDB API "POST /_cluster_setup", since 2.0, UNTESTED]
 
-Describes the status of this CouchDB instance is in the cluster.
+Configure a node as a single (standalone) node, as part of a cluster,
+or finalise a cluster.
 
-All %options are posted as parameters.  See the API docs.
 =cut
 
-sub clusterSetup(%)
-{	my ($self, %args) = @_;
+sub clusterSetup($%)
+{	my ($self, $config, %args) = @_;
 
-	$args{client} || @{$args{client} || []}==1
-		or error __x"Explicitly name one client for clusterSetup().";
-
+	$self->couch->toJSON($config, int => qw/port node_count/);
+	
 	$self->couch->call(POST => '/_cluster_setup',
 		introduced => '2.0.0',
-		send       => \%args,
+		send       => $config,
 		$self->couch->_resultsConfig(\%args),
 	);
 }
@@ -107,23 +104,23 @@ sub clusterSetup(%)
 =section Sharding
 
 =method reshardStatus %options
- [CouchDB API "GET /_reshard", since 2.4, UNTESTED] and
- [CouchDB API "GET /_reshard/state", since 2.4, UNTESTED]
+ [CouchDB API "GET /_reshard", since 2.4] and
+ [CouchDB API "GET /_reshard/state", since 2.4]
 
 Retrieve the state of resharding on the cluster.
+
+B<Be warned> that the reply with counts returns C<state_reason>,
+where the version without returns C<reason>.
 
 =option  counts BOOLEAN
 =default counts C<false>
 Include the job counts in the result.
 =cut
 
-#XXX The example in CouchDB API doc 3.3.3 says it returns 'reason' with /state,
-#XXX but the spec says 'state_reason'.
-
 sub reshardStatus(%)
 {	my ($self, %args) = @_;
 	my $path = '/_reshard';
-	$path   .= '/state' if delete $args{counts};
+	$path   .= '/state' unless delete $args{counts};
 
 	$self->couch->call(GET => $path,
 		introduced => '2.4.0',
@@ -144,9 +141,6 @@ Can be C<stopped> or C<running>.  Stopped state can be resumed into running.
 
 =cut
 
-#XXX The example in CouchDB API doc 3.3.3 says it returns 'reason' with /state,
-#XXX but the spec says 'state_reason'.
-
 sub resharding(%)
 {	my ($self, %args) = @_;
 
@@ -163,7 +157,7 @@ sub resharding(%)
 }
 
 =method reshardJobs %options
- [CouchDB API "GET /_reshard/jobs", since 2.4, UNTESTED]
+ [CouchDB API "GET /_reshard/jobs", since 2.4]
 
 Show the resharding activity.
 =cut
@@ -303,7 +297,7 @@ sub reshardJobChange($%)
 }
 
 =method shardsForDB $db, %options
- [CouchDB API "GET /{db}/_shards", since 2.0, UNTESTED]
+ [CouchDB API "GET /{db}/_shards", since 2.0]
 
 Returns the structure of the shared used to store a database.  Pass this
 a $db as M<Couch::DB::Database>-object.
@@ -329,7 +323,7 @@ sub shardsForDB($%)
 }
 
 =method shardsForDoc $doc, %options
- [CouchDB API "GET /{db}/_shards/{docid}", since 2.0, UNTESTED]
+ [CouchDB API "GET /{db}/_shards/{docid}", since 2.0]
 
 Returns the structure of the shared used to store a database.  Pass this
 a $db as M<Couch::DB::Database>-object.
@@ -353,7 +347,7 @@ sub shardsForDoc($%)
 }
 
 =method syncShards $db, %options
- [CouchDB API "POST /{db}/_sync_shards", since 2.3.1, UNTESTED]
+ [CouchDB API "POST /{db}/_sync_shards", since 2.3.1]
 
 Force (re-)sharding of documents, usually in response to changes in the setup.
 Pass this a $db as M<Couch::DB::Database>-object.
@@ -363,6 +357,7 @@ sub syncShards($%)
 {	my ($self, $db, %args) = @_;
 
 	$self->couch->call(POST => $db->_pathToDB('_sync_shards'),
+		send => {},
 		introduced => '2.3.1',
 		$self->couch->_resultsConfig(\%args),
 	);
