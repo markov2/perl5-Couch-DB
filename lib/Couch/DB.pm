@@ -766,12 +766,12 @@ sub check($$$$)
 				what => $what, release => $version, api => $self->api;
 	}
 	elsif($change eq 'introduced')
-	{	$self->api >= $cv && ! $surpress_intro{$what}++
+	{	$self->api >= $cv || $surpress_intro{$what}++
 			or warning __x"{what} was introduced in {release}, but you specified api {api}.",
 				what => $what, release => $version, api => $self->api;
 	}
 	elsif($change eq 'deprecated')
-	{	$self->api >= $cv && ! $surpress_depr{$what}++
+	{	$self->api >= $cv || $surpress_depr{$what}++
 			or warning __x"{what} got deprecated in api {release}.",
 					what => $what, release => $version;
 	}

@@ -9,6 +9,9 @@ version 0.005:
 	- searchAnalyse -> searchAnalyze
 	- clusterSetup(%options) -> clusterSetup($config, %options)
 
+	Fixes:
+	- detection of introduced version.
+
 	Improvements:
 	- added test for some cluster commands.
 	- reorder methods in Couch::DB.
