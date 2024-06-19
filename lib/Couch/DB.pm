@@ -225,7 +225,7 @@ sub createClient(%)
 }
 
 =method db $name, %options
-Define a dabase.  The database may not exist yet.  Calling this
+Declare a database.  The database may not exist yet: calling this
 method does nothing with the CouchDB server.
 
   my $db = $couch->db('authors');
@@ -236,32 +236,6 @@ method does nothing with the CouchDB server.
 sub db($%)
 {	my ($self, $name, %args) = @_;
 	Couch::DB::Database->new(name => $name, couch => $self, %args);
-}
-
-=method searchAnalyse %options
- [CouchDB API "POST /_search_analyze", since 3.0, UNTESTED]
-
-Check what the build-in Lucene tokenizer(s) will do with your text.
-
-=requires analyzer KIND
-=requires text STRING
-=cut
-
-#XXX the API-doc might be mistaken, calling the "analyzer" parameter "field".
-
-sub searchAnalyse(%)
-{	my ($self, %args) = @_;
-
-	my %send = (
-		analyzer => delete $args{analyzer} // panic "No analyzer specified.",
-		text     => delete $args{text}     // panic "No text to inspect specified.",
-	);
-
-	$self->call(POST => '/_search_analyze',
-		introduced => '3.0',
-		send       => \%send,
-		$self->_resultsConfig(\%args),
-	);
 }
 
 =method node $name
@@ -283,7 +257,83 @@ return the same object.
 sub cluster() { $_[0]->{CD_cluster} ||= Couch::DB::Cluster->new(couch => $_[0]) }
 
 #-------------
-=section Server connections
+=section Unrelated calls
+
+=method searchAnalyze %options
+ [CouchDB API "POST /_search_analyze", since 3.0, UNTESTED]
+
+Check what the build-in Lucene tokenizer(s) will do with your text.
+
+=requires analyzer KIND
+=requires text STRING
+=cut
+
+#XXX the API-doc might be mistaken, calling the "analyzer" parameter "field".
+
+sub searchAnalyze(%)
+{	my ($self, %args) = @_;
+
+	my %send = (
+		analyzer => delete $args{analyzer} // panic "No analyzer specified.",
+		text     => delete $args{text}     // panic "No text to inspect specified.",
+	);
+
+	$self->call(POST => '/_search_analyze',
+		introduced => '3.0',
+		send       => \%send,
+		$self->_resultsConfig(\%args),
+	);
+}
+
+=method requestUUIDs $count, %options
+ [CouchDB API "GET /_uuids", since 2.0, UNTESTED]
+
+Returns UUIDs (Universally unique identifiers), when the call was
+successful.  Better use M<freshUUIDs()>.  It is faster to use Perl
+modules to generate UUIDs.
+=cut
+
+sub requestUUIDs($%)
+{	my ($self, $count, %args) = @_;
+
+	$self->call(GET => '/_uuids',
+		introduced => '2.0.0',
+		query      => { count => $count },
+		$self->_resultsConfig(\%args),
+	);
+}
+
+=method freshUUIDs $count, %options
+ [UNTESTED]
+
+Returns a $count number of UUIDs in a LIST.  This uses M<requestUUIDs()> to get
+a bunch at the same time, for efficiency.  You may get fewer than you want, but
+only when the server is not sending them.
+
+=option  bulk INTEGER
+=default bulk 50
+When there are not enough UUIDs in stock, in how large chuncks should we ask for
+more.
+=cut
+
+sub freshUUIDs($%)
+{	my ($self, $count, %args) = @_;
+	my $stock = $self->{CDC_uuids};
+	my $bulk  = delete $args{bulk} || 50;
+
+	while($count > @$stock)
+	{	my $result = $self->requestUUIDs($bulk, _delay => 0) or last;
+		push @$stock, @{$result->values->{uuids} || []};
+	}
+
+	splice @$stock, 0, $count;
+}
+
+#-------------
+=section Processing
+
+The methods in this section implement the CouchDB API.  You should
+usually not need to use these yourself, as this libary abstracts them.
 
 =method addClient $client
 Add a M<Couch::DB::Client>-object to be used to contact the CouchDB
@@ -573,9 +623,6 @@ sub _pageRequest($$$$)
 	}
 }
 
-#-------------
-=section Conversions
-
 =method toPerl \%data, $type, @keys
 Convert all fields with @keys in the %data HASH into object
 of $type.  Fields which do not exist are ignored.
@@ -732,50 +779,6 @@ sub check($$$$)
 	else { panic "$change $cv $what" }
 
 	$self;
-}
-
-=method requestUUIDs $count, %options
- [CouchDB API "GET /_uuids", since 2.0, UNTESTED]
-
-Returns UUIDs (Universally unique identifiers), when the call was
-successful.  Better use M<freshUUIDs()>.  It is faster to use Perl
-modules to generate UUIDs.
-=cut
-
-sub requestUUIDs($%)
-{	my ($self, $count, %args) = @_;
-
-	$self->call(GET => '/_uuids',
-		introduced => '2.0.0',
-		query      => { count => $count },
-		$self->_resultsConfig(\%args),
-	);
-}
-
-=method freshUUIDs $count, %options
- [UNTESTED]
-
-Returns a $count number of UUIDs in a LIST.  This uses M<requestUUIDs()> to get
-a bunch at the same time, for efficiency.  You may get fewer than you want, but
-only when the server is not sending them.
-
-=option  bulk INTEGER
-=default bulk 50
-When there are not enough UUIDs in stock, in how large chuncks should we ask for
-more.
-=cut
-
-sub freshUUIDs($%)
-{	my ($self, $count, %args) = @_;
-	my $stock = $self->{CDC_uuids};
-	my $bulk  = delete $args{bulk} || 50;
-
-	while($count > @$stock)
-	{	my $result = $self->requestUUIDs($bulk, _delay => 0) or last;
-		push @$stock, @{$result->values->{uuids} || []};
-	}
-
-	splice @$stock, 0, $count;
 }
 
 #-------------

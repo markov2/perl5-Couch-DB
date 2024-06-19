@@ -5,8 +5,12 @@
 
 version 0.005:
 
+	Changes:
+	- searchAnalyse -> searchAnalyze
+
 	Improvements:
 	- added test for some cluster commands.
+	- reorder methods in Couch::DB.
 
 version 0.004: Mon 17 Jun 09:20:52 CEST 2024
 
