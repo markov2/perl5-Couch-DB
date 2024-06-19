@@ -58,10 +58,11 @@ before you start!
 
 B<Be warned> that this module is really new.  The 127 different endpoints
 that the CouchDB 3.3.3 API defines, are grouped and combined.  The result
-is often not tested, and certainly not battle ready.
+is often not tested, and certainly not battle ready.  Please, report
+the result of calls which which are currently flagged "UNTESTED".
 
 B<Please help> me fix issues by reporting them.  Bugs will be solved within
-a day.  Please, contribute useful ideas to make the use of the module lighter.
+a day.  Please, contribute ideas to make the use of the module lighter.
 Together, we can make the quality grow fast.
 
 =section Integration with your framework
@@ -286,7 +287,7 @@ sub searchAnalyze(%)
 }
 
 =method requestUUIDs $count, %options
- [CouchDB API "GET /_uuids", since 2.0, UNTESTED]
+ [CouchDB API "GET /_uuids", since 2.0]
 
 Returns UUIDs (Universally unique identifiers), when the call was
 successful.  Better use M<freshUUIDs()>.  It is faster to use Perl
@@ -304,8 +305,6 @@ sub requestUUIDs($%)
 }
 
 =method freshUUIDs $count, %options
- [UNTESTED]
-
 Returns a $count number of UUIDs in a LIST.  This uses M<requestUUIDs()> to get
 a bunch at the same time, for efficiency.  You may get fewer than you want, but
 only when the server is not sending them.
@@ -318,7 +317,7 @@ more.
 
 sub freshUUIDs($%)
 {	my ($self, $count, %args) = @_;
-	my $stock = $self->{CDC_uuids};
+	my $stock = $self->{CDC_uuids} || [];
 	my $bulk  = delete $args{bulk} || 50;
 
 	while($count > @$stock)

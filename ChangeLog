@@ -7,10 +7,12 @@ version 0.005:
 
 	Changes:
 	- searchAnalyse -> searchAnalyze
+	- clusterSetup(%options) -> clusterSetup($config, %options)
 
 	Improvements:
 	- added test for some cluster commands.
 	- reorder methods in Couch::DB.
+	- test UUID methods
 
 version 0.004: Mon 17 Jun 09:20:52 CEST 2024
 
