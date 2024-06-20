@@ -8,6 +8,7 @@ version 0.005:
 	Changes:
 	- searchAnalyse -> searchAnalyze
 	- clusterSetup(%options) -> clusterSetup($config, %options)
+	- ::Client::dbUpdates(%options) -> dbUpdates(\%feed, %options)
 	- ::Database::compact(ddoc) -> compact(design)
 	- ::Database::listDocuments() -> docs()
 	- ::Database::listDesigns() -> designs()

@@ -691,6 +691,11 @@ Restrict the search to the named view.  Requires the C<design> document.
 =default design C<undef>
 Usually called via M<Couch::DB::Design::viewFind()>.
 
+=example getting all documents in a database
+Be warned: doing it this way is memory hungry: better use paging.
+
+  my $all  = $couch->db('users')->docs({include_docs => 1}, _all => 1);
+  my $docs = $all->page;
 =cut
 
 sub __toDocs($$%)

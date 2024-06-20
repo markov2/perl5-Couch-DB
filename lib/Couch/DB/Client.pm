@@ -448,28 +448,22 @@ sub databaseInfo(%)
 	);
 }
 
-=method dbUpdates
+=method dbUpdates \%feed, %options
  [CouchDB API "GET /_db_updates", since 1.4, UNTESTED]
 
 Get a feed of database changes, mainly for debugging purposes.
-
-All %options are used as parameters: C<feed> (type),
-C<timeout> (milliseconds!, default 60_000),
-C<heartbeat> (milliseconds, default 60_000), C<since> (sequence ID).
-
 =cut
 
-sub dbUpdates(%)
-{	my ($self, %args) = @_;
+sub dbUpdates($%)
+{	my ($self, $feed, %args) = @_;
 	$self->_clientIsMe(\%args);
 
-	my %config = $self->couch->_resultsConfig(\%args);
-	my $query  = \%args;
+	my $query  = +{ %$feed };
 
 	$self->couch->call(GET => '/_db_updates',
 		introduced => '1.4.0',
 		query      => $query,
-		%config,
+		$self->couch->_resultsConfig(\%args),
 	);
 }
 
@@ -694,7 +688,7 @@ sub node()
 	$self->{CDC_node} = $self->couch->node($name);
 }
 
-=method serverStatus
+=method serverStatus %options
  [CouchDB API "GET /_up", since 2.0, UNTESTED]
 
 Probably you want to use M<serverIsUp()>, because this reply contains little
