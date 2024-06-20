@@ -84,10 +84,11 @@ too difficult to create and certainly quite small.
 
 The CouchDB API lists all endpoints as URLs.  This library, however,
 creates an Object Oriented interface around these calls: you do not
-see the internals.  Knowing the CouchDB API, it is usually immediately
-clear where to find a certain end-point: C<< /{db} >> will be in
-M<Couch::DB::Database>.  A major exception is anything what has to
-do with replication and sharding: this is bundled in M<Couch::DB::Cluster>.
+see the internals in the resulting code.  Knowing the CouchDB API,
+it is usually immediately clear where to find a certain end-point:
+C<< /{db} >> will be in M<Couch::DB::Database>.  A major exception is
+anything what has to do with replication and sharding: this is bundled
+in M<Couch::DB::Cluster>.
 
 Have a look at F<https://perl.overmeer.net/couch-db/reference.html>.
 Keep that page open in your browser while developing.
@@ -97,7 +98,7 @@ Keep that page open in your browser while developing.
 =section Constructors
 
 =c_method new %options
-Create a relation with a CouchDB server(cluster).  You should use
+Create a relation with a CouchDB server (cluster).  You should use
 totally separated M<Couch::DB>-objects for totally separate database
 clusters.  B<Note:> you can only instantiate extensions of this class.
 
@@ -106,20 +107,20 @@ C<PERL_COUCH_DB_SERVER>, then server url, username, and password are
 derived from it.
 
 =requires api $version
-You have to specify the version of the server you expect to answer your
+You MUST specify the version of the server you expect to answer your
 queries.  M<Couch::DB> tries to hide differences between your expectations
-and the reality.
+and the reality of the server version.
 
 The $version can be a string or a version object (see "man version").
 
 =option  server URL
 =default server "http://127.0.0.1:5984"
 The default server to connect to, by URL.  See C<< etc/local.ini[chttpd] >>
-This server will be named 'local'.
+This server will be named C<_local>.
 
 You can add more servers using M<addClient()>.  In such case, you probably
 do not want this default client to be created as well.  To achieve this,
-explicitly set C<server =E<gt> undef> here.
+explicitly set C<server =E<gt> undef>.
 
 =option  auth 'BASIC'|'COOKIE'
 =default auth 'BASIC'
@@ -135,17 +136,17 @@ C<password> to login to any created client.
 
 =option  to_perl HASH
 =default to_perl C<< +{ } >>
-A table with converter name and CODE, to override/add the default JSON to PERL
+A table mapping converter name to CODE, to override/add the default JSON to PERL
 object conversions for M<Couch::DB::Result::values()>.  See M<toPerl()> and M<listToPerl()>.
 
 =option  to_json HASH
 =default to_json C<< +{ } >>
-A table with converter name and CODE, to override/add the default PERL to JSON
+A table mapping converter name to CODE, to override/add the default PERL to JSON
 object conversions for sending structures.  See M<toJSON()>.
 
 =option  to_query HASH
 =default to_query C<< +{ } >>
-A table with converter name and CODE, to override/add the default PERL to URL
+A table mapping converter name to CODE, to override/add the default PERL to URL
 QUERY conversions.  Defaults to the json converters.  See M<toQuery()>.
 =cut
 
@@ -379,6 +380,9 @@ sub client($)
 Call some couchDB server, to get work done.  This is the base for any
 interaction with the server.
 
+B<Note:> you should probably not use this method yourself: all endpoint of
+CouchDB are available via a nice, abstract wrapper.
+
 =option  delay BOOLEAN
 =default delay C<false>
  [PARTIAL]
@@ -410,8 +414,9 @@ for the query.  When none are given, then all are used (in order of
 precedence).  When a $role (string) is provided, it is used to select
 a subset of the defined clients.
 
-=option  client M<Couch::DB::Client>
+=option  client M<Couch::DB::Client>|$name
 =default client C<undef>
+Select a specific client connection to be used, as object or by name.
 
 =option  on_values CODE
 =default on_values C<undef>
@@ -803,26 +808,26 @@ sub _messageContent($) { panic "must be extended" }
 =section Thick interface
 
 The CouchDB client interface is based on HTTP.  It is really easy to
-create JSON, and then use a UserAgent to send it to the CouchDB server.
-All other CPAN modules which support CouchDB stick on this level of
-support; not C<Couch::DB>.
+construct a JSON, and then use a UserAgent to send it to the CouchDB
+server.  All other CPAN modules which support CouchDB stick on this
+level of support; except C<Couch::DB>.
 
-When your library is very low-level, your program needs to put effort
-to create an abstraction around it itself.  In case the library offers
-that abstraction, you need to write much less code.
+When your library is very low-level, your program needs to put effort to
+create an abstraction around the interface it itself.  When the library
+offers that abstraction already, you need to write much less code!
 
 The Perl programming language works with functions, methods, and
 objects, so why would your libary require you to play with URLs?
 So, C<Couch::DB> has the following extra features:
 =over 4
 =item *
-Calls have a functional name, and are grouped into objects: the
+Calls have a functional name, and are grouped into classes: the
 endpoint URL processing is totally abstracted away;
 =item *
 Define multiple clients at the same time, for automatic fail-over,
 read, write, and permission separation, or parallellism;
 =item *
-Resolving differences between CouchDB-server instances.  You may
+Resolving differences between CouchDB-server versions.  You may
 even run different CouchDB versions on your nodes;
 =item *
 JSON-types do not match Perl's type concept: this module will
@@ -882,11 +887,11 @@ C<Couch::DB> will totally hide these differences for you!
 =subsection Generic parameters
 
 Each method which is labeled C<< [CouchDB API] >> also accepts a few options
-which are controlling the calling progress.  They are available everywhere,
+which are controlling the calling progress.  These are available everywhere,
 hence no-where documented explicitly.  Those options start with an underscore (C<_>)
 or with C<on_> (events).
 
-At the moment, the following %options are supported:
+At the moment, the following C<%options> are supported everywhere:
 =over 4
 =item * C<_delay> =E<gt> BOOLEAN, default C<false>
 Do not perform and wait for the actual call, but prepare it to be used in parallel
@@ -925,13 +930,18 @@ changed logic is run after the call, with the difference is that this
 next step is defined before the call has been made.  This sometimes
 produces a nicer interface (like paging).
 
+=item * C<on_values> =E<gt> CODE
+Run the CODE on the result on the returned JSON data, to translate the
+raw C<answer()> into C<values()>.  Wherever seemed useful, this is
+already hidden for you.  However: there may be cases where you want to
+add changes.
 =back
 
 =section Pagination
 
-Searches tend to give a large number of anwers.  CouchDB calls will refuse
-to return too many answers at a time (typically 25).  When you need more
-answers, you will need more calls.
+Searches tend to give a large number of results.  CouchDB calls will
+refuse to return too many answers at a time (typically 25).  When you
+need more results, you will need more calls.
 
 To get more answers, there are two mechanisms: some calls provide a
 C<skip> and C<limit> only.  Other calls implement the more sofisticated
@@ -940,19 +950,20 @@ C<_succeed> mechanism.
 
 B<Be aware> that you shall provide the same query parameters to each
 call of the search method.  Succession may be broken when you change
-some parameters: it is not fully documented which ones and how are
-needed to continue, so simply pass all.  Probably, it is save to change
-the C<limit>.
+some parameters: it is not fully documented which ones are needed to
+continue, so simply pass all again.  Probably, it is save to change
+the C<limit> between pages.
 
 To manage paged results, selected calls support the following options:
 
 =over 4
 =item * C<all> =E<gt> BOOLEAN (default false)
-Return all results at once.  This may involve multiple calls, like
-when the page size is larger than what the server wants to produce
+Return all results at once.  This may involve multiple calls, like when
+the number of results is larger than what the server wants to produce
 in one go.
 
-Do not use this when you expect many or large results.
+Do not use this when you expect many or large results.  Maybe in
+combination with C<_map>.
 
 =item * C<_page> =E<gt> INTEGER (default 1)
 Start-point of returned results, for calls which support paging.
@@ -992,19 +1003,19 @@ However: at least return a single scalar (it will be returned in the
 
 =item * C<skip> =E<gt> INTEGER
 Do not return this amount of first following elements.
-B<Be warned:> use as %option, not as search parameter.
+B<Be warned:> use as C<%option>, not as search parameter.
 
 =item * C<limit> =E<gt> INTEGER
 Do not request more than C<limit> number of results per request.  May be
 less than C<_page_size>.
-B<Be warned:> use as %option, not as search parameter.
+B<Be warned:> use as C<%option>, not as search parameter.
 =back
 
 =example paging through result
 Get page by page, where you may use the C<limit> parameter to request
 for a number of elements.  Do not use C<skip>, except in the first call.
 The C<_succeed> handling will play tricks with C<_page>, C<_harvester>,
-and C<_client> which you do not wish to know.
+and C<_client>, which you do not wish to know.
 
   my $page1 = $couch->find(\%search, limit => 12, skip => 300);
   my $docs1 = $page1->page;
@@ -1012,10 +1023,12 @@ and C<_client> which you do not wish to know.
   my $docs2 = $page2->page;
 
 =example paging via a session
-When you cannot ask for pages within a continuous process, because the
-page is shown to a user who has to take action to see an other page,
-then save the pagingState.  The state cannot contain code references, so
-when you have a specific harvester, than you need to resupply it.
+When you cannot ask for pages within a single continuous process, because
+the page is shown to a user who has to take action to see an other page,
+then save the pagingState.
+
+The state cannot contain code references, so when you have a specific
+harvester or map, then you need to resupply those.
 
   my $page1 = $couch->find(\%search);
   my $docs1 = $page1->page;
@@ -1027,7 +1040,8 @@ when you have a specific harvester, than you need to resupply it.
 
 =example get all results in a loop
 Handle the responses which are coming in one by one.  This is useful
-when the documents (with attachements?) are large.
+when the documents (with attachements?) are large.  Each C<$list>
+is a new result object.
 
   my $list;
   while($list = $couch->find(\%search, _succeed => $list))
@@ -1064,6 +1078,6 @@ the user experience.
 
   sub do_something($$) { my ($result, $doc) = @_; ...; 42 }
   my $all = $couch->find(\%search, _all => 1, _map => \&do_something);
-  # $all->page will no show elements containing '42'.
+  # $all->page will now show elements containing '42'.
 
 =cut
