@@ -12,6 +12,7 @@ version 0.005:
 
 	Fixes:
 	- detection of introduced version.
+	- option listDocuments(design)
 
 	Improvements:
 	- added test for some cluster commands.

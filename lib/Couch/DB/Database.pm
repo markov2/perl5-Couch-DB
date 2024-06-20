@@ -526,14 +526,14 @@ sub listIndexes(%)
 #-------------
 =section Handling documents
 
-=method doc ID, %options
-Returns a M<Couch::DB::Document> for this ID.  Be aware that this does not have
-any interaction with the CouchDB server.  Only when you call actions, like
-M<Couch::DB::Document::exists()>, on that object, you can see the status and
+=method doc $docid, %options
+Returns a M<Couch::DB::Document> for this C<$docid>.  Be aware that this
+does not have any interaction with the CouchDB server.  Only when you
+call actions, like C<exists()>, on that object, you can see the status and
 content of the document.
 
-The %options are passed to M<Couch::DB::Database::new()>.  Of course, you do not
-need to pass the database object explicitly.
+All C<%options> are passed to M<Couch::DB::Database::new()>.  Of course, you do
+not need to pass the C<Couch::DB::Database> object explicitly.
 =cut
 
 sub doc($%)
@@ -686,7 +686,7 @@ Restrict the search to the specific partition.
 =default view C<undef>
 Restrict the search to the named view.  Requires the C<design> document.
 
-=option  design $ddoc|$ddoc_id
+=option  design $design|$ddocid
 =default design C<undef>
 Usually called via M<Couch::DB::Design::viewFind()>.
 
@@ -724,7 +724,7 @@ sub listDocuments(;$%)
 	my $part   = delete $args{partition};
 	my $local  = delete $args{local};
 	my $view   = delete $args{view};
-	my $ddoc   = delete $args{ddoc};
+	my $ddoc   = delete $args{design};
 	my $ddocid = blessed $ddoc ? $ddoc->id : $ddoc;
 
 	!$view  || $ddoc  or panic "listDocuments(view) requires design document.";
@@ -808,8 +808,9 @@ data is not included.
 
 The default search will select everything (uses a blank HASH as required
 C<selector>).  By default, the number of results has a C<limit> of 25.
-Pass C<limit> and C<skip> in %options with other pagination control,
-not %search.
+j
+Pass C<limit> and C<skip> in C<%options> with other pagination control,
+not in C<%search>.
 
 =option  partition $partition
 =default partition C<undef>
@@ -820,7 +821,7 @@ not %search.
   foreach my $doc (@$docs) { ... }
 
 =example of find() more than one query:
-  my $result = $couch->find(search => [ \%q0, \%q1 ]) or die;
+  my $result = $couch->find( [\%q0, \%q1] ) or die;
   my $docs   = $result->values->{results}[1]{docs};
   foreach my $doc (@$docs) { ... }
 =cut
