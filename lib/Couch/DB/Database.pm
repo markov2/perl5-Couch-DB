@@ -429,7 +429,7 @@ sub revisionLimitSet($%)
 #-------------
 =section Designs and Indexes
 
-=method listDesigns [\%search|\@%search, %options]
+=method designs [\%search|\@%search, %options]
  [CouchDB API "GET /{db}/_design_docs", UNTESTED]
  [CouchDB API "POST /{db}/_design_docs", UNTESTED]
  [CouchDB API "POST /{db}/_design_docs/queries", UNTESTED]
@@ -442,7 +442,7 @@ If there are searches, then C<GET> is used, otherwise the C<POST> version.
 The returned structure depends on the searches and the number of searches.
 =cut
 
-sub listDesigns(;$%)
+sub designs(;$%)
 {	my ($self, $search, %args) = @_;
 	my $couch   = $self->couch;
 	my @search  = flat $search;
@@ -560,7 +560,7 @@ them yourself!
 
 =option  on_error CODE
 =default on_error C<undef>
-By default, errors are ignored.  When a CODE is specified, it will be called
+By default, missing reports are ignored.  When a CODE is specified, it will be called
 with the result object, the failing document, and named parameters error details.
 The %details contain the C<error> type, the error C<reason>, and the optional
 C<deleting> boolean boolean.
@@ -657,7 +657,7 @@ sub inspectDocuments($%)
 	);
 }
 
-=method listDocuments [\%search|\@%search, %options]
+=method docs [\%search|\@%search, %options]
  [CouchDB API "GET /{db}/_all_docs", UNTESTED]
  [CouchDB API "POST /{db}/_all_docs", UNTESTED]
  [CouchDB API "POST /{db}/_all_docs/queries", UNTESTED]
@@ -716,7 +716,7 @@ sub __listValues($$%)
 	$values;
 }
 
-sub listDocuments(;$%)
+sub docs(;$%)
 {	my ($self, $search, %args) = @_;
 	my $couch  = $self->couch;
 
@@ -727,10 +727,10 @@ sub listDocuments(;$%)
 	my $ddoc   = delete $args{design};
 	my $ddocid = blessed $ddoc ? $ddoc->id : $ddoc;
 
-	!$view  || $ddoc  or panic "listDocuments(view) requires design document.";
-	!$local || !$part or panic "listDocuments(local) cannot be combined with partition.";
-	!$local || !$view or panic "listDocuments(local) cannot be combined with a view.";
-	!$part  || @search < 2 or panic "listDocuments(partition) cannot work with multiple searches.";
+	!$view  || $ddoc  or panic "docs(view) requires design document.";
+	!$local || !$part or panic "docs(local) cannot be combined with partition.";
+	!$local || !$view or panic "docs(local) cannot be combined with a view.";
+	!$part  || @search < 2 or panic "docs(partition) cannot work with multiple searches.";
 
 	my $set
 	  = $local ? '_local_docs'
@@ -741,11 +741,11 @@ sub listDocuments(;$%)
 	my $path   = $self->_pathToDB($set);
 
 	# According to the spec, _all_docs is just a special view.
-	my @send   = map $self->_viewPrepare($method, $_, "listDocuments search"), @search;
+	my @send   = map $self->_viewPrepare($method, $_, "docs search"), @search;
 		
 	my @params;
 	if($method eq 'GET')
-	{	@send < 2 or panic "Only one search with listDocuments(GET)";
+	{	@send < 2 or panic "Only one search with docs(GET)";
 		@params = (query => $send[0]);
 	}
 	elsif(@send==1)

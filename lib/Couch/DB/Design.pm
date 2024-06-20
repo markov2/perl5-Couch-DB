@@ -236,13 +236,13 @@ sub indexDetails($%)
 
 Executes the specified view function.
 
-This work is handled in M<Couch::DB::Database::listDocuments()>.  See that method for
-%options and results.
+This work is handled in M<Couch::DB::Database::docs()>.  See that method for
+C<%options> and results.
 =cut
 
 sub viewFind($;$%)
 {	my ($self, $view, $search, %args) = @_;
-	$self->db->listDocuments($search, view => $view, design => $self, %args);
+	$self->db->docs($search, view => $view, design => $self, %args);
 }
 
 #-------------
