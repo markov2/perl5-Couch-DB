@@ -11,6 +11,8 @@ version 0.005:
 	- ::Database::compact(ddoc) -> compact(design)
 	- ::Database::listDocuments() -> docs()
 	- ::Database::listDesigns() -> designs()
+	- ::Database::listIndexes() -> indexes()
+	- ::Database::{update,purge,inspect}Documents() -> *Docs()
 
 	Fixes:
 	- detection of introduced version.

@@ -290,7 +290,7 @@ sub ensureFullCommit(%)
 	);
 }
 
-=method purgeDocuments \%plan, %options
+=method purgeDocs \%plan, %options
  [CouchDB API "POST /{db}/_purge", UNTESTED]
 
 Remove selected document revisions from the database.
@@ -300,7 +300,7 @@ purge.  There must be sufficient time between deletion and purging,
 to give replication a chance to distribute the fact of deletion.
 =cut
 
-sub purgeDocuments($%)
+sub purgeDocs($%)
 {	my ($self, $plan, %args) = @_;
 
 	#XXX looking for smarter behavior here, to construct a plan.
@@ -509,13 +509,13 @@ sub createIndex($%)
 	);
 }
 
-=method listIndexes %options
+=method indexes %options
  [CouchDB API "GET /{db}/_index", UNTESTED]
 
 Collect all indexes for the database.
 =cut
 
-sub listIndexes(%)
+sub indexes(%)
 {	my ($self, %args) = @_;
 
 	$self->couch->call(GET => $self->_pathToDB('_index'),
@@ -541,7 +541,7 @@ sub doc($%)
 	Couch::DB::Document->new(id => $id, db => $self, @_);
 }
 
-=method updateDocuments \@docs, %options
+=method updateDocs \@docs, %options
  [CouchDB API "POST /{db}/_bulk_docs", UNTESTED]
 
 Insert, update, and delete multiple documents in one go.  This is more efficient
@@ -567,7 +567,7 @@ C<deleting> boolean boolean.
 
 =example for error handling
   sub handle($result, $doc, %details) { ... }
-  $db->updateDocuments(@save, on_error => \&handle);
+  $db->updateDocs(@save, on_error => \&handle);
 =cut
 
 sub __updated($$$$)
@@ -601,7 +601,7 @@ sub __updated($$$$)
 	) for keys %deletes;
 }
 
-sub updateDocuments($%)
+sub updateDocs($%)
 {	my ($self, $docs, %args) = @_;
 	my $couch   = $self->couch;
 
@@ -627,7 +627,7 @@ sub updateDocuments($%)
 	);
 }
 
-=method inspectDocuments \@docs, %options
+=method inspectDocs \@docs, %options
  [CouchDB API "POST /{db}/_bulk_get", UNTESTED]
 
 Return information on multiple documents at the same time.
@@ -637,7 +637,7 @@ Return information on multiple documents at the same time.
 Include the revision history of each document.
 =cut
 
-sub inspectDocuments($%)
+sub inspectDocs($%)
 {	my ($self, $docs, %args) = @_;
 	my $couch = $self->couch;
 
