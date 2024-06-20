@@ -8,6 +8,7 @@ version 0.005:
 	Changes:
 	- searchAnalyse -> searchAnalyze
 	- clusterSetup(%options) -> clusterSetup($config, %options)
+	- compact(ddoc) -> compact(design)
 
 	Fixes:
 	- detection of introduced version.

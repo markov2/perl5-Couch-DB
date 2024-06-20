@@ -306,6 +306,10 @@ a C<null> (missing) document will be used.
 
 =cut
 
+#XXX The 3.3.3 doc says /{docid} version requires PUT, but shows a POST example.
+#XXX The 3.3.3post4 docs make the example patch with PUT.
+#XXX The code probably says: anything except GET is okay.
+
 sub applyUpdate($%)
 {	my ($self, $function, $doc, %args) = @_;
 	my $path = $self->_pathToDoc('_update/'.uri_escape($function));

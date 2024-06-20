@@ -21,7 +21,7 @@ Couch::DB::Database - One database connection
 =chapter DESCRIPTION
 
 One I<node> (server) contains multiple databases.  Databases
-do not contain "collections", like MongoDB; each document is
+do not contain "collections", like MongoDB: each document is
 a direct child of a database.  Per database, you get multiple
 files to store that data, for views, replication, and so on.  
 Per database, you need to set permissions.
@@ -34,6 +34,8 @@ are provided by the M<Couch::DB::Cluster> package.
 =section Constructors
 
 =c_method new %options
+B<Do not call this> method yourself, but use C<Couch::DB::db()>
+to instantiate this object.
 
 =requires name STRING
 The name of a database must match C<< ^[a-z][a-z0-9_$()+/-]*$ >>.
@@ -44,7 +46,7 @@ The name of a database must match C<< ^[a-z][a-z0-9_$()+/-]*$ >>.
 =default batch C<false>
 When set, all write actions (which support this) to this database
 will not wait for the actual update of the database.  This gives a
-higher performance, but not all error may be reported.
+much higher performance, but not all errors may be reported.
 =cut
 
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
@@ -80,8 +82,8 @@ sub _pathToDB(;$) { '/' . $_[0]->name . (defined $_[1] ? '/' . $_[1] : '') }
 #-------------
 =section Database information
 
-B<All CouchDB API calls> documented below, support %options like C<_delay>
-and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
+B<All CouchDB API calls> documented below, support C<%options> like C<_delay>,
+C<_client>, and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
 =method ping %options
  [CouchDB API "HEAD /{db}"]
@@ -99,16 +101,17 @@ sub ping(%)
 }
 
 =method exists
-Returns a boolean, whether the database exists already.  This will
+Returns a boolean, whether the database exist on the server.  This will
 call M<ping()> and wait for an anwser.
 =cut
 
 sub exists()
 {	my $self = shift;
 	my $result = $self->ping(_delay => 0);
+
 	  $result->code eq HTTP_NOT_FOUND ? 0
     : $result->code eq HTTP_OK        ? 1
-	:                                   undef;  # will probably die in the next step
+	:     undef;  # will probably die in the next step
 }
 
 =method details %options
@@ -144,12 +147,12 @@ sub details(%)
 =method create %options
  [CouchDB API "PUT /{db}"]
 
-Create a new database.  The result object will have code HTTP_CREATED when the
+Create a new database.  The result object will have code C<HTTP_CREATED> when the
 database is successfully created.  When the database already exists, it
-returns HTTP_PRECONDITION_FAILED and an error in the body.
+returns C<HTTP_PRECONDITION_FAILED> and an error in the body.
 
-Options: C<partitioned> (bool), C<q> (shards, default 8), and C<n> (replicas,
-default 3).
+Options: C<partitioned> (bool), C<q> (number of shards, default 8), and C<n> (number
+of replicas, defaults to 3).
 =cut
 
 sub create(%)
@@ -244,8 +247,8 @@ sub changes { ... }
 Instruct the database files to be compacted.  By default, the data gets
 compacted.
 
-=option  ddoc $ddoc
-=default ddoc C<undef>
+=option  design $design|$ddocid
+=default design C<undef>
 Compact all indexes related to this design document, instead.
 =cut
 
@@ -253,8 +256,8 @@ sub compact(%)
 {	my ($self, %args) = @_;
 	my $path = $self->_pathToDB('_compact');
 
-	if(my $ddoc = delete $args{ddoc})
-	{	$path .= '/' . $ddoc->id;
+	if(my $ddoc = delete $args{design})
+	{	$path .= '/' . (blessed $ddoc ? $ddoc->id :$ddoc);
 	}
 
 	$self->couch->call(POST => $path,

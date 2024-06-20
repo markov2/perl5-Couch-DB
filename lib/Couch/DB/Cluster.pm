@@ -29,8 +29,9 @@ methods, so they got their own module.
 =section Constructors
 
 =c_method new %options
-=requires couch C<Couch::DB>-object
+B<Do not call> the method yourself: use M<Couch::DB::cluster()>.
 
+=requires couch C<Couch::DB>-object
 =cut
 
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
@@ -55,8 +56,8 @@ sub couch() { $_[0]->{CDC_couch} }
 #-------------
 =section Managing a Cluster
 
-B<All CouchDB API calls> documented below, support %options like C<_delay>
-and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
+B<All CouchDB API calls> documented below, support C<%options> like C<_delay>,
+C<_client>, and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
 =method clusterState %options
  [CouchDB API "GET /_cluster_setup", since 2.0]
@@ -104,7 +105,7 @@ sub clusterSetup($%)
 =section Sharding
 
 =method reshardStatus %options
- [CouchDB API "GET /_reshard", since 2.4] and
+ [CouchDB API "GET /_reshard", since 2.4]
  [CouchDB API "GET /_reshard/state", since 2.4]
 
 Retrieve the state of resharding on the cluster.
@@ -194,7 +195,6 @@ sub reshardJobs(%)
  [CouchDB API "POST /_reshard/jobs", since 2.4, UNTESTED]
 
 Create resharding jobs.
-The many %options are passed as parameters.
 =cut
 
 sub __reshardStartValues($$)
@@ -300,7 +300,7 @@ sub reshardJobChange($%)
  [CouchDB API "GET /{db}/_shards", since 2.0]
 
 Returns the structure of the shared used to store a database.  Pass this
-a $db as M<Couch::DB::Database>-object.
+a C<$db> as M<Couch::DB::Database>-object.
 =cut
 
 sub __dbshards($$)
@@ -326,7 +326,7 @@ sub shardsForDB($%)
  [CouchDB API "GET /{db}/_shards/{docid}", since 2.0]
 
 Returns the structure of the shared used to store a database.  Pass this
-a $db as M<Couch::DB::Database>-object.
+a C<$db> as M<Couch::DB::Database>-object.
 =cut
 
 sub __docshards($$)
@@ -350,7 +350,7 @@ sub shardsForDoc($%)
  [CouchDB API "POST /{db}/_sync_shards", since 2.3.1]
 
 Force (re-)sharding of documents, usually in response to changes in the setup.
-Pass this a $db as M<Couch::DB::Database>-object.
+Pass this a C<$db> as M<Couch::DB::Database>-object.
 =cut
 
 sub syncShards($%)
