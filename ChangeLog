@@ -13,6 +13,7 @@ version 0.005:
 	- ::Database::listDesigns() -> designs()
 	- ::Database::listIndexes() -> indexes()
 	- ::Database::{update,purge,inspect}Documents() -> *Docs()
+	- ::Database::updateDocs(on_error) -> updateDocs(issues)
 
 	Fixes:
 	- detection of introduced version.

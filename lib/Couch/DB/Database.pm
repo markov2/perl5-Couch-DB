@@ -558,8 +558,8 @@ When false, than the docs will replace the existing revisions.
 List of documents to remove.  You should not call the C<delete()> method on
 them yourself!
 
-=option  on_error CODE
-=default on_error C<undef>
+=option  issues CODE
+=default issues C<undef>
 By default, missing reports are ignored.  When a CODE is specified, it will be called
 with the result object, the failing document, and named parameters error details.
 The %details contain the C<error> type, the error C<reason>, and the optional
@@ -567,11 +567,11 @@ C<deleting> boolean boolean.
 
 =example for error handling
   sub handle($result, $doc, %details) { ... }
-  $db->updateDocs(@save, on_error => \&handle);
+  $db->updateDocs(@save, issues => \&handle);
 =cut
 
 sub __updated($$$$)
-{	my ($self, $result, $saves, $deletes, $on_error) = @_;
+{	my ($self, $result, $saves, $deletes, $issues) = @_;
 	$result or return;
 
 	my %saves   = map +($_->id => $_), @$saves;
@@ -588,15 +588,15 @@ sub __updated($$$$)
 			$doc->deleted if $delete;
 		}
 		else
-		{	$on_error->($result, $doc, +{ %$report, delete => $delete });
+		{	$issues->($result, $doc, +{ %$report, delete => $delete });
 		}
 	}
 
-	$on_error->($result, $saves{$_},
+	$issues->($result, $saves{$_},
 		+{ error => 'missing', reason => "The server did not report back on saving $_." }
 	) for keys %saves;
 
-	$on_error->($result, $deletes{$_},
+	$issues->($result, $deletes{$_},
 		+{ error => 'missing', reason => "The server did not report back on deleting $_.", delete => 1 }
 	) for keys %deletes;
 }
@@ -607,6 +607,7 @@ sub updateDocs($%)
 
 	my @plan    = map $_->data, @$docs;
 	my @deletes = flat delete $args{delete};
+	my $issues  = delete $args{issues} || sub {};
 
 	foreach my $del (@deletes)
 	{	push @plan, +{ _id => $del->id, _rev => $del->rev, _delete => 1 };
@@ -622,7 +623,7 @@ sub updateDocs($%)
 	$couch->call(POST => $self->_pathToDB('_bulk_docs'),
 		send     => $send,
 		$couch->_resultsConfig(\%args,
-			on_final => sub { $self->_updated($_[0], $docs, \@deletes) },
+			on_final => sub { $self->__updated($_[0], $docs, \@deletes, $issues) },
 		),
 	);
 }
