@@ -143,6 +143,10 @@ cmp_ok @$docs6, '==', 70, '.. all at once';
 is $docs6->[0], 42, '... first 42';
 cmp_ok +(grep $_==42, @$docs6), '==', 70, '... all 42';
 
+### findExplain
+
+_result find_explain => $db->findExplain($query);
+
 ####### Cleanup
 _result removed          => $db->remove;
 
