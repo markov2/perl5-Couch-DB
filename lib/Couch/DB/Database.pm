@@ -679,7 +679,7 @@ sub inspectDocs($%)
 	);
 }
 
-=method search [\%search|\@%search, %options]
+=method search [\%query|\@queries, %options]
  [CouchDB API "GET /{db}/_all_docs"]
  [CouchDB API "POST /{db}/_all_docs"]
  [CouchDB API "POST /{db}/_all_docs/queries", UNTESTED]
@@ -688,13 +688,15 @@ sub inspectDocs($%)
  [CouchDB API "POST /{db}/_local_docs/queries", UNTESTED]
  [CouchDB API "GET /{db}/_partition/{partition}/_all_docs", UNTESTED]
 
-Get the documents, optionally limited by a view.  If there are searches,
-then C<POST> is used, otherwise the C<GET> version.  The returned
-structure depends on the searches and the number of searches.  Of course,
-this method support pagination.
+Get the documents, optionally limited by a view.  If there are queries,
+then C<POST> is used, otherwise the C<GET> endpoint.
 
-The usual way to use this method with a view, is by calling
-M<Couch::DB::Design::viewSearch()>.
+The returned structure depends on the C<%query> and the number of
+C<@queries> (an ARRAY of query HASHes).  This method support pagination,
+but only when a single query is given.
+
+The preferred way to use this method with a C<view>, is by calling
+M<Couch::DB::Design::viewSearch()> on its C<design> object.
 
 =option  local  BOOLEAN
 =default local C<false>
@@ -759,6 +761,8 @@ sub search(;$%)
 	my $ddoc   = delete $args{design};
 	my $ddocid = blessed $ddoc ? $ddoc->id : $ddoc;
 
+	#XXX The API shows some difference in the parameter combinations, which do not
+	#XXX need to be there.  For now, we produce an error for these cases.
 	!$view  || $ddoc  or panic "docs(view) requires design document.";
 	!$local || !$part or panic "docs(local) cannot be combined with partition.";
 	!$local || !$view or panic "docs(local) cannot be combined with a view.";
@@ -799,8 +803,8 @@ sub search(;$%)
 
 my @search_bools = qw/
 	conflicts descending group include_docs attachments att_encoding_info
-	inclusive_end reducs sorted stable update_seq
-	/;
+	inclusive_end reduce sorted stable update_seq
+/;
 
 # Handles standard view/_all_docs/_local_docs queries.
 sub _viewPrepare($$$)

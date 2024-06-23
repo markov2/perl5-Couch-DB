@@ -5,6 +5,9 @@
 
 version 0.006:
 
+	Fixes:
+	- search(query) parameter 'reduce' typo.
+
 version 0.005: Sun 23 Jun 09:33:12 CEST 2024
 
 	Changes:
