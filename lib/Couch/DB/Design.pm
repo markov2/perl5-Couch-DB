@@ -228,21 +228,21 @@ sub indexDetails($%)
 #-------------
 =section Views
 
-=method viewFind $view, [\%search|\@%search), %options]
- [CouchDB API "GET /{db}/_design/{ddoc}/_view/{view}"]
+=method viewSearch $view, [\%search|\@%search), %options]
+ [CouchDB API "GET /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}/queries", UNTESTED]
  [CouchDB API "GET /{db}/_partition/{partition}/_design/{ddoc}/_view/{view}", UNTESTED]
 
 Executes the specified view function.
 
-This work is handled in M<Couch::DB::Database::docs()>.  See that method for
+This work is handled in M<Couch::DB::Database::search()>.  See that method for
 C<%options> and results.
 =cut
 
-sub viewFind($;$%)
+sub viewSearch($;$%)
 {	my ($self, $view, $search, %args) = @_;
-	$self->db->docs($search, view => $view, design => $self, %args);
+	$self->db->search($search, view => $view, design => $self, %args);
 }
 
 #-------------

@@ -10,20 +10,23 @@ version 0.005:
 	- clusterSetup(%options) -> clusterSetup($config, %options)
 	- ::Client::dbUpdates(%options) -> dbUpdates(\%feed, %options)
 	- ::Database::compact(ddoc) -> compact(design)
-	- ::Database::listDocuments() -> docs()
+	- ::Database::listDocuments() -> search()
 	- ::Database::listDesigns() -> designs()
 	- ::Database::listIndexes() -> indexes()
-	- ::Database::{update,purge,inspect}Documents() -> *Docs()
-	- ::Database::updateDocs(on_error) -> updateDocs(issues)
+	- ::Database::{purge,inspect}Documents() -> *Docs()
+	- ::Database::updateDocuments() -> saveBulk()
+	- ::Database::saveBulk(on_error) -> saveBulk(issues)
+	- ::Design::viewFind() -> viewSearch()
 
 	Fixes:
 	- detection of introduced version.
-	- option listDocuments(design)
+	- option search(design)
 
 	Improvements:
 	- added test for some cluster commands.
 	- reorder methods in Couch::DB.
 	- test UUID methods
+	- search now partially works.
 
 version 0.004: Mon 17 Jun 09:20:52 CEST 2024
 

@@ -5,8 +5,9 @@ package Couch::DB::Document;
 use Couch::DB::Util;
 
 use Log::Report 'couch-db';
-use Scalar::Util qw(weaken);
-use MIME::Base64 qw(decode_base64);
+use Scalar::Util             qw/weaken/;
+use MIME::Base64             qw/decode_base64/;
+use Devel::GlobalDestruction qw/in_global_destruction/;
 
 =chapter NAME
 
@@ -17,6 +18,10 @@ Couch::DB::Document - one document as exchanged with a CouchDB server
   my $doc = $couch->db($dbname)->doc($docid);
   my $doc = $db->doc->create(\%data);
   my $doc = $db->doc($id, local => 1);
+
+  my $doc = $db->doc($id, content => { });
+  $doc->save;
+  $db->saveBulk([$doc]);
 
   my $content = $db->latest;
 
@@ -53,6 +58,11 @@ If this document is database related.
 Use a local document: do not replicate it to other instances.  Only limited
 actions are permitted on local documents... probably they do not support
 attachments.
+
+=option   content DATA
+=default  content C<undef>
+Create a new document, with the first revision of the content.  Once saved,
+it will get a revision.
 =cut
 
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
@@ -63,17 +73,27 @@ sub init($)
 	$self->{CDD_db}    = my $db = delete $args->{db};
 	$self->{CDD_info}  = {};
 	$self->{CDD_batch} = exists $args->{batch} ? delete $args->{batch} : $db->batch;
-	$self->{CDD_revs}  = {};
+	$self->{CDD_revs}  = my $revs = {};
 	$self->{CDD_local} = delete $args->{local};
 
 	$self->{CDD_couch} = $db->couch;
 	weaken $self->{CDD_couch};
+
+	if(my $content = delete $args->{content})
+	{	$revs->{_new} = $content;
+	}
 
 	# The Document is (for now) not linked to its Result source, because
 	# that might consume a lot of memory.  Although it may help debugging.
 	# weaken $self->{CDD_result} = my $result = delete $args->{result};
 
 	$self;
+}
+
+sub DESTROY()
+{	my $self = shift;
+	$self->{CDD_revs}{_new} || ! in_global_destruction
+		or panic "Unsaved new document.";
 }
 
 sub _consume($$)
@@ -136,10 +156,10 @@ sub _deleted($)
 	$self->{CDD_deleted} = 1;
 }
 
-sub _saved($$$)
+sub _saved($$;$)
 {	my ($self, $id, $rev, $data) = @_;
 	$self->{CDD_id} ||= $id;
-	$self->{CDD_revs}{$rev} = $data;
+	$self->{CDD_revs}{$rev} = $data || delete $self->{CDD_revs}{_new};
 }
 
 #-------------

@@ -496,7 +496,9 @@ sub call($$%)
 			{	# Merge paging setting into the request
 	    		$self->_pageRequest($paging, $method, $query, $send);
 
-				$self->_callClient($result, $client, %args)
+				$self->_callClient($result, $client, %args);
+
+				$result
 					or next CLIENT;  # fail
 			} while $result->pageIsPartial;
 
@@ -594,7 +596,7 @@ sub _resultsPaging($%)
 	{	$state{bookmarks}{$state{start}} = $b;
 	}
 
-	$harvester ||= sub { $_[0]->values->{docs} };
+	$harvester ||= sub { my $v = $_[0]->values; $v->{docs} || $v->{rows} };
 	my $harvest = sub {
 		my $result = shift or return;
 		my @found  = flat $harvester->($result);

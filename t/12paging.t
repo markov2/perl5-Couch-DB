@@ -20,7 +20,7 @@ my $db = $couch->db('test');
 _result removed          => $db->remove;
 _result create           => $db->create;
 
-foreach my $docnr (01..70)
+foreach my $docnr (1..70)
 {	my $r = $db->doc("doc$docnr")->create({nr => $docnr});
 	$r or die $r->response->to_string;
 }

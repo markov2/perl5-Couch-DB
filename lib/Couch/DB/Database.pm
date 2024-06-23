@@ -9,6 +9,7 @@ use Couch::DB::Util   qw(flat);
 
 use Scalar::Util      qw(weaken blessed);
 use HTTP::Status      qw(HTTP_OK HTTP_NOT_FOUND);
+use JSON::PP ();
 
 =chapter NAME
 
@@ -244,8 +245,8 @@ sub changes { ... }
  [CouchDB API "POST /{db}/_compact"]
  [CouchDB API "POST /{db}/_compact/{ddoc}", UNTESTED]
 
-Instruct the database files to be compacted.  By default, the data gets
-compacted.
+Instruct the database files to be compacted now.  By default, the data gets
+compacted on unexpected moments.
 
 =option  design $design|$ddocid
 =default design C<undef>
@@ -396,7 +397,8 @@ sub revisionsDiff($%)
 =method revisionLimit %options
  [CouchDB API "GET /{db}/_revs_limit", UNTESTED]
 
-Returns the soft maximum number of records kept about deleting records.
+Returns the limit of historical revisions to store for a single document
+in the database.
 =cut
 
 #XXX seems not really a useful method.
@@ -412,7 +414,8 @@ sub revisionLimit(%)
 =method revisionLimitSet $limit, %options
  [CouchDB API "PUT /{db}/_revs_limit", UNTESTED]
 
-Set a new soft limit.  The default is 1000.
+Sets the limit of historical revisions to store for a single document
+in the database.  The default is 1000.
 =cut
 
 #XXX attribute of database creation
@@ -541,8 +544,8 @@ sub doc($%)
 	Couch::DB::Document->new(id => $id, db => $self, @_);
 }
 
-=method updateDocs \@docs, %options
- [CouchDB API "POST /{db}/_bulk_docs", UNTESTED]
+=method saveBulk \@docs, %options
+ [CouchDB API "POST /{db}/_bulk_docs"]
 
 Insert, update, and delete multiple documents in one go.  This is more efficient
 than saving them one by one.
@@ -565,12 +568,23 @@ with the result object, the failing document, and named parameters error details
 The %details contain the C<error> type, the error C<reason>, and the optional
 C<deleting> boolean boolean.
 
+=example bulk adding documents
+  my $doc1 = $db->doc('new1', content => $data1);
+  my $doc2 = $db->doc('new2', content => $data2);
+  $db->saveBulk([$doc1, $doc2]);
+
+=example deleting a document
+Can be combined with added documents.
+
+  my $del1 = $db->doc('victim');
+  $db->saveBulk([], delete => $del1);
+
 =example for error handling
   sub handle($result, $doc, %details) { ... }
-  $db->updateDocs(@save, issues => \&handle);
+  $db->saveBulk(@save, issues => \&handle);
 =cut
 
-sub __updated($$$$)
+sub __bulk($$$$)
 {	my ($self, $result, $saves, $deletes, $issues) = @_;
 	$result or return;
 
@@ -584,8 +598,8 @@ sub __updated($$$$)
 			or panic "missing report for updated $id";
 
 		if($report->{ok})
-		{	$doc->saved($id, $report->{rev});
-			$doc->deleted if $delete;
+		{	$doc->_saved($id, $report->{rev});
+			$doc->_deleted($report->{rev}) if $delete;
 		}
 		else
 		{	$issues->($result, $doc, +{ %$report, delete => $delete });
@@ -601,29 +615,36 @@ sub __updated($$$$)
 	) for keys %deletes;
 }
 
-sub updateDocs($%)
+sub saveBulk($%)
 {	my ($self, $docs, %args) = @_;
 	my $couch   = $self->couch;
-
-	my @plan    = map $_->data, @$docs;
-	my @deletes = flat delete $args{delete};
 	my $issues  = delete $args{issues} || sub {};
 
+	my @plan;
+	foreach my $doc (@$docs)
+	{	my $rev     = $doc->rev;
+		my %plan    = %{$doc->revision($rev)};
+		$plan{_id}  = $doc->id;
+		$plan{_rev} = $rev if $rev ne '_new';
+		push @plan, \%plan;
+	}
+
+	my @deletes = flat delete $args{delete};
 	foreach my $del (@deletes)
-	{	push @plan, +{ _id => $del->id, _rev => $del->rev, _delete => 1 };
+	{	push @plan, +{ _id => $del->id, _rev => $del->rev, _deleted => JSON::PP::true };
 		$couch->toJSON($plan[-1], bool => qw/_delete/);
 	}
 
 	@plan or error __x"need at least on document for bulk processing.";
 	my $send    = +{ docs => \@plan };
 
-	$send->{new_edits} = delete $args{new_edits} if exists $args{new_edits};
+	$send->{new_edits} = delete $args{new_edits} if exists $args{new_edits};  # default true
 	$couch->toJSON($send, bool => qw/new_edits/);
 
 	$couch->call(POST => $self->_pathToDB('_bulk_docs'),
 		send     => $send,
 		$couch->_resultsConfig(\%args,
-			on_final => sub { $self->__updated($_[0], $docs, \@deletes, $issues) },
+			on_final => sub { $self->__bulk($_[0], $docs, \@deletes, $issues) },
 		),
 	);
 }
@@ -658,21 +679,22 @@ sub inspectDocs($%)
 	);
 }
 
-=method docs [\%search|\@%search, %options]
- [CouchDB API "GET /{db}/_all_docs", UNTESTED]
- [CouchDB API "POST /{db}/_all_docs", UNTESTED]
+=method search [\%search|\@%search, %options]
+ [CouchDB API "GET /{db}/_all_docs"]
+ [CouchDB API "POST /{db}/_all_docs"]
  [CouchDB API "POST /{db}/_all_docs/queries", UNTESTED]
  [CouchDB API "GET /{db}/_local_docs", UNTESTED]
  [CouchDB API "POST /{db}/_local_docs", UNTESTED]
  [CouchDB API "POST /{db}/_local_docs/queries", UNTESTED]
  [CouchDB API "GET /{db}/_partition/{partition}/_all_docs", UNTESTED]
 
-Get the documents, optionally limited by a view.
-If there are searches, then C<POST> is used, otherwise the C<GET> version.
-The returned structure depends on the searches and the number of searches.
+Get the documents, optionally limited by a view.  If there are searches,
+then C<POST> is used, otherwise the C<GET> version.  The returned
+structure depends on the searches and the number of searches.  Of course,
+this method support pagination.
 
 The usual way to use this method with a view, is by calling
-M<Couch::DB::Design::viewFind()>.
+M<Couch::DB::Design::viewSearch()>.
 
 =option  local  BOOLEAN
 =default local C<false>
@@ -689,24 +711,28 @@ Restrict the search to the named view.  Requires the C<design> document.
 
 =option  design $design|$ddocid
 =default design C<undef>
-Usually called via M<Couch::DB::Design::viewFind()>.
+Usually called via M<Couch::DB::Design::viewSearch()>.
 
 =example getting all documents in a database
 Be warned: doing it this way is memory hungry: better use paging.
 
-  my $all  = $couch->db('users')->docs({include_docs => 1}, _all => 1);
-  my $docs = $all->page;
+  my $all  = $couch->db('users')->search({include_docs => 1}, _all => 1);
+  my $hits = $all->page;
+  my @docs = map $_->{doc}, @$hits;
 =cut
 
 sub __toDocs($$%)
 {	my ($self, $result, $data, %args) = @_;
-	my @docs = flat $data->{docs};
-	$data->{docs} = [ map Couch::DB::Document->_fromResponse($result, $_, %args), @docs ] if @docs;
+	foreach my $row (@{$data->{rows}})
+	{	my $doc = $row->{doc} or next;
+		$row->{doc} = Couch::DB::Document->_fromResponse($result, $doc, %args);
+	}
 	$data;
 }
 
-sub __listValues($$%)
+sub __searchValues($$%)
 {	my ($self, $result, $raw, %args) = @_;
+
 	$args{db}  = $self;
 	my $values = +{ %$raw };
 
@@ -722,7 +748,7 @@ sub __listValues($$%)
 	$values;
 }
 
-sub docs(;$%)
+sub search(;$%)
 {	my ($self, $search, %args) = @_;
 	my $couch  = $self->couch;
 
@@ -765,8 +791,8 @@ sub docs(;$%)
 
 	$couch->call($method => $path,
 		@params,
-		$couch->_resultsConfig(\%args,
-			on_values => sub { $self->__listValues($_[0], $_[1], local => $local) },
+		$couch->_resultsPaging(\%args,
+			on_values => sub { $self->__searchValues($_[0], $_[1], local => $local) },
 		),
 	);
 }
@@ -785,12 +811,12 @@ sub _viewPrepare($$$)
 	# Main doc in 1.5.4.  /{db}/_design/{ddoc}/_view/{view}
 	if($method eq 'GET')
 	{	$couch
-			->toQuery($s, bool => \@search_bools)
+			->toQuery($s, bool => @search_bools)
 			->toQuery($s, json => qw/endkey end_key key keys start_key startkey/);
 	}
 	else
 	{	$couch
-			->toJSON($s, bool => \@search_bools)
+			->toJSON($s, bool => @search_bools)
 			->toJSON($s, int  => qw/group_level limit skip/);
 	}
 
@@ -834,7 +860,12 @@ not in C<%search>.
 
 sub __findValues($$)
 {	my ($self, $result, $raw) = @_;
-	$self->__toDocs($result, +{ %$raw }, db => $self);
+	my @docs = flat $raw->{docs};
+	@docs or return $raw;
+
+	my %data = %$raw;
+	$data{docs} = [ map Couch::DB::Document->_fromResponse($result, $_, db => $self), @docs ];
+	\%data;
 }
 
 sub find($%)
@@ -867,7 +898,7 @@ sub _findPrepare($$)
 }
 
 =method findExplain \%search, %options
- [CouchDB API "POST /{db}/_explain", UNTESTED]
+ [CouchDB API "POST /{db}/_explain"]
  [CouchDB API "POST /{db}/_partition/{partition_id}/_explain", UNTESTED]
 
 Explain how the a search will be executed.
