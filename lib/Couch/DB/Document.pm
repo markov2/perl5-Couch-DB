@@ -311,7 +311,8 @@ sub create($%)
 	$query{batch} = 'ok'
 		if exists $args{batch} ? delete $args{batch} : $self->batch;
 
-	$data->{_id} ||= $self->id;
+	$data->{_id} ||= $self->id
+		if defined $self->id;
 
 	$self->couch->call(POST => $self->db->_pathToDB,  # !!
 		send     => $data,
