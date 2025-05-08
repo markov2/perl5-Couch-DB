@@ -47,10 +47,10 @@ handle them all.  B<Read the DETAILS chapter below, to understand them all.>
 This result objects are pretty heavy: it collects request, response, and much
 more.  So: let them run out-of-scope once you have collected your C<values()>.
 
-=chapter OVERLOADING
+=chapter OVERLOADED
 
 =overload bool
-These Return objecs are overloaded to return a false value when there is
+These Return objects are overloaded to return a false value when there is
 any error.  For delayed collection of data, this status may change after
 this object is initially created.
 =cut
@@ -360,7 +360,7 @@ sub setFinalResult($%)
 }
 
 =method setResultDelayed $plan, %options
-When defined, the result document is not yet collected.  The $plan contains
+When defined, the result document is not yet collected.  The C<$plan> contains
 framework specific information how to realize that in a later stage.
 =cut
 

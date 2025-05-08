@@ -58,8 +58,8 @@ before you start!
 
 B<Be warned> that this module is really new.  The 127 different endpoints
 that the CouchDB 3.3.3 API defines, are grouped and combined.  The result
-is often not tested, and certainly not battle ready.  Please, report
-the result of calls which which are currently flagged "UNTESTED".
+is often not tested, and certainly not combat ready.  Please, report
+the result of calls which are currently flagged "UNTESTED".
 
 B<Please help> me fix issues by reporting them.  Bugs will be solved within
 a day.  Please, contribute ideas to make the use of the module lighter.

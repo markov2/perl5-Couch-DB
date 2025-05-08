@@ -254,8 +254,8 @@ sub viewSearch($;$%)
  [CouchDB API "GET /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED]
 
-Apply show $function on the document, as specified by id or object.  By default or explicit
-undef, a C<null> document will be used.
+Apply show C<$function> on the document, as specified by C<$docid> or document object.  By
+default or explicit C<undef>, a "null" document will be used.
 =cut
 
 sub show($;$%)
@@ -276,11 +276,11 @@ sub show($;$%)
  [CouchDB API "GET /{db}/_design/{ddoc}/_list/{func}/{other-ddoc}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_list/{func}/{other-ddoc}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
 
-Executes a list function against the view.
+Executes a list function against the C<$view>.
 
 =option  view_ddoc $ddoc|$ddocid
 =default view_ddoc C<undef>
-When the $view resides in a differen design.
+When the C<$view> resides in a different design.
 =cut
 
 sub list($$%)
@@ -300,7 +300,7 @@ sub list($$%)
  [CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}", UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}/{docid}", UNTESTED]
 
-See what the update function would change.  The update $function is run
+See what the update function would change.  The update C<$function> is run
 on a document, specified by id or object.  By default or explicit undef,
 a C<null> (missing) document will be used.
 
