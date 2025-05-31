@@ -206,7 +206,7 @@ sub answer(%)
  	$self->isReady
 		or error __x"Document not ready: {err}", err => $self->message;
 
-	$self->{CDR_answer} = $self->couch->_extractAnswer($self->response),
+	$self->{CDR_answer} = $self->couch->_extractAnswer($self->response);
 }
 
 =method values
@@ -258,7 +258,16 @@ sub pagingState(%)
 # The next is used r/w when _succeed is a result object, and when results
 # have arrived.
 
-sub _thisPage() { $_[0]->{CDR_page} or panic "Call does not support paging." }
+sub _thisPage()
+{ my $this = $_[0]->{CDR_page} or panic "Call does not support paging.";
+	# Häßlicher Workaround, oder Lösung?
+	if (exists($_[0]->{CDR_answer}->{total_rows})) {
+		if (@{$this->{harvested}} >= $_[0]->{CDR_answer}->{total_rows}) {
+			$this->{end_reached} = 1;
+		}
+	}
+	$this;
+}
 
 =method nextPageSettings
 Returns the details for the next page to be collected.  When you need these

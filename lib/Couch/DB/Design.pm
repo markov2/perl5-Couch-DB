@@ -40,6 +40,7 @@ M<Couch::DB::Document>.
 =cut
 
 sub _pathToDoc(;$) { $_[0]->db->_pathToDB('_design/' . $_[0]->id) . (defined $_[1] ? '/' . uri_escape $_[1] : '')  }
+sub _pathToDDoc(;$) { $_[0]->db->_pathToDB('_design/' . $_[0]->id) . (defined $_[1] ? '/' . $_[1] : '')  }
 
 #-------------
 =section Document in the database
@@ -201,7 +202,7 @@ sub indexFind($%)
 		->toQuery($query, int  => qw/highlight_number highlight_size limit/)
 		->toQuery($query, bool => qw/include_docs/);
 
-	$couch->call(GET => $self->_pathToDDoc('_search/' . uri_escape $index),
+	$couch->call(GET => $self->_pathToDDoc('_search/' . $index),
 		introduced => '3.0.0',
 		query      => $query,
 		$couch->_resultsPaging(\%args,

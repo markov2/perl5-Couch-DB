@@ -494,7 +494,18 @@ sub call($$%)
 		if($paging)
 		{	do
 			{	# Merge paging setting into the request
-	    		$self->_pageRequest($paging, $method, $query, $send);
+	    		my $paging_setting = $self->_pageRequest($paging, $method, $query, $send);
+				# Fix for GET only
+				if ($method eq 'GET') {
+					%{ $args{query} } = (
+						%{ $args{query} },    # bestehende Einträge
+						%{ $paging_setting }, # neue Einträge dazu
+					);
+					# bookmark does not like skip
+					if (exists $args{query}->{bookmark}) {
+						delete $args{query}->{skip};
+					}
+				}
 
 				$self->_callClient($result, $client, %args);
 
@@ -592,8 +603,8 @@ sub _resultsPaging($%)
 	}
 
 	$state{bookmarks} = $succ->{bookmarks} ||= { };
-	if(my $b = delete $args->{_bookmark})
-	{	$state{bookmarks}{$state{start}} = $b;
+	if(my $bm = delete $args->{_bookmark})
+	{	$state{bookmarks}{$state{start}} = $bm;
 	}
 
 	$harvester ||= sub { my $v = $_[0]->values; $v->{docs} || $v->{rows} };
@@ -627,6 +638,7 @@ sub _pageRequest($$$$)
 	{	delete $params->{bookmark};
 		$params->{skip}     = $start + $paging->{skip} + $progress;
 	}
+	return $params;
 }
 
 =method toPerl \%data, $type, @keys
@@ -792,7 +804,7 @@ sub check($$$$)
 #### Extension which perform some tasks which are framework object specific.
 
 # Returns the JSON structure which is part of the response by the CouchDB
-# server.  Usually, this is the bofy of the response.  In multipart
+# server.  Usually, this is the body of the response.  In multipart
 # responses, it is the first part.
 sub _extractAnswer($)  { panic "must be extended" }
 
