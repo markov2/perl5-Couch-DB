@@ -113,7 +113,7 @@ sub _callClient($$%)
 	});
 
 	if($delay)
-	{	$result->setResultDelay({ client => $client });
+	{	$result->setResultDelayed({ client => $client });
 	}
 	else
 	{	$plan->wait;
