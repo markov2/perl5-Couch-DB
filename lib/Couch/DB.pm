@@ -946,7 +946,7 @@ refuse to return too many answers at a time (typically 25).  When you
 need more results, you will need more calls.
 
 To get more answers, there are two mechanisms: some calls provide a
-C<skip> and C<limit> only.  Other calls implement the more sofisticated
+C<skip> and C<limit> only.  Other calls implement the more sophisticated
 bookmark mechanism.  Both mechanisms are abstracted away by the
 C<_succeed> mechanism.
 

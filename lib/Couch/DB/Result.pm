@@ -278,7 +278,7 @@ sub nextPageSettings()
 =method page
 Returns an ARRAY with the elements collected (harvested) for this page.
 When there are less elements than the requested page size, then there
-are no more elements in the collections.
+are no more elements as result of the search.
 =cut
 
 sub page() { $_[0]->_thisPage->{harvested} }
