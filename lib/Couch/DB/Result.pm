@@ -206,7 +206,7 @@ sub answer(%)
  	$self->isReady
 		or error __x"Document not ready: {err}", err => $self->message;
 
-	$self->{CDR_answer} = $self->couch->_extractAnswer($self->response),
+	$self->{CDR_answer} = $self->couch->_extractAnswer($self->response);
 }
 
 =method values

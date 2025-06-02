@@ -592,8 +592,8 @@ sub _resultsPaging($%)
 	}
 
 	$state{bookmarks} = $succ->{bookmarks} ||= { };
-	if(my $b = delete $args->{_bookmark})
-	{	$state{bookmarks}{$state{start}} = $b;
+	if(my $bm = delete $args->{_bookmark})
+	{	$state{bookmarks}{$state{start}} = $bm;
 	}
 
 	$harvester ||= sub { my $v = $_[0]->values; $v->{docs} || $v->{rows} };
@@ -792,7 +792,7 @@ sub check($$$$)
 #### Extension which perform some tasks which are framework object specific.
 
 # Returns the JSON structure which is part of the response by the CouchDB
-# server.  Usually, this is the bofy of the response.  In multipart
+# server.  Usually, this is the body of the response.  In multipart
 # responses, it is the first part.
 sub _extractAnswer($)  { panic "must be extended" }
 
