@@ -7,6 +7,7 @@ version 0.007:
 
 	Fixes:
 	- setResultDelayed() method name [paulinsche]
+	- _pathToDDoc() calls [paulinsche]
 
 version 0.006: Mon  9 Sep 09:42:09 CEST 2024
 

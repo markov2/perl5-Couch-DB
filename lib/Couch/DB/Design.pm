@@ -39,7 +39,7 @@ M<Couch::DB::Document>.
 =section Accessors
 =cut
 
-sub _pathToDoc(;$) { $_[0]->db->_pathToDB('_design/' . $_[0]->id) . (defined $_[1] ? '/' . uri_escape $_[1] : '')  }
+sub _pathToDDoc(;$) { $_[0]->db->_pathToDB('_design/' . $_[0]->id) . (defined $_[1] ? '/' . uri_escape $_[1] : '')  }
 
 #-------------
 =section Document in the database
@@ -115,7 +115,7 @@ index information.
 sub details(%)
 {	my ($self, %args) = @_;
 
-	$self->couch->call(GET => $self->_pathToDoc('_info'),
+	$self->couch->call(GET => $self->_pathToDDoc('_info'),
 		$self->couch->_resultsConfig(\%args),
 	);
 }
@@ -260,7 +260,7 @@ default or explicit C<undef>, a "null" document will be used.
 
 sub show($;$%)
 {	my ($self, $function, $doc, %args) = @_;
-	my $path = $self->_pathToDoc('_show/'.uri_escape($function));
+	my $path = $self->_pathToDDoc('_show/'.uri_escape($function));
 	$path .= '/' . (blessed $doc ? $doc->id : $doc) if defined $doc;
 
 	$self->couch->call(GET => $path,
@@ -287,7 +287,7 @@ sub list($$%)
 {	my ($self, $function, $view, %args) = @_;
 
 	my $other = defined $args{view_ddoc} ? '/'.delete $args{view_ddoc} : '';
-	my $path = $self->_pathToDoc('_list/' . uri_escape($function) . $other . '/' . uri_escape($view));
+	my $path = $self->_pathToDDoc('_list/' . uri_escape($function) . $other . '/' . uri_escape($view));
 
 	$self->couch->call(GET => $path,
 		deprecated => '3.0.0',
@@ -312,7 +312,7 @@ a C<null> (missing) document will be used.
 
 sub applyUpdate($%)
 {	my ($self, $function, $doc, %args) = @_;
-	my $path = $self->_pathToDoc('_update/'.uri_escape($function));
+	my $path = $self->_pathToDDoc('_update/'.uri_escape($function));
 	$path .= '/' . (blessed $doc ? $doc->id : $doc) if defined $doc;
 
 	$self->couch->call(POST => $path,
