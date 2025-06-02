@@ -39,7 +39,7 @@ M<Couch::DB::Document>.
 =section Accessors
 =cut
 
-sub _pathToDDoc(;$) { $_[0]->db->_pathToDB('_design/' . $_[0]->id) . (defined $_[1] ? '/' . uri_escape $_[1] : '')  }
+sub _pathToDDoc(;$) { $_[0]->db->_pathToDB('_design/' . $_[0]->id) . (defined $_[1] ? "/$_[1]" : '')  }
 
 #-------------
 =section Document in the database
