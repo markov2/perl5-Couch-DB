@@ -5,6 +5,7 @@ package Couch::DB::Result;
 
 use Couch::DB::Util     qw(flat pile);
 use Couch::DB::Document ();
+use Couch::DB::Row      ();
 
 use Log::Report   'couch-db';
 use HTTP::Status  qw(is_success status_constant_name HTTP_OK HTTP_CONTINUE HTTP_MULTIPLE_CHOICES);

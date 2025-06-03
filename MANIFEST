@@ -12,6 +12,7 @@ lib/Couch/DB/Document.pm
 lib/Couch/DB/Mojolicious.pm
 lib/Couch/DB/Node.pm
 lib/Couch/DB/Result.pm
+lib/Couch/DB/Row.pm
 lib/Couch/DB/Util.pm
 reference.html
 t/00use.t
