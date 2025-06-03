@@ -92,6 +92,8 @@ sub update($%)
 	$self->SUPER::create($data, $args);
 }
 
+# get/delete/etc. are simply produced by extension of the _pathToDoc() which
+# adds "_design/" to the front of the path.
 =method get %options
  [CouchDB API "GET /{db}/_design/{ddoc}"]
 
@@ -149,7 +151,7 @@ document name, you can use M<Couch::DB::Database::createIndex()>.
 
 sub createIndex($%)
 {	my ($self, $filter, %args) = @_;
-	$self->db->createIndex(%args, design => $self);
+	$self->db->createIndex($filter, %args, design => $self);
 }
 
 =method deleteIndex $index, %options
@@ -236,13 +238,21 @@ sub indexDetails($%)
 
 Executes the specified view function.
 
-This work is handled in M<Couch::DB::Database::search()>.  See that method for
+This work is handled in M<Couch::DB::Database::allDocs()>.  See that method for
 C<%options> and results.
+
+=example
+  my %search;
+  my $c = $db->design('people')->viewSearch(customers => \%search, _all => 1);
+  my $hits = $c->page;
+
+  my %search = (design => 'people', view => 'customers');
+  my $c = $db->allDocs(\%search, _all => 1);
 =cut
 
 sub viewSearch($;$%)
 {	my ($self, $view, $search, %args) = @_;
-	$self->db->search($search, view => $view, design => $self, %args);
+	$self->db->allDocs($search, view => $view, design => $self, %args);
 }
 
 #-------------

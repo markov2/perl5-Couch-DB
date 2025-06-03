@@ -17,7 +17,10 @@ Couch::DB::Database - One database connection
 
 =chapter SYNOPSIS
 
-   my $db = Couch::DB->db('my-db');
+  my $db   = Couch::DB->db('my-db');
+
+  # (search) documents in the database
+  my $docs = $db->allDocs->{docs};
 
 =chapter DESCRIPTION
 
@@ -486,9 +489,9 @@ sub _designPrepare($$$)
 
 =method createIndex \%filter, %options
  [CouchDB API "POST /{db}/_index", UNTESTED]
-Create/confirm an index on the database.  By default, the index C<name>
-and the name for the design document C<ddoc> are generated.  You can
-also call C<Couch::DB::Design::createIndex()>.
+Create/confirm a text index on the database.  By default, the index
+C<name> and the name for the design document C<ddoc> are generated.
+You can also call C<Couch::DB::Design::createIndex()>.
 
 =option  design $design|$ddocid
 =default design C<undef>
@@ -679,7 +682,7 @@ sub inspectDocs($%)
 	);
 }
 
-=method search [\%query|\@queries, %options]
+=method allDocs [\%query|\@queries, %options]
  [CouchDB API "GET /{db}/_all_docs"]
  [CouchDB API "POST /{db}/_all_docs"]
  [CouchDB API "POST /{db}/_all_docs/queries", UNTESTED]
@@ -718,7 +721,7 @@ Usually called via M<Couch::DB::Design::viewSearch()>.
 =example getting all documents in a database
 Be warned: doing it this way is memory hungry: better use paging.
 
-  my $all  = $couch->db('users')->search({include_docs => 1}, _all => 1);
+  my $all  = $couch->db('users')->allDocs({include_docs => 1}, _all => 1);
   my $hits = $all->page;
   my @docs = map $_->{doc}, @$hits;
 =cut
@@ -732,7 +735,7 @@ sub __toDocs($$%)
 	$data;
 }
 
-sub __searchValues($$%)
+sub __docsValues($$%)
 {	my ($self, $result, $raw, %args) = @_;
 
 	$args{db}  = $self;
@@ -750,7 +753,7 @@ sub __searchValues($$%)
 	$values;
 }
 
-sub search(;$%)
+sub allDocs(;$%)
 {	my ($self, $search, %args) = @_;
 	my $couch  = $self->couch;
 
@@ -763,10 +766,10 @@ sub search(;$%)
 
 	#XXX The API shows some difference in the parameter combinations, which do not
 	#XXX need to be there.  For now, we produce an error for these cases.
-	!$view  || $ddoc  or panic "docs(view) requires design document.";
-	!$local || !$part or panic "docs(local) cannot be combined with partition.";
-	!$local || !$view or panic "docs(local) cannot be combined with a view.";
-	!$part  || @search < 2 or panic "docs(partition) cannot work with multiple searches.";
+	!$view  || $ddoc  or panic "allDocs(view) requires design document.";
+	!$local || !$part or panic "allDocs(local) cannot be combined with partition.";
+	!$local || !$view or panic "allDocs(local) cannot be combined with a view.";
+	!$part  || @search < 2 or panic "allDocs(partition) cannot work with multiple searches.";
 
 	my $set
 	  = $local ? '_local_docs'
@@ -796,12 +799,12 @@ sub search(;$%)
 	$couch->call($method => $path,
 		@params,
 		$couch->_resultsPaging(\%args,
-			on_values => sub { $self->__searchValues($_[0], $_[1], local => $local) },
+			on_values => sub { $self->__docsValues($_[0], $_[1], local => $local) },
 		),
 	);
 }
 
-my @search_bools = qw/
+my @docview_bools = qw/
 	conflicts descending group include_docs attachments att_encoding_info
 	inclusive_end reduce sorted stable update_seq
 /;
@@ -815,12 +818,12 @@ sub _viewPrepare($$$)
 	# Main doc in 1.5.4.  /{db}/_design/{ddoc}/_view/{view}
 	if($method eq 'GET')
 	{	$couch
-			->toQuery($s, bool => @search_bools)
+			->toQuery($s, bool => @docview_bools)
 			->toQuery($s, json => qw/endkey end_key key keys start_key startkey/);
 	}
 	else
 	{	$couch
-			->toJSON($s, bool => @search_bools)
+			->toJSON($s, bool => @docview_bools)
 			->toJSON($s, int  => qw/group_level limit skip/);
 	}
 
@@ -844,7 +847,6 @@ data is not included.
 
 The default search will select everything (uses a blank HASH as required
 C<selector>).  By default, the number of results has a C<limit> of 25.
-j
 Pass C<limit> and C<skip> in C<%options> with other pagination control,
 not in C<%search>.
 
@@ -878,7 +880,7 @@ sub find($%)
 	$search->{selector} ||= {};
 
 	my $path   = $self->_pathToDB;
-	$path     .= '/_partition/'. uri_espace($part) if $part;
+	$path     .= '/_partition/'. uri_escape($part) if $part;
 
 	$self->couch->call(POST => "$path/_find",
 		send   => $self->_findPrepare(POST => $search),

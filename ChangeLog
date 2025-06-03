@@ -5,6 +5,9 @@
 
 version 0.007:
 
+	Changes:
+	- rename ::Database::search() into allDocs()
+
 	Fixes:
 	- setResultDelayed() method name [paulinsche]
 	- _pathToDoc() calls in ::Design [paulinsche]

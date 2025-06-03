@@ -605,9 +605,9 @@ sub _resultsPaging($%)
 	};
 
 	# When less elements are returned
-	return
-	( $self->_resultsConfig($args, @more, on_final => $harvest),
-	   paging => \%state,
+	return (
+		$self->_resultsConfig($args, @more, on_final => $harvest),
+		paging => \%state,
 	);
 }
 
