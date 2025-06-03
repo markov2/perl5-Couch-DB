@@ -7,6 +7,7 @@ version 0.007:
 
 	Changes:
 	- rename ::Database::search() into allDocs()
+	- rename ::Design::viewSearch() into viewDocs()
 
 	Fixes:
 	- setResultDelayed() method name [paulinsche]

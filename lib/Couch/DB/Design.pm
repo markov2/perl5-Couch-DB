@@ -230,7 +230,7 @@ sub indexDetails($%)
 #-------------
 =section Views
 
-=method viewSearch $view, [\%search|\@%search), %options]
+=method viewDocs $view, [\%search|\@%search), %options]
  [CouchDB API "GET /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}/queries", UNTESTED]
@@ -243,14 +243,14 @@ C<%options> and results.
 
 =example
   my %search;
-  my $c = $db->design('people')->viewSearch(customers => \%search, _all => 1);
+  my $c = $db->design('people')->viewDocs(customers => \%search, _all => 1);
   my $hits = $c->page;
 
   my %search = (design => 'people', view => 'customers');
   my $c = $db->allDocs(\%search, _all => 1);
 =cut
 
-sub viewSearch($;$%)
+sub viewDocs($;$%)
 {	my ($self, $view, $search, %args) = @_;
 	$self->db->allDocs($search, view => $view, design => $self, %args);
 }

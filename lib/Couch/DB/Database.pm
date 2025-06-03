@@ -699,7 +699,7 @@ C<@queries> (an ARRAY of query HASHes).  This method support pagination,
 but only when a single query is given.
 
 The preferred way to use this method with a C<view>, is by calling
-M<Couch::DB::Design::viewSearch()> on its C<design> object.
+M<Couch::DB::Design::viewDocs()> on its C<design> object.
 
 =option  local  BOOLEAN
 =default local C<false>
@@ -716,7 +716,7 @@ Restrict the search to the named view.  Requires the C<design> document.
 
 =option  design $design|$ddocid
 =default design C<undef>
-Usually called via M<Couch::DB::Design::viewSearch()>.
+Usually called via M<Couch::DB::Design::viewDocs()>.
 
 =example getting all documents in a database
 Be warned: doing it this way is memory hungry: better use paging.
