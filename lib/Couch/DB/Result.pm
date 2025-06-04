@@ -88,9 +88,9 @@ When a request was completed, a new request can be made immediately.  This
 is especially usefull in combination with C<_delay>, and with internal
 logic.
 
-=option   on_rows CODE|ARRAY
-=default  on_rows C<< [ ] >>
-Produces M<Couch::DB::Row> objects when M<page()> is used.
+=option   on_row CODE|ARRAY
+=default  on_row C<< [ ] >>
+Produces a single M<Couch::DB::Row>-object when M<page()> is used.
 
 =option   paging HASH
 =default  paging C<undef>
@@ -110,7 +110,7 @@ sub init($)
 	$self->{CDR_on_error}  = pile delete $args->{on_error};
 	$self->{CDR_on_chain}  = pile delete $args->{on_chain};
 	$self->{CDR_on_values} = pile delete $args->{on_values};
-	$self->{CDR_on_rows}   = pile delete $args->{on_rows};
+	$self->{CDR_on_row}    = pile delete $args->{on_row};
 	$self->{CDR_code}      = HTTP_MULTIPLE_CHOICES;
 	$self->{CDR_page}      = delete $args->{paging};
 
@@ -232,6 +232,12 @@ sub values(@)
 	$self->{CDR_values} = $values;
 }
 
+#-------------
+=section Results containing rows
+
+When a result (potentially) contains multiple rows, then paging is supported.
+But you may also wish to access the rows directly.
+
 =method rows [$search_nr]
 Some CouchDB calls can be used with paging.  In that case, the answer will
 show something which reflects rows.  This method wraps the values in the
@@ -243,18 +249,49 @@ records at once.  In this case, you must specify the query sequence number
 (starts with zero)
 =cut
 
-sub rows(;$)
+sub rows(;$) { @{$_[0]->rowsArray($_[1])} }
+
+=method rowsArray [$search_nr]
+Returns a reference to the returned rows.
+=cut
+
+sub rowsArray(;$)
 {	my ($self, $col) = @_;
-	return $self->{CDR_rows} if exists $self->{CDR_rows};
+	my $rows = $self->{CDR_rows}[$col ||= 0] ||= [];
+	return $rows if $self->{CDR_rows_complete}[$col];
 
-	my $do = $self->{CDR_on_rows};
-	@$do or error __x"Result does not support paging";
-
-	my $values = $self->values;
-	my $rows;
-	$rows = $_->($self, $values, $rows, column => $col) for reverse @$do;
-	$self->{CDR_rows} = $rows;
+	for(my $rownr = 1; $self->row($rownr, $col); $rownr++) { }
+	$self->{CDR_rows_complete}[$col] = 1;
+	$rows;
 }
+
+=method row $rownr, [$search_nr]
+Returns a M<Couch::DB::Row> object (or an empty LIST) which represents one
+row in a paging answer.  Row numbers start on 1.
+=cut
+
+sub row($$%)
+{	my ($self, $rownr, $col, %args) = @_;
+	my $rows = $self->{CDR_rows}[$col ||= 0];
+	return $rows->[$rownr] if exists $rows->[$rownr];
+
+	my %data = map $_->($self, $rownr-1, column => $col), reverse @{$self->{CDR_on_row}};
+	keys %data or return ();
+
+	my $doc;
+	if(my $dd = $data{docdata})
+	{	my $dp = $data{docparams} || {};
+		$doc   = Couch::DB::Document->fromResult($self, db => $self->db, %$dp);
+	}
+
+	$self->{CDR_rows}[$col][$rownr-1] =     # Remember partial result for rows()
+		Couch::DB::Row->new(result => $self, rownr => $rownr, doc => $doc);
+}
+
+=method numberOfRows [$search_nr]
+=cut
+
+sub numberOfRows(;$) { scalar @{$_[0]->rowsArray($_[1])} }
 
 #-------------
 =section Paging through results
@@ -315,6 +352,16 @@ sub nextPageSettings()
 Returns an ARRAY with the elements collected (harvested) for this page.
 When there are less elements than the requested page size, then there
 are no more elements as result of the search.
+
+Method M<pageRows()> will return the rows as a LIST.
+
+=example compare page and pageRows
+
+   my $r = $db->find(...);
+   foreach my $row ($r->pageRows) { ... }
+   foreach my $row ( @{$r->page} ) { ... }
+   print template($t, rows => [ $r->pageRows ]);
+   print template($t, rows => $r->page);
 =cut
 
 sub page() { $_[0]->_thisPage->{harvested} }
@@ -333,6 +380,13 @@ sub _pageAdd($@)
 	}
 	$page;
 }
+
+=method pageRows
+Returns the LIST of rows (M<Couch::DB::Row> objects), where M<page()> returns it
+as ARRAY (reference).
+=cut
+
+sub pageRows() { @{$_[0]->page} }
 
 =method pageIsPartial
 Returns a true value when there should be made another attempt to fill the
