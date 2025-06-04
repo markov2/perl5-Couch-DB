@@ -286,10 +286,10 @@ sub pagingState(%)
 }
 
 =method supportsPaging
-[0.20] Returns whether the result supports paging.
+[0.100] Returns whether the result supports paging.
 =cut
 
-sub supportsPaging() { defined  $_[0]->{CDR_page} }
+sub supportsPaging() { defined $_[0]->{CDR_page} }
 
 # The next is used r/w when _succeed is a result object, and when results
 # have arrived.
