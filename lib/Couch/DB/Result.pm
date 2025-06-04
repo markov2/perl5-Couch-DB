@@ -88,6 +88,10 @@ When a request was completed, a new request can be made immediately.  This
 is especially usefull in combination with C<_delay>, and with internal
 logic.
 
+=option   on_rows CODE|ARRAY
+=default  on_rows C<< [ ] >>
+Produces M<Couch::DB::Row> objects when M<page()> is used.
+
 =option   paging HASH
 =default  paging C<undef>
 When a call support paging, internal information about it is passed in
@@ -106,6 +110,7 @@ sub init($)
 	$self->{CDR_on_error}  = pile delete $args->{on_error};
 	$self->{CDR_on_chain}  = pile delete $args->{on_chain};
 	$self->{CDR_on_values} = pile delete $args->{on_values};
+	$self->{CDR_on_rows}   = pile delete $args->{on_rows};
 	$self->{CDR_code}      = HTTP_MULTIPLE_CHOICES;
 	$self->{CDR_page}      = delete $args->{paging};
 
@@ -225,6 +230,30 @@ sub values(@)
 	my $values = $self->answer;
 	$values = $_->($self, $values) for reverse @{$self->{CDR_on_values}};
 	$self->{CDR_values} = $values;
+}
+
+=method rows [$search_nr]
+Some CouchDB calls can be used with paging.  In that case, the answer will
+show something which reflects rows.  This method wraps the values in the
+rows into M<Couch::DB::Row>-objects.
+
+(At least with) M<Couch::DB::Database::find()> you can supply multiple
+queries at the same time.  They will all use the same paging, usually C<_all>
+records at once.  In this case, you must specify the query order number
+(starts with zero)
+=cut
+
+sub rows(;$)
+{	my ($self, $col) = @_;
+	return $self->{CDR_rows} if exists $self->{CDR_rows};
+
+	my $do = $self->{CDR_on_rows};
+	@$do or error __x"Result does not support paging";
+
+	my $values = $self->values;
+	my $rows;
+	$rows = $_->($self, $values, $rows, column => $col) for reverse @$do;
+	$self->{CDR_rows} = $rows;
 }
 
 #-------------

@@ -522,11 +522,19 @@ sub _resultsConfig($%)
 {	my ($self, $args, @more) = @_;
 	my %config;
 
-	exists $args->{"_$_"} && ($config{$_} = delete $args->{"_$_"})
-		for qw/delay client clients headers/;
+	# HTTP and paging controls
+	my @controls = grep /^_/, keys %args;
+	foreach my $control (@controls)
+	{	my $param = $args->{$control};
+		push @{$config{$control =~ s/^_//r}}, $param if defined $param;
+	}
 
-	exists $args->{$_} && (push @{$config{$_}}, delete $args->{$_})
-		for qw/on_error on_final on_chain on_values/;
+	# Calls on certain events/moments in the process
+	my @events = grep /^on_/, keys %args;
+	foreach my $event (@events)
+	{	my $code = $args->{$event};
+		push @{$config{$event}}, $code if defined $code;
+	}
 
 	while(@more)
 	{	my ($key, $value) = (shift @more, shift @more);
@@ -534,10 +542,10 @@ sub _resultsConfig($%)
 		{	# Headers are added, as default only
 			my $headers = $config{headers} ||= {};
 			exists $headers->{$_} or ($headers->{$_} = $value->{$_}) for keys %$value;
-			next;
 		}
 		elsif($key =~ /^on_/)
-		{	push @{$config{$key}}, $value;
+		{	# User specified additional events
+			push @{$config{$key}}, $value if defined $value;
 		}
 		else
 		{	# Other parameters used as default
@@ -545,7 +553,9 @@ sub _resultsConfig($%)
 		}
 	}
 
+	$config{paging} ^ $config{on_rows} and panic 'paging/on_rows always together';
 	keys %$args and warn "Unused call parameters: ", join ', ', sort keys %$args;
+
 	%config;
 }
 
@@ -604,11 +614,7 @@ sub _resultsPaging($%)
 		$result->_pageAdd($result->answer->{bookmark}, @found);  # also call with 0
 	};
 
-	# When less elements are returned
-	return (
-		$self->_resultsConfig($args, @more, on_final => $harvest),
-		paging => \%state,
-	);
+	$self->_resultsConfig($args, @more, on_final => $harvest, _paging => \%state),
 }
 
 sub _pageRequest($$$$)
