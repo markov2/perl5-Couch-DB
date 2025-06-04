@@ -239,7 +239,7 @@ rows into M<Couch::DB::Row>-objects.
 
 (At least with) M<Couch::DB::Database::find()> you can supply multiple
 queries at the same time.  They will all use the same paging, usually C<_all>
-records at once.  In this case, you must specify the query order number
+records at once.  In this case, you must specify the query sequence number
 (starts with zero)
 =cut
 
@@ -284,6 +284,12 @@ sub pagingState(%)
 
 	$next;
 }
+
+=method supportsPaging
+[0.20] Returns whether the result supports paging.
+=cut
+
+sub supportsPaging() { defined  $_[0]->{CDR_page} }
 
 # The next is used r/w when _succeed is a result object, and when results
 # have arrived.
