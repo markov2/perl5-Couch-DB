@@ -49,49 +49,11 @@ much easier.
 
 Also, open F<https://perl.overmeer.net/couch-db/reference.html>
 in a browser window, as useful cross-reference: parameters for CouchDB
-are not documented in this Perl documentation!
+are not documented in this Perl documentation!  For those, you need
+to visit F<https://docs.couchdb.org/en/stable/>.
 
 B<Please read> the L</DETAILS> section, further down, at least once
 before you start!
-
-=section Early adopters
-
-B<Be warned> that this module is really new.  The 127 different endpoints
-that the CouchDB 3.3.3 API defines, are grouped and combined.  The result
-is often not tested, and certainly not combat ready.  Please, report
-the result of calls which are currently flagged "UNTESTED".
-
-B<Please help> me fix issues by reporting them.  Bugs will be solved within
-a day.  Please, contribute ideas to make the use of the module lighter.
-Together, we can make the quality grow fast.
-
-=section Integration with your framework
-
-You need to instantiate an extensions of this class.  At the moment,
-you can pick from:
-
-=over 4
-=item * M<Couch::DB::Mojolicious>
-Implements the client using the M<Mojolicious> framework, using M<Mojo::URL>,
-M<Mojo::UserAgent>, M<Mojo::IOLoop>, and many other.
-=back
-
-Other extensions are hopefully added in the future.  Preferrably as part
-of this release so it gets maintained together.  The extensions are not
-too difficult to create and certainly quite small.
-
-=section Where can I find what?
-
-The CouchDB API lists all endpoints as URLs.  This library, however,
-creates an Object Oriented interface around these calls: you do not
-see the internals in the resulting code.  Knowing the CouchDB API,
-it is usually immediately clear where to find a certain end-point:
-C<< /{db} >> will be in M<Couch::DB::Database>.  A major exception is
-anything what has to do with replication and sharding: this is bundled
-in M<Couch::DB::Cluster>.
-
-Have a look at F<https://perl.overmeer.net/couch-db/reference.html>.
-Keep that page open in your browser while developing.
 
 =chapter METHODS
 
@@ -815,6 +777,45 @@ sub _messageContent($) { panic "must be extended" }
 #-------------
 =chapter DETAILS
 
+=section Early adopters
+
+B<Be warned> that this module is really new.  The 127 different endpoints
+that the CouchDB 3.3.3 API defines, are grouped and combined.  The result
+is often not tested, and certainly not combat ready.  Please, report
+the result of calls which are currently flagged "UNTESTED".
+
+B<Please help> me fix issues by reporting them.  Bugs will be solved within
+a day.  Please, contribute ideas to make the use of the module lighter.
+Together, we can make the quality grow fast.
+
+=section Integration with your framework
+
+You need to instantiate an extensions of this class.  At the moment,
+you can pick from:
+
+=over 4
+=item * M<Couch::DB::Mojolicious>
+Implements the client using the M<Mojolicious> framework, using M<Mojo::URL>,
+M<Mojo::UserAgent>, M<Mojo::IOLoop>, and many other.
+=back
+
+Other extensions are hopefully added in the future.  Preferrably as part
+of this release so it gets maintained together.  The extensions are not
+too difficult to create and certainly quite small.
+
+=section Where can I find what?
+
+The CouchDB API lists all endpoints as URLs.  This library, however,
+creates an Object Oriented interface around these calls: you do not
+see the internals in the resulting code.  Knowing the CouchDB API,
+it is usually immediately clear where to find a certain end-point:
+C<< /{db} >> will be in M<Couch::DB::Database>.  A major exception is
+anything what has to do with replication and sharding: this is bundled
+in M<Couch::DB::Cluster>.
+
+Have a look at F<https://perl.overmeer.net/couch-db/reference.html>.
+Keep that page open in your browser while developing.
+
 =section Thick interface
 
 The CouchDB client interface is based on HTTP.  It is really easy to
@@ -902,6 +903,7 @@ hence no-where documented explicitly.  Those options start with an underscore (C
 or with C<on_> (events).
 
 At the moment, the following C<%options> are supported everywhere:
+
 =over 4
 =item * C<_delay> =E<gt> BOOLEAN, default C<false>
 Do not perform and wait for the actual call, but prepare it to be used in parallel
@@ -945,7 +947,40 @@ Run the CODE on the result on the returned JSON data, to translate the
 raw C<answer()> into C<values()>.  Wherever seemed useful, this is
 already hidden for you.  However: there may be cases where you want to
 add changes.
+
+=item * C<on_row> =E<gt> CODE
+Used to produce rows where the answer of a call produces a list of
+answers.
 =back
+
+=section Searching with CouchDB
+
+CouchDB supports various search mechanisms, which are confusingly
+named.  Their configuration is stored in design documents (see
+M<Couch::DB::Design>).  The mechanisms can often be combined.
+
+=over 4
+=item * Views
+Views are docid-key-value tables which are following the changes made
+in a database.  The value may be complex, and may contain extracts
+and computed elements based on each document.
+See F<https://docs.couchdb.org/en/stable/ddocs/views/>
+
+=item * Index
+Keeps Lucene (mainly full text search) indexes on a database.  The
+interface uses Clouseau (being phased out) or Nouveau (since 3.4.1)
+wrapper libraries.
+See F<https://docs.couchdb.org/en/stable/ddocs/search.html>
+
+=item * Mango
+The C<find()> method uses MongoDB compatible search statements,
+which can be combined with index and view restrictions.
+See F<https://docs.couchdb.org/en/stable/ddocs/mango.html>
+
+=back
+
+Confusing? Yes it is.  There are often multiple solutions for the
+same problem.
 
 =section Pagination
 
