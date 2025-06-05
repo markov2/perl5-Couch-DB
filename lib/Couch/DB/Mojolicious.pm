@@ -79,13 +79,15 @@ sub createClient(%)
 sub _callClient($$%)
 {	my ($self, $result, $client, %args) = @_;
 
+use Data::Dumper;
+warn "callClient=", Dumper \%args;
 	my $method  = delete $args{method} or panic;
 	my $delay   = delete $args{delay}  || 0;
 	my $path    = delete $args{path};
 	my $query   = delete $args{query};
 	my $send    = delete $args{send};
 
-	my $ua  = $client->userAgent;
+	my $ua      = $client->userAgent;
 	my %headers = ( %{$client->headers}, %{delete $args{headers}} );
 #warn "HEADERS = ", join ';', %headers;
 

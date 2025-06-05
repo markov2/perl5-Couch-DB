@@ -6,8 +6,9 @@
 version 0.007:
 
 	Changes:
-	- rename ::Database::search() into allDocs()
-	- rename ::Design::viewSearch() into viewDocs()
+	- rename ::Database::search() into ::allDocs()
+	- rename ::Design::viewSearch() into ::viewDocs()
+	- rename ::Result::page() into ::pageDocs()
 
 	Fixes:
 	- setResultDelayed() method name [paulinsche]
@@ -17,7 +18,9 @@ version 0.007:
 	Improvements:
 	- add on_row event
 	- add ::Result::supportsPaging()
-	- add ::Result::row(), ::Result::rows(), and ::Result::pageRows()
+	- add ::Result::row(), ::rows(), and ::docs()
+	- add ::Result::page(), ::pageDocs(), and ::pageRows()
+	- add ::Document::row()
 
 version 0.006: Mon  9 Sep 09:42:09 CEST 2024
 

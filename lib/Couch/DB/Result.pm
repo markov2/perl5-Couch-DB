@@ -104,8 +104,6 @@ sub init($)
 {	my ($self, $args) = @_;
 
 	$self->{CDR_couch}     = delete $args->{couch} or panic;
-	weaken $self->{CDR_couch};
-
 	$self->{CDR_on_final}  = pile delete $args->{on_final};
 	$self->{CDR_on_error}  = pile delete $args->{on_error};
 	$self->{CDR_on_chain}  = pile delete $args->{on_chain};
@@ -249,13 +247,13 @@ records at once.  In this case, you must specify the query sequence number
 (starts with zero)
 =cut
 
-sub rows(;$) { @{$_[0]->rowsArray($_[1])} }
+sub rows(;$) { @{$_[0]->rowsRef($_[1])} }
 
-=method rowsArray [$search_nr]
+=method rowsRef [$search_nr]
 Returns a reference to the returned rows.
 =cut
 
-sub rowsArray(;$)
+sub rowsRef(;$)
 {	my ($self, $col) = @_;
 	my $rows = $self->{CDR_rows}[$col ||= 0] ||= [];
 	return $rows if $self->{CDR_rows_complete}[$col];
@@ -264,6 +262,20 @@ sub rowsArray(;$)
 	$self->{CDR_rows_complete}[$col] = 1;
 	$rows;
 }
+
+=method docs [$search_nr]
+Return only the document information which is kept in the rows.  Some
+rows may contain more search information.
+Returns a LIST of M<Couch::DB::Document>-objects.
+=cut
+
+sub docs(;$) { map $_->doc, $_[0]->rows($_[1]) }
+
+=method docsRef
+Returns a reference to the documents.
+=cut
+
+sub docsRef(;$) { [ map $_->doc, $_[0]->rows($_[1]) ] }
 
 =method row $rownr, [$search_nr]
 Returns a M<Couch::DB::Row> object (or an empty LIST) which represents one
@@ -279,19 +291,21 @@ sub row($$%)
 	keys %data or return ();
 
 	my $doc;
-	if(my $dd = $data{docdata})
-	{	my $dp = $data{docparams} || {};
-		$doc   = Couch::DB::Document->fromResult($self, db => $self->db, %$dp);
+	if(my $dd = delete $data{docdata})
+	{	my $dp = delete $data{docparams} || {};
+		$doc   = Couch::DB::Document->fromResult($self, $dd, %$dp);
 	}
 
-	$self->{CDR_rows}[$col][$rownr-1] =     # Remember partial result for rows()
-		Couch::DB::Row->new(result => $self, rownr => $rownr, doc => $doc);
+	my $row = Couch::DB::Row->new(%data, result => $self, rownr => $rownr, doc => $doc);
+	$doc->row($row);
+
+	$self->{CDR_rows}[$col][$rownr-1] = $row;    # Remember partial result for rows()
 }
 
 =method numberOfRows [$search_nr]
 =cut
 
-sub numberOfRows(;$) { scalar @{$_[0]->rowsArray($_[1])} }
+sub numberOfRows(;$) { scalar @{$_[0]->rowsRef($_[1])} }
 
 #-------------
 =section Paging through results
@@ -387,6 +401,24 @@ as ARRAY (reference).
 =cut
 
 sub pageRows() { @{$_[0]->page} }
+
+=method pageDocs
+Returns the LIST of documents (M<Couch::DB::Document> objects), which are
+contained in the rows.
+
+=example of pageDocs()
+  my $r1 = $couch->find(...);
+  my @docs1 = map $_->doc, $r1->page;
+
+  my $r2 = $couch->find(..., _harvester => sub { $_[0]->docs });
+  my @docs2 = $r2->page;
+
+  my $r3 = $couch->find(...);
+  my @docs3 = $r3->pageDocs;
+
+=cut
+
+sub pageDocs() { map $_->doc, @{$_[0]->page} }
 
 =method pageIsPartial
 Returns a true value when there should be made another attempt to fill the

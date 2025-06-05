@@ -63,6 +63,9 @@ attachments.
 =default  content C<undef>
 Create a new document, with the first revision of the content.  Once saved,
 it will get a revision.
+
+=option   row  M<Couch::DB::Row>-object
+=default  row  C<undef>
 =cut
 
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
@@ -87,6 +90,7 @@ sub init($)
 	# that might consume a lot of memory.  Although it may help debugging.
 	# weaken $self->{CDD_result} = my $result = delete $args->{result};
 
+	$self->row(delete $args->{row});
 	$self;
 }
 
@@ -122,9 +126,12 @@ sub _consume($$)
 	$self;
 }
 
-sub _fromResponse($$$%)
+=c_method fromResult $result, $data, %options
+=cut
+
+sub fromResult($$$%)
 {	my ($class, $result, $data, %args) = @_;
-	$class->new(%args)->_consume($result, $data);
+	$class->new(%args, result => $result)->_consume($result, $data);
 }
 
 #-------------
@@ -160,6 +167,18 @@ sub _saved($$;$)
 {	my ($self, $id, $rev, $data) = @_;
 	$self->{CDD_id} ||= $id;
 	$self->{CDD_revs}{$rev} = $data || delete $self->{CDD_revs}{_new};
+}
+
+=method row [$row]
+Returns the M<Couch::DB::Row>-object where this document was found, if any.
+=cut
+
+sub row(;$)
+{	my $self = shift;
+	@_ or return $self->{CDD_row};
+	$self->{CDD_row} = shift;
+	weaken($self->{CDD_row});
+	$self->{CDD_row};
 }
 
 #-------------

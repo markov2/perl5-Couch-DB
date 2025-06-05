@@ -482,6 +482,7 @@ sub call($$%)
 		on_error  => $args{on_error},
 		on_final  => $args{on_final},
 		on_chain  => $args{on_chain},
+		on_row    => $args{on_row},
 		paging    => $paging,
 	);
 
@@ -523,16 +524,16 @@ sub _resultsConfig($%)
 	my %config;
 
 	# HTTP and paging controls
-	my @controls = grep /^_/, keys %args;
+	my @controls = grep /^_/, keys %$args;
 	foreach my $control (@controls)
-	{	my $param = $args->{$control};
-		push @{$config{$control =~ s/^_//r}}, $param if defined $param;
+	{	my $param = delete $args->{$control};
+		$config{$control =~ s/^_//r} = $param if defined $param;
 	}
 
 	# Calls on certain events/moments in the process
-	my @events = grep /^on_/, keys %args;
+	my @events = grep /^on_/, keys %$args;
 	foreach my $event (@events)
-	{	my $code = $args->{$event};
+	{	my $code = delete $args->{$event};
 		push @{$config{$event}}, $code if defined $code;
 	}
 
@@ -553,7 +554,8 @@ sub _resultsConfig($%)
 		}
 	}
 
-	$config{paging} ^ $config{on_rows} and panic 'paging/on_rows always together';
+	$config{paging} && !$config{on_row} and panic "paging without on_row";
+
 	keys %$args and warn "Unused call parameters: ", join ', ', sort keys %$args;
 
 	%config;
@@ -606,7 +608,7 @@ sub _resultsPaging($%)
 	{	$state{bookmarks}{$state{start}} = $bm;
 	}
 
-	$harvester ||= sub { my $v = $_[0]->values; $v->{docs} || $v->{rows} };
+	$harvester ||= sub { $_[0]->rows };
 	my $harvest = sub {
 		my $result = shift or return;
 		my @found  = flat $harvester->($result);
@@ -614,7 +616,7 @@ sub _resultsPaging($%)
 		$result->_pageAdd($result->answer->{bookmark}, @found);  # also call with 0
 	};
 
-	$self->_resultsConfig($args, @more, on_final => $harvest, _paging => \%state),
+	$self->_resultsConfig($args, @more, on_final => $harvest, paging => \%state),
 }
 
 sub _pageRequest($$$$)
@@ -1026,9 +1028,19 @@ The C<_succeed> handling will play tricks with C<_page>, C<_harvester>,
 and C<_client>, which you do not wish to know.
 
   my $page1 = $couch->find(\%search, limit => 12, skip => 300);
-  my $docs1 = $page1->page;
+  my $rows1 = $page1->page;
+  my @rows1 = $page1->pageRows;
+  my @docs1 = map $_->doc, @rows1;
+  
   my $page2 = $couch->find(\%search, _succeed => $page1);
-  my $docs2 = $page2->page;
+  my $rows2 = $page2->page;
+  my @docs2 = map $_->doc, $page2->page;
+  my @docs2 = $page2->pageDocs;
+  
+  sub h { my ($result) = @_; $result->docs }
+  my $page3 = $couch->find(\%search, _succeed => $page2, _harvester => \&h);
+  my $docs3 = $page3->page;    # now docs!
+  my @docs3 = $page3->pageRows;
 
 =example paging via a session
 When you cannot ask for pages within a single continuous process, because
@@ -1039,12 +1051,12 @@ The state cannot contain code references, so when you have a specific
 harvester or map, then you need to resupply those.
 
   my $page1 = $couch->find(\%search);
-  my $docs1 = $page1->page;
+  my $rows1 = $page1->page;
   $session->save(current => serialized $page1->pagingState);
   ...
   my $prev  = deserialize $session->load('current');
   my $page2 = $couch->find(\%search, _succeed => $prev);
-  my $docs2 = $page2->page;
+  my $rows2 = $page2->page;
 
 =example get all results in a loop
 Handle the responses which are coming in one by one.  This is useful
@@ -1053,9 +1065,9 @@ is a new result object.
 
   my $list;
   while($list = $couch->find(\%search, _succeed => $list))
-  {   my $docs = $list->page;
-      @$docs or last;    # nothing left
-      ...;    # use the docs
+  {   my $rows = $list->page;
+      @$rows or last;    # nothing left
+      ...;    # use the rows
   }
   $list or die "Stopped somewhere with ". $list->message;
 
@@ -1067,18 +1079,18 @@ pages already seen.
 	limit      => 10,  # results per server request
 	_page_size => 50,  # results until complete
     _page      =>  4,  # start point, may use bookmark
-    _harvester => sub { $_[0]->values->{docs} }, # default
+    _harvester => sub { $_[0]->rows }, # default
   );
-  my $docs4 = $page4->page;
+  my $rows4 = $page4->page;
   my $page5 = $couch->find(\%search, _succeed => $page4);
-  my $docs5 = $page5->page;
+  my $rows5 = $page5->page;
 
 =example get all results in one call
 Do not attempt this unless you know there there is a limited number of
 results, maybe just a bit more than a page.
 
   my $all   = $couch->find(\%search, _all => 1) or die;
-  my $docs6 = $all->page;
+  my @rows6 = $all->pageRows;
 
 =example processing results when they arrive
 When a page (may) require multiple calls to the server, this may enhance

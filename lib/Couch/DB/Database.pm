@@ -675,7 +675,7 @@ sub inspectDocs($%)
 	#XXX what does "conflicted documents mean?
 	#XXX what does "a": 1 mean in its response?
 
-	$self->couch->call(POST =>  $self->_pathToDB('_bulk_get'),
+	$self->couch->call(POST => $self->_pathToDB('_bulk_get'),
 		query => $query,
 		send  => { docs => $docs },
 		$couch->_resultsConfig(\%args),
@@ -722,35 +722,22 @@ Usually called via M<Couch::DB::Design::viewDocs()>.
 Be warned: doing it this way is memory hungry: better use paging.
 
   my $all  = $couch->db('users')->allDocs({include_docs => 1}, _all => 1);
-  my $hits = $all->page;
-  my @docs = map $_->{doc}, @$hits;
+  my $rows = $all->page;
+  my @docs = map $_->doc, @$rows;
 =cut
 
-sub __toDocs($$%)
-{	my ($self, $result, $data, %args) = @_;
-	foreach my $row (@{$data->{rows}})
-	{	my $doc = $row->{doc} or next;
-		$row->{doc} = Couch::DB::Document->_fromResponse($result, $doc, %args);
-	}
-	$data;
-}
+sub __allDocsRow(%)
+{	my ($self, $result, $rownr, %args) = @_;
+	! $args{column} or panic "allDocs() does not support parallel queries";
 
-sub __docsValues($$%)
-{	my ($self, $result, $raw, %args) = @_;
+	my $answer = $result->answer->{rows}[$rownr] or return ();
+	my $values = $result->values->{rows}[$rownr];
 
-	$args{db}  = $self;
-	my $values = +{ %$raw };
-
-	if(my $multi = $values->{results})
-	{	# Multiple queries, multiple answers
-		$values->{results} = [ map $self->__toDocs($result, +{ %$_ }, %args), flat $multi ];
-	}
-	else
-	{	# Single query
-		$self->__toDocs($result, $values, %args);
-	}
-
-	$values;
+	 (	answer    => $answer,
+		values    => $values,
+		docdata   => $values->{doc},
+		docparams => { local => $args{local}, db => $self },
+	 );
 }
 
 sub allDocs(;$%)
@@ -774,14 +761,14 @@ sub allDocs(;$%)
 	my $set
 	  = $local ? '_local_docs'
 	  :   ($part ? '_partition/'. uri_escape($part) . '/' : '')
-        . ($view ? "_design/$ddocid/_view/". uri_escape($view) : '_all_docs');
+	    . ($view ? "_design/$ddocid/_view/". uri_escape($view) : '_all_docs');
 
 	my $method = !@search || $part ? 'GET' : 'POST';
 	my $path   = $self->_pathToDB($set);
 
 	# According to the spec, _all_docs is just a special view.
 	my @send   = map $self->_viewPrepare($method, $_, "docs search"), @search;
-		
+
 	my @params;
 	if($method eq 'GET')
 	{	@send < 2 or panic "Only one search with docs(GET)";
@@ -799,7 +786,7 @@ sub allDocs(;$%)
 	$couch->call($method => $path,
 		@params,
 		$couch->_resultsPaging(\%args,
-			on_values => sub { $self->__docsValues($_[0], $_[1], local => $local) },
+			on_row   => sub { $self->__allDocsRow(@_, local => $local) },
 		),
 	);
 }
@@ -864,18 +851,25 @@ not in C<%search>.
   foreach my $doc (@$docs) { ... }
 =cut
 
-sub __findValues($$)
-{	my ($self, $result, $raw) = @_;
-	my @docs = flat $raw->{docs};
-	@docs or return $raw;
+sub __findRow(%)
+{	my ($self, $result, $index, %args) = @_;
+	my $col = $args{column} || 0;
+use Data::Dumper;
+warn "FIND($index, $col)";
 
-	my %data = %$raw;
-	$data{docs} = [ map Couch::DB::Document->_fromResponse($result, $_, db => $self), @docs ];
-	\%data;
+	my $answer = $result->answer->{docs}[$index] or return ();
+	my $values = $result->values->{docs}[$index];
+
+	(	answer    => $answer,
+		values    => $values,
+		docdata   => $values,
+		docparams => { local => $args{local}, db => $self },
+	 );
 }
 
 sub find($%)
 {	my ($self, $search, %args) = @_;
+
 	my $part   = delete $args{partition};
 	$search->{selector} ||= {};
 
@@ -884,7 +878,9 @@ sub find($%)
 
 	$self->couch->call(POST => "$path/_find",
 		send   => $self->_findPrepare(POST => $search),
-		$self->couch->_resultsPaging(\%args, on_values => sub { $self->__findValues(@_) }),
+		$self->couch->_resultsPaging(\%args,
+			on_row => sub { $self->__findRow(@_) }
+		),
 	);
 }
 
