@@ -167,37 +167,41 @@ sub deleteIndex($%)
 	);
 }
 
-=method indexFind $index, %options
+=method indexFind $index, [\%search, %options]
  [CouchDB API "GET /{db}/_design/{ddoc}/_search/{index}", UNTESTED]
 
-Executes a search request against the named $index.
+Executes a text search request against the named $index.  The default
+C<%search> contains the whole index.  When the search contains
+C<include_docs>, then full docs are made available.
 
-When you have used C<include_docs>, then the documents can be found in
-C<< $result->values->{docs} >>, not C<< {rows} >>.
+(Of course) this command supports paging.
 
-=option  search HASH
-=default search {}
-The search query.
+=example return full index all as rows
+ my $d    = $db->design('d');
+ my $rows = $d->indexFind('i', {}, _all => 1)->page;
+
+ my $search = { include_docs => 1 };
+ my @docs = $d->indexFind('i', $search, _all => 1)->docs;
+
 =cut
 
-sub __indexValues($$%)
-{	my ($self, $result, $raw, %args) = @_;
-	delete $args{full_docs} or return $raw;
+sub __indexRow(%)
+{	my ($self, $result, $index, %args) = @_;
+	my $answer = $result->answer->{rows}[$index] or return ();
+	my $values = $result->values->{rows}[$index];
 
-	my $values = +{ %$raw };
-	$values->{docs} = delete $values->{rows};
-	$self->db->__toDocs($result, $values, db => $self->db);
-	$values;
+	  (	answer    => $answer,
+		values    => $values,
+		( $args{full_docs} ? (docdata => $values, docparams => { db => $self }) : ()),
+	  );
 }
 
-sub indexFind($%)
-{	my ($self, $index, %args) = @_;
-	my $couch = $self->couch;
-
-	my $search  = delete $args{search} || {};
-	my $query   = +{ %$search };
+sub indexFind($$%)
+{	my ($self, $index, $search, %args) = @_;
+	my $query = $search ? +{ %$search } : {};
 
 	# Everything into the query :-(  Why no POST version?
+	my $couch = $self->couch;
 	$couch
 		->toQuery($query, json => qw/counts drilldown group_sort highlight_fields include_fields ranges sort/)
 		->toQuery($query, int  => qw/highlight_number highlight_size limit/)
@@ -207,7 +211,7 @@ sub indexFind($%)
 		introduced => '3.0.0',
 		query      => $query,
 		$couch->_resultsPaging(\%args,
-			on_values  => sub { $self->__indexValues($_[0], $_[1], db => $self->db, full_docs => $search->{include_docs}) },
+			on_row => sub { $self->__indexRow(@_, full_docs => $search->{include_docs}) },
 		),
 	);
 }

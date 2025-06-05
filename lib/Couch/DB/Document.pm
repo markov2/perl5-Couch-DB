@@ -464,7 +464,7 @@ sub delete(%)
 
 See also M<appendTo()>.
 
-As %options, C<batch> and C<rev>.
+For C<%options>, you can use C<batch> and C<rev>.
 
 =example cloning one document into a new one
    my $from = $db->doc('from');

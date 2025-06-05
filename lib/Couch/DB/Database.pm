@@ -728,8 +728,6 @@ Be warned: doing it this way is memory hungry: better use paging.
 
 sub __allDocsRow(%)
 {	my ($self, $result, $rownr, %args) = @_;
-	! $args{column} or panic "allDocs() does not support parallel queries";
-
 	my $answer = $result->answer->{rows}[$rownr] or return ();
 	my $values = $result->values->{rows}[$rownr];
 
@@ -828,9 +826,9 @@ sub _viewPrepare($$$)
  [CouchDB API "POST /{db}/_find"]
  [CouchDB API "POST /{db}/_partition/{partition_id}/_find", UNTESTED]
 
-Search the database for matching documents.  The documents are always
-included in the reply, including attachment information.  Attachement
-data is not included.
+Search the database for matching documents, using Mango selectors.
+The documents are always included in the reply, including attachment
+information.  Attachment data is not included.
 
 The default search will select everything (uses a blank HASH as required
 C<selector>).  By default, the number of results has a C<limit> of 25.
@@ -842,21 +840,12 @@ not in C<%search>.
 
 =example of find() with a single query
   my $result = $couch->find or die;
-  my $docs   = $result->values->{docs};  # Couch::DB::Documents
-  foreach my $doc (@$docs) { ... }
-
-=example of find() more than one query:
-  my $result = $couch->find( [\%q0, \%q1] ) or die;
-  my $docs   = $result->values->{results}[1]{docs};
-  foreach my $doc (@$docs) { ... }
+  my @docs   = $result->docs;  # Couch::DB::Documents
+  foreach my $doc (@docs) { ... }
 =cut
 
-sub __findRow(%)
+sub __findRow($$%)
 {	my ($self, $result, $index, %args) = @_;
-	my $col = $args{column} || 0;
-use Data::Dumper;
-warn "FIND($index, $col)";
-
 	my $answer = $result->answer->{docs}[$index] or return ();
 	my $values = $result->values->{docs}[$index];
 
@@ -879,7 +868,7 @@ sub find($%)
 	$self->couch->call(POST => "$path/_find",
 		send   => $self->_findPrepare(POST => $search),
 		$self->couch->_resultsPaging(\%args,
-			on_row => sub { $self->__findRow(@_) }
+			on_row => sub { $self->__findRow(@_) },
 		),
 	);
 }

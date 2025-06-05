@@ -236,7 +236,7 @@ sub values(@)
 When a result (potentially) contains multiple rows, then paging is supported.
 But you may also wish to access the rows directly.
 
-=method rows [$search_nr]
+=method rows
 Some CouchDB calls can be used with paging.  In that case, the answer will
 show something which reflects rows.  This method wraps the values in the
 rows into M<Couch::DB::Row>-objects.
@@ -247,47 +247,47 @@ records at once.  In this case, you must specify the query sequence number
 (starts with zero)
 =cut
 
-sub rows(;$) { @{$_[0]->rowsRef($_[1])} }
+sub rows() { @{$_[0]->rowsRef)} }
 
-=method rowsRef [$search_nr]
+=method rowsRef
 Returns a reference to the returned rows.
 =cut
 
-sub rowsRef(;$)
-{	my ($self, $col) = @_;
-	my $rows = $self->{CDR_rows}[$col ||= 0] ||= [];
-	return $rows if $self->{CDR_rows_complete}[$col];
+sub rowsRef()
+{	my $self = shift
+	my $rows = $self->{CDR_rows} ||= [];
+	return $rows if $self->{CDR_rows_complete};
 
-	for(my $rownr = 1; $self->row($rownr, $col); $rownr++) { }
-	$self->{CDR_rows_complete}[$col] = 1;
+	for(my $rownr = 1; $self->row($rownr); $rownr++) { }
+	$self->{CDR_rows_complete} = 1;
 	$rows;
 }
 
-=method docs [$search_nr]
+=method docs
 Return only the document information which is kept in the rows.  Some
 rows may contain more search information.
 Returns a LIST of M<Couch::DB::Document>-objects.
 =cut
 
-sub docs(;$) { map $_->doc, $_[0]->rows($_[1]) }
+sub docs() { map $_->doc, $_[0]->rows }
 
 =method docsRef
 Returns a reference to the documents.
 =cut
 
-sub docsRef(;$) { [ map $_->doc, $_[0]->rows($_[1]) ] }
+sub docsRef() { [ map $_->doc, $_[0]->rows ] }
 
-=method row $rownr, [$search_nr]
+=method row $rownr, %options
 Returns a M<Couch::DB::Row> object (or an empty LIST) which represents one
 row in a paging answer.  Row numbers start on 1.
 =cut
 
 sub row($$%)
-{	my ($self, $rownr, $col, %args) = @_;
-	my $rows = $self->{CDR_rows}[$col ||= 0];
+{	my ($self, $rownr, %args) = @_;
+	my $rows = $self->{CDR_rows};
 	return $rows->[$rownr] if exists $rows->[$rownr];
 
-	my %data = map $_->($self, $rownr-1, column => $col), reverse @{$self->{CDR_on_row}};
+	my %data = map $_->($self, $rownr-1), reverse @{$self->{CDR_on_row}};
 	keys %data or return ();
 
 	my $doc;
@@ -299,13 +299,13 @@ sub row($$%)
 	my $row = Couch::DB::Row->new(%data, result => $self, rownr => $rownr, doc => $doc);
 	$doc->row($row);
 
-	$self->{CDR_rows}[$col][$rownr-1] = $row;    # Remember partial result for rows()
+	$self->{CDR_rows}[$rownr-1] = $row;    # Remember partial result for rows()
 }
 
-=method numberOfRows [$search_nr]
+=method numberOfRows
 =cut
 
-sub numberOfRows(;$) { scalar @{$_[0]->rowsRef($_[1])} }
+sub numberOfRows() { scalar @{$_[0]->rowsRef} }
 
 #-------------
 =section Paging through results

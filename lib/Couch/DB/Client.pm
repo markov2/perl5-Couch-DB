@@ -546,6 +546,15 @@ this CouchDB server instance.  The results are ordered by replication ID.
 Supports pagination.
 =cut
 
+sub __replJobsRow($$%)
+{	my ($self, $result, $index, %args) = @_;
+	my $answer = $result->answer->{jobs}[$index] or return ();
+
+	  (	answer => $answer,
+		values => $result->values->{jobs}[$index],
+	  );
+}
+
 sub __replJobsValues($$)
 {	my ($result, $raw) = @_;
 	my $couch   = $result->couch;
@@ -569,7 +578,10 @@ sub replicationJobs(%)
 	$self->_clientIsMe(\%args);
 
 	$self->couch->call(GET => '/_scheduler/jobs',
-		$self->couch->_resultsPaging(\%args, on_values => \&__replJobsValues),
+		$self->couch->_resultsPaging(\%args,
+			on_values => \&__replJobsValues,
+			on_row    => \&__replJobsRow,
+		),
 	);
 }
 
@@ -584,6 +596,15 @@ Supports pagination.
 =default dbname C<_replicator>
 Pass a C<dbname> for the database which contains the replication information.
 =cut
+
+sub __replDocRow($$%)
+{	my ($self, $result, $index, %args) = @_;
+	my $answer = $result->answer->{jobs}[$index] or return ();
+
+	  (	answer => $answer,
+		values => $result->values->{jobs}[$index],
+	  );
+}
 
 sub __replDocValues($$)
 {	my ($result, $raw) = @_;
@@ -615,7 +636,10 @@ sub replicationDocs(%)
 	}
 
 	$self->couch->call(GET => $path,
-		$self->couch->_resultsPaging(\%args, on_values => \&__replDocsValues),
+		$self->couch->_resultsPaging(\%args,
+			on_values => \&__replDocsValues,
+			on_row    => \&__replDocRow,
+		),
 	);
 }
 
@@ -623,14 +647,18 @@ sub replicationDocs(%)
  [CouchDB API "GET /_scheduler/docs/{replicator_db}/{docid}", UNTESTED]
 
 Retrieve information about a particular replication document.
-Supports pagination.
 
 =option  dbname NAME
 =default dbname C<_replicator>
 Pass a C<dbname> for the database which contains the replication information.
 =cut
 
-#XXX the output differs from replicationDoc
+#XXX the output differs from replicationDoc, so different method
+
+sub __replOneDocValues($$)
+{	my ($result, $raw) = @_;
+	__replDocValues($result, $_), $raw;
+}
 
 sub replicationDoc($%)
 {	my ($self, $doc, %args) = @_;
@@ -642,10 +670,11 @@ sub replicationDoc($%)
 	my $path = '/_scheduler/docs/' . uri_escape($dbname) . '/' . $docid;
 
 	$self->couch->call(GET => $path,
-		$self->couch->_resultsPaging(\%args, on_values => \&__replDocValues),
+		$self->couch->_resultsConfig(\%args,
+			on_values => \&__replOneDocValues,
+		),
 	);
 }
-
 
 =method nodeName $name, %options
  [CouchDB API "GET /_node/{node-name}", UNTESTED]
