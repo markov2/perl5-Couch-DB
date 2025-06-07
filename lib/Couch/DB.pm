@@ -9,7 +9,6 @@ use Log::Report 'couch-db';
 use Couch::DB::Client   ();
 use Couch::DB::Cluster  ();
 use Couch::DB::Database ();
-use Couch::DB::Design   ();
 use Couch::DB::Node     ();
 use Couch::DB::Util     qw(flat);
 
@@ -268,9 +267,9 @@ sub requestUUIDs($%)
 }
 
 =method freshUUIDs $count, %options
-Returns a $count number of UUIDs in a LIST.  This uses M<requestUUIDs()> to get
-a bunch at the same time, for efficiency.  You may get fewer than you want, but
-only when the server is not sending them.
+Returns a $count number of UUIDs in a LIST.  This uses M<requestUUIDs()>
+to get a bunch at the same time, for efficiency.  You may get fewer than
+you want, but only when the server is not sending them.
 
 =option  bulk INTEGER
 =default bulk 50
@@ -290,6 +289,12 @@ sub freshUUIDs($%)
 
 	splice @$stock, 0, $count;
 }
+
+=method freshUUID %options
+Returns one unique identifier.
+=cut
+
+sub freshUUID(%) { my $s = shift; ($s->freshUUIDs(1, @_))[0] }
 
 #-------------
 =section Processing
@@ -968,13 +973,19 @@ See F<https://docs.couchdb.org/en/stable/ddocs/views/>
 
 =item * Index
 Keeps Lucene (mainly full text search) indexes on a database.  The
-interface uses Clouseau (being phased out) or Nouveau (since 3.4.1)
-wrapper libraries.
+interface uses Clouseau or Nouveau wrapper libraries around the Lucene
+core.
 See F<https://docs.couchdb.org/en/stable/ddocs/search.html>
+
+Clouseau was introduced in CouchDB 3.0.0, and now being phased out
+because it got stuck on Java 8. It has index type C<text>.
+Nouveau was introduced as beta in 3.4.1 as alternative, with index
+type C<nouveau>.
 
 =item * Mango
 The C<find()> method uses MongoDB compatible search statements,
 which can be combined with index and view restrictions.
+These indexes are of the (ill-named) type C<json>.
 See F<https://docs.couchdb.org/en/stable/ddocs/mango.html>
 
 =back

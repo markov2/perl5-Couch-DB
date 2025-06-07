@@ -23,6 +23,7 @@ version 0.007:
 	- add ::Result::page(), ::pageDocs(), and ::pageRows()
 	- add ::Document::row()
 	- explain different ways of searching.
+	- add ::DB::freshUUID()
 
 version 0.006: Mon  9 Sep 09:42:09 CEST 2024
 
