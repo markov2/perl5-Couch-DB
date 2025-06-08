@@ -302,12 +302,12 @@ not be lost.
 
 sub __serverInfoValues
 {	my ($result, $data) = @_;
-	my %values = %$data;
+	my $values = { %$data };
 
 	# 3.3.3 does not contain the vendor/version, as the example in the spec says
 	# Probably a mistake.
-	$result->couch->toPerl(\%values, version => qw/version/);
-	\%values;
+	$result->couch->toPerl($values, version => qw/version/);
+	$values;
 }
 
 sub serverInfo(%)
@@ -356,11 +356,20 @@ sub version()
  [CouchDB API "GET /_active_tasks"]
 
 Query details about the (maintenance) tasks which are currently running in the
-connected server.  Returns a M<Couch::DB::Result> object.
+connected server.  Returns a M<Couch::DB::Result> object which support rows.
 =cut
 
+sub __simpleArrayRow($$%)
+{   my ($self, $result, $index, %args) = @_;
+	my $answer = $result->answer->[$index] or return ();
+
+	  (	answer => $answer,
+		values => $result->values->[$index],
+	  );
+}
+
 sub __activeTasksValues($$)
-{	my ($result, $tasks) = @_;
+{	my ($self, $result, $tasks) = @_;
 	my $couch = $result->couch;
 
 	my @tasks;
@@ -378,45 +387,46 @@ sub activeTasks(%)
 	$self->_clientIsMe(\%args);
 
 	$self->couch->call(GET => '/_active_tasks',
-		$self->couch->_resultsConfig(\%args, on_values => \&__activeTasksValues),
+		$self->couch->_resultsConfig(\%args,
+			on_values => sub { $self->__activeTasksValues(@_) },
+			on_row    => sub { $self->__simpleArrayRow(@_) },
+		),
 	);
 }
 
-=method databaseNames %options
+=method databaseNames [ \%search, %options ]
  [CouchDB API "GET /_all_dbs"]
 
 Returns the selected database names as present on the connected CouchDB
 instance.
 
-=option  search \%search
-=default search C<undef>
 You can specify a name (=key) filter: specify a subset of names to be
-returned.
+returned in the C<%search>.
 =cut
 
-sub __dbNameFilter($)
+sub __dbNamesFilter($)
 {	my ($self, $search) = @_;
 
-	my $query = +{ %$search };
+	my $query = defined $search ? +{ %$search } : return {};
 	$self->couch
 		->toQuery($query, bool => qw/descending/)
 		->toQuery($query, json => qw/endkey end_key startkey start_key/);
 	$query;
 }
 
-sub databaseNames(%)
-{	my ($self, %args) = @_;
+sub databaseNames(;$%)
+{	my ($self, $search, %args) = @_;
 	$self->_clientIsMe(\%args);
 
-	my $search = delete $args{search} || {};
-
 	$self->couch->call(GET => '/_all_dbs',
-		query => $self->__dbNameFilter($search),
-		$self->couch->_resultsConfig(\%args),
+		query => $self->__dbNamesFilter($search),
+		$self->couch->_resultsConfig(\%args,
+			on_row => sub { $self->__simpleArrayRow(@_) },
+		),
 	);
 }
 
-=method databaseInfo %options
+=method databaseInfo [\%search, %options]
  [CouchDB API "GET /_dbs_info", since 3.2]
  [CouchDB API "POST /_dbs_info", since 2.2]
 
@@ -433,36 +443,41 @@ When you provide explicit database keys, then only those are displayed.
 The number of keys is limited by the C<max_db_number_for_dbs_info_req>
 configuration parameter, which defaults to 100.
 
-=option  search \%search
-=default search C<undef>
-Use the filter options described by M<databaseNames()>.
-
 =cut
 
-sub databaseInfo(%)
-{	my ($self, %args) = @_;
+sub databaseInfo(;$%)
+{	my ($self, $search, %args) = @_;
 	$self->_clientIsMe(\%args);
-
 	my $names  = delete $args{names};
-	my $search = delete $args{search} || {};
 
 	my ($method, $query, $send, $intro) = $names
 	  ?	(POST => undef,  +{ keys => $names }, '2.2.0')
-	  :	(GET  => $self->_dbNameFilter($search), undef, '3.2.0');
+	  :	(GET  => $self->_dbNamesFilter($search), undef, '3.2.0');
 
 	$self->couch->call($method => '/_dbs_info',
 		introduced => $intro,
 		query      => $query,
 		send       => $send,
-		$self->couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args,
+			on_row => sub { $self->__simpleArrayRow(@_) },
+		),
 	);
 }
 
 =method dbUpdates \%feed, %options
  [CouchDB API "GET /_db_updates", since 1.4, UNTESTED]
 
-Get a feed of database changes, mainly for debugging purposes.
+Get a feed of database changes, mainly for debugging purposes.  It supports
+rows.
 =cut
+
+sub __dbUpRow($$%)
+{	my ($self, $result, $index, %args) = @_;
+	my $answer = $result->answer->{results}[$index] or return ();
+	  (	answer => $answer,
+		values => $result->values->{results}[$index],
+	  );
+}
 
 sub dbUpdates($%)
 {	my ($self, $feed, %args) = @_;
@@ -473,7 +488,9 @@ sub dbUpdates($%)
 	$self->couch->call(GET => '/_db_updates',
 		introduced => '1.4.0',
 		query      => $query,
-		$self->couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args,
+			on_row => sub { $self->__dbUpRow(@_) },
+		),
 	);
 }
 
