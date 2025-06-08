@@ -433,7 +433,32 @@ sub revisionLimitSet($%)
 }
 
 #-------------
-=section Designs and Indexes
+=section Indexes
+
+Three indexes exist:
+
+=over 4
+=item * json (Mango)
+=item * text (Lucene via Cousteau, phased out)
+=item * nouveau (Lucene via Nouveau, since 3.4.1)
+=back
+
+The details about each index are stored in design documents.  You may have
+more than one index per design document, but any change to such document
+will force a rebuild of all other indices in the same file.
+
+=method design $ddocid|$ddoc
+Returns the M<Couch::DB::Design> object which manages a design document.
+The document will not be read until an explicit call to C<get()>.
+The C<$ddocid> may start with C<_design/> which will be ignored.
+=cut
+
+sub design($)
+{	my ($self, $which) = @_;
+	blessed $which && $which->isa('Couch::DB::Design')
+	  ? ($which =~ s!^design/!!r)
+	  : Couch::DB::Design->new(id => $which, db => $self);
+}
 
 =method designs [\%search|\@%search, %options]
  [CouchDB API "GET /{db}/_design_docs", UNTESTED]
@@ -487,32 +512,18 @@ sub _designPrepare($$$)
 	$s;
 }
 
-=method createIndex \%filter, %options
+=method createIndex \%config, %options
  [CouchDB API "POST /{db}/_index", UNTESTED]
-Create/confirm a text index on the database.  By default, the index
+Create/confirm an index on the database.  By default, the index
 C<name> and the name for the design document C<ddoc> are generated.
 You can also call C<Couch::DB::Design::createIndex()>.
-
-=option  design $design|$ddocid
-=default design C<undef>
-When no design document is specified, then one will be created.
 =cut
 
 sub createIndex($%)
-{	my ($self, $filter, %args) = @_;
+{	my ($self, $config, %args) = @_;
 	my $couch  = $self->couch;
-
-	my $send   = +{ %$filter };
-	if(my $design = delete $args{design})
-	{	$send->{ddoc} = blessed $design ? $design->id : $design;
-	}
-
-	$couch->toJSON($send, bool => qw/partitioned/);
-
-	$couch->call(POST => $self->_pathToDB('_index'),
-		send => $send,
-		$couch->_resultsConfig(\%args),
-	);
+	my $which  = delete $config->{ddoc} || $couch->freshUUID;
+	$self->design($which)->createIndex($config, %args);
 }
 
 =method indexes %options
@@ -726,10 +737,10 @@ Be warned: doing it this way is memory hungry: better use paging.
   my @docs = map $_->doc, @$rows;
 =cut
 
-sub __allDocsRow(%)
-{	my ($self, $result, $rownr, %args) = @_;
-	my $answer = $result->answer->{rows}[$rownr] or return ();
-	my $values = $result->values->{rows}[$rownr];
+sub __allDocsRow($$%)
+{	my ($self, $result, $index, %args) = @_;
+	my $answer = $result->answer->{rows}[$index] or return ();
+	my $values = $result->values->{rows}[$index];
 
 	 (	answer    => $answer,
 		values    => $values,

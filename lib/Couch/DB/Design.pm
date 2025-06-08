@@ -33,7 +33,17 @@ M<Couch::DB::Document>.
 =section Constructors
 
 =c_method new %options
+
+=default id generated
+If no id is passed, then one gets generated: a UUID is requested from
+the server.
 =cut
+
+sub init($)
+{	my ($self, $args) = @_;
+	$args->{id} ||= $args->{db}->couch->freshUUID;
+	$self->SUPER::init($args);
+}
 
 #-------------
 =section Accessors
@@ -61,8 +71,6 @@ is equivalent to M<update()>.
 
 sub create($%)
 {	my $self = shift;
-	defined $self->id
-		or error __x"Design documents do not generate an id by themselves.";
 	$self->update(@_);
 }
 
@@ -140,18 +148,28 @@ sub details(%)
 =cut
 
 #-------------
-=section Indexes
+=section Indexes (indices)
 
-=method createIndex \%filter, %options
+=method createIndex \%config, %options
  [CouchDB API "POST /{db}/_index", UNTESTED]
 
-Create/confirm an index on the database.  When you like a generated design
+Create an index on the database.  When you like a generated design
 document name, you can use M<Couch::DB::Database::createIndex()>.
+If the name already exists and the configuration is different, then
+the index be get regenerated.
 =cut
 
 sub createIndex($%)
-{	my ($self, $filter, %args) = @_;
-	$self->db->createIndex($filter, %args, design => $self);
+{	my ($self, $config, %args) = @_;
+
+	my $send  = +{ %$config, ddoc => $self->id };
+	my $couch = $self->couch;
+	$couch->toJSON($send, bool => qw/partitioned/);
+
+	$couch->call(POST => $self->db->_pathToDB('_index'),
+		send => $send,
+		$couch->_resultsConfig(\%args),
+	);
 }
 
 =method deleteIndex $index, %options
