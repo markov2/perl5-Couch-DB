@@ -14,6 +14,8 @@ use MIME::Base64    qw(encode_base64);
 use Storable        qw(dclone);
 use URI::Escape     qw(uri_escape);
 
+my $seqnr = 0;
+
 =chapter NAME
 
 Couch::DB::Client - connect to a CouchDB node
@@ -85,6 +87,7 @@ sub init($)
 	$self->{CDC_name}   = delete $args->{name} || "$server";
 	$self->{CDC_ua}     = delete $args->{user_agent} or panic "Requires 'user_agent'";
 	$self->{CDC_uuids}  = [];
+	$self->{CDC_seqnr}  = ++$seqnr;
 
 	$self->{CDC_couch}  = delete $args->{couch} or panic "Requires 'couch'";
 	weaken $self->{CDC_couch};
@@ -139,6 +142,13 @@ this client.
 =cut
 
 sub headers($) { $_[0]->{CDC_hdrs} }
+
+=method seqnr
+Returns the (process space) unique sequence number for this client.  This may
+make tracing errors easier.
+=cut
+
+sub seqnr() { $_[0]->{CDC_seqnr} }
 
 #-------------
 =section Session

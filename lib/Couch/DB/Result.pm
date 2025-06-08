@@ -19,6 +19,8 @@ my %default_code_texts = (  # do not construct them all the time again
 	&HTTP_MULTIPLE_CHOICES	=> 'The Result object does not know what to do, yet.',
 );
 
+my $seqnr = 0;
+
 =chapter NAME
 
 Couch::DB::Result - the reply of a CouchDB server call
@@ -57,7 +59,9 @@ this object is initially created.
 =cut
 
 use overload
-	bool => sub { $_[0]->code < 400 };
+	bool     => sub { $_[0]->code < 400 },
+	'""'     => 'short',
+	fallback => 1;
 
 =chapter METHODS
 
@@ -111,6 +115,7 @@ sub init($)
 	$self->{CDR_on_row}    = pile delete $args->{on_row};
 	$self->{CDR_code}      = HTTP_MULTIPLE_CHOICES;
 	$self->{CDR_page}      = delete $args->{paging};
+	$self->{CDR_seqnr}     = ++$seqnr;
 
 	$self;
 }
@@ -160,17 +165,37 @@ sub message()
 	$self->{CDR_msg} || $default_code_texts{$self->code} || $self->codeName;
 }
 
-=method status $code, $message
+=method setStatus $code, $message
 Set the $code and $message to something else.  Your program should
 probably not do this: it's the library which determines how the result
 needs to be interpreted.
 =cut
 
-sub status($$)
+sub setStatus($$)
 {	my ($self, $code, $msg) = @_;
 	$self->{CDR_code} = $code;
 	$self->{CDR_msg}  = $msg;
 	$self;
+}
+
+=method seqnr
+Returns the (process space) unique result object number.  This may help
+debugging and tracing.
+=cut
+
+sub seqnr() { $_[0]->{CDR_seqnr} }
+
+=method short
+Returns a string which contains some crucial information about this
+result, which could help with debugging.
+=cut
+
+sub short()
+{	my $self = shift;
+	my $client = $self->client;
+	my $clnr   = $client ? sprintf("%07d", $client->seqnr) : 'prepare';
+	my $req    = $self->request;
+	sprintf "RESULT %s.%08d %-6s %s\n", $clnr, $self->seqnr, $req->method, $req->url =~ s/\?.*/?.../r;
 }
 
 #-------------
@@ -247,14 +272,14 @@ records at once.  In this case, you must specify the query sequence number
 (starts with zero)
 =cut
 
-sub rows() { @{$_[0]->rowsRef)} }
+sub rows() { @{$_[0]->rowsRef} }
 
 =method rowsRef
 Returns a reference to the returned rows.
 =cut
 
 sub rowsRef()
-{	my $self = shift
+{	my $self = shift;
 	my $rows = $self->{CDR_rows} ||= [];
 	return $rows if $self->{CDR_rows_complete};
 
@@ -384,6 +409,7 @@ sub _pageAdd($@)
 {	my $this     = shift->_thisPage;
 	my $bookmark = shift;
 	my $page     = $this->{harvested};
+warn "PAGE ADD ".@_;
 	if(@_)
 	{	push @$page, @_;
 		$this->{bookmarks}{$this->{start} + $this->{skip} + @$page} = $bookmark
@@ -454,7 +480,7 @@ sub setFinalResult($%)
 	$self->{CDR_ready}    = 1;
 	$self->{CDR_request}  = delete $data->{request};
 	$self->{CDR_response} = delete $data->{response};
-	$self->status($code, delete $data->{message});
+	$self->setStatus($code, delete $data->{message});
 
 	delete $self->{CDR_answer};  # remove cached while paging
 	delete $self->{CDR_values};
@@ -490,7 +516,7 @@ sub setResultDelayed($%)
 {	my ($self, $plan, %args) = @_;
 
 	$self->{CDR_delayed}  = $plan;
-	$self->status(HTTP_CONTINUE);
+	$self->setStatus(HTTP_CONTINUE);
 	$self;
 }
 
