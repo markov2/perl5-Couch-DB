@@ -193,9 +193,11 @@ result, which could help with debugging.
 sub short()
 {	my $self = shift;
 	my $client = $self->client;
-	my $clnr   = $client ? sprintf("%07d", $client->seqnr) : 'prepare';
 	my $req    = $self->request;
-	sprintf "RESULT %s.%08d %-6s %s\n", $clnr, $self->seqnr, $req->method, $req->url =~ s/\?.*/?.../r;
+
+	$client && $req
+	  ? (sprintf "RESULT %07d.%08d %-6s %s\n", $client->seqnr, $self->seqnr, $req->method, $req->url =~ s/\?.*/?.../r)
+	  : (sprintf "RESULT prepare.%08d\n", $self->seqnr);
 }
 
 #-------------
@@ -309,8 +311,9 @@ row in a paging answer.  Row numbers start on 1.
 
 sub row($$%)
 {	my ($self, $rownr, %args) = @_;
-	my $rows = $self->{CDR_rows};
-	return $rows->[$rownr] if exists $rows->[$rownr];
+	my $rows  = $self->{CDR_rows};
+	my $index = $rownr -1;
+	return $rows->[$index] if exists $rows->[$index];
 
 	my %data = map $_->($self, $rownr-1), reverse @{$self->{CDR_on_row}};
 	keys %data or return ();
@@ -324,7 +327,7 @@ sub row($$%)
 	my $row = Couch::DB::Row->new(%data, result => $self, rownr => $rownr, doc => $doc);
 	$doc->row($row);
 
-	$self->{CDR_rows}[$rownr-1] = $row;    # Remember partial result for rows()
+	$self->{CDR_rows}[$index] = $row;    # Remember partial result for rows()
 }
 
 =method numberOfRows
@@ -382,8 +385,6 @@ sub nextPageSettings()
 	my %next = %{$self->_thisPage};
 	delete $next{harvested};
 	$next{start} += (delete $next{skip}) + @{$self->page};
-#use Data::Dumper;
-#warn "NEXT PAGE=", Dumper \%next;
 	\%next;
 }
 
@@ -409,7 +410,6 @@ sub _pageAdd($@)
 {	my $this     = shift->_thisPage;
 	my $bookmark = shift;
 	my $page     = $this->{harvested};
-warn "PAGE ADD ".@_;
 	if(@_)
 	{	push @$page, @_;
 		$this->{bookmarks}{$this->{start} + $this->{skip} + @$page} = $bookmark
@@ -484,6 +484,7 @@ sub setFinalResult($%)
 
 	delete $self->{CDR_answer};  # remove cached while paging
 	delete $self->{CDR_values};
+	delete $self->{CDR_rows};
 
 	# "on_error" handler
 	unless(is_success $code)

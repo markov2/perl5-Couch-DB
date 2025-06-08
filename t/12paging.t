@@ -34,7 +34,7 @@ my $dummy = sub {};
 my %p1 = $couch->_resultsPaging( +{ }, on_row => $dummy );
 ok keys %p1, 'Paging with default settings';
 
-warn Dumper \%p1;
+#warn Dumper \%p1;
 is_deeply $p1{paging}, +{
 	bookmarks => {},
 	harvester => undef,
@@ -81,15 +81,14 @@ ok defined $docs1, '... contains docs';
 cmp_ok scalar @$docs1, '==', 25, '... 25 docs';
 is_deeply $f1->answer, $f1->values, '... no value decoding needed';
 
-use Data::Dumper;
-warn Dumper $f1->answer;
+#warn Dumper $f1->answer;
 
 # Actually, not 100% sure that we got 25 rows without the paging.
 my $hits1 = 25;
 
-my $rows1 = $f1->rowsArray;
-is ref $rows1, 'ARRAY', '... got rowsArray';
-cmp_ok scalar(@$rows1), '==', $hits1, "... rowsArray size $hits1";
+my $rows1 = $f1->rowsRef;
+is ref $rows1, 'ARRAY', '... got rowsRef';
+cmp_ok scalar(@$rows1), '==', $hits1, "... rowsRef size $hits1";
 
 my @rows1 = $f1->rows;
 cmp_ok scalar(@rows1), '==', $hits1, '... rows size in list context';
@@ -100,8 +99,6 @@ my $row1 = $rows1[3];
 isa_ok $row1, 'Couch::DB::Row', '... single row';
 is $row1, $f1->row(4), '... get row directly';
 is $row1->rowNumberInResult, 4, '... rowNumberInResult';
-
-warn Dumper $row1, $f1->row(4);
 
 my $this1 = $f1->_thisPage;
 #warn Dumper $this1;
@@ -143,14 +140,14 @@ ok ! $f2->isLastPage, '... not last page';
 my $rows2 = $f2->page;
 cmp_ok @$rows2, '==', 25, '... page';
 
-ok $_->isa('Couch::DB::Document'), '... is doc '.$_->id 
+ok $_->isa('Couch::DB::Document'), '... is doc '.$_->id
 	for map $_->doc, @$rows2;
 
 ### find, third page of data, final and partial
 
 my $f3 = _result find_page3 => $db->find($query, _succeed => $f2);
 my $this3 = $f3->_thisPage;
-#warn "THIS 3: ", Dumper $this3;
+#warn "THIS 3: ", Dumper $this3->{bookmarks};
 ok exists $this3->{bookmarks}{25}, '... remembered bookmark 1';
 ok exists $this3->{bookmarks}{50}, '... remembered bookmark 2';
 cmp_ok keys %{$this3->{bookmarks}}, '==', 3, '... bookmarks on page 3';
@@ -162,8 +159,8 @@ ok $f3->isLastPage, '... last page';
 my $rows3 = $f3->page;
 cmp_ok @$rows3, '==', 20, '... page';
 
-ok $_->doc->isa('Couch::DB::Document'), '... is doc '.$_->id 
-	for @$rows3;
+ok $_->isa('Couch::DB::Document'), '... is doc '.$_->id 
+	for map $_->doc, @$rows3;
 
 ### find, all at once
 
@@ -176,9 +173,9 @@ cmp_ok @$rows5, '==', 70, '.. all at once';
 ok 1, 'New call: find_all_map';  # map runs before _result reports test label
 
 sub map6($$)
-{   my ($result, $doc) = @_;
+{   my ($result, $row) = @_;
 	isa_ok $result, 'Couch::DB::Result', '...';
-	isa_ok $doc, 'Couch::DB::Document', '...';
+	isa_ok $row, 'Couch::DB::Row', '...';
 	42;
 }
 
@@ -193,6 +190,6 @@ cmp_ok +(grep $_==42, @$rows6), '==', 70, '... all 42';
 _result find_explain => $db->findExplain($query);
 
 ####### Cleanup
-_result removed          => $db->remove;
+_result removed      => $db->remove;
 
 done_testing;

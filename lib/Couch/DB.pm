@@ -465,9 +465,9 @@ sub call($$%)
 	    		$self->_pageRequest($paging, $method, $query, $send);
 
 				$self->_callClient($result, $client, %args);
-
 				$result
 					or next CLIENT;  # fail
+
 			} while $result->pageIsPartial;
 
 			last CLIENT;
