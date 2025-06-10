@@ -249,7 +249,7 @@ Returns a LIST with deletedConflict details.
 
 =method updateSequence
 Returns the update sequence code for this document on the current server (local_seq).
-Only useful when you use an explicit C<_client> when you M<get()> the document.
+Only useful when you use an explicit C<client> when you M<get()> the document.
 =cut
 
 sub conflicts()        { @{ $_[0]->_info->{_conflicts} || [] } }

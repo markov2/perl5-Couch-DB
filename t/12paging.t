@@ -49,10 +49,10 @@ is_deeply $p1{paging}, +{
 
 my %p2 = $couch->_resultsPaging( +{
 	limit      => 10,
-	_page      => 5,
-	_page_size => 35,
-	_harvester => "MYCODE",
-	_bookmark  => 'abc',
+	page      => 5,
+	page_size => 35,
+	harvester => "MYCODE",
+	bookmark  => 'abc',
 }, on_row => $dummy);
 ok keys %p2, 'Paging with all settings';
 
@@ -128,7 +128,7 @@ is_deeply [ $f1->pageDocs ], \@docs1, '... docs = page docs';
 
 ### find, second full page of data
 
-my $f2 = _result find_page2 => $db->find($query, _succeed => $f1);
+my $f2 = _result find_page2 => $db->find($query, succeed => $f1);
 my $this2 = $f2->_thisPage;
 #warn "THIS 2: ", Dumper $this2;
 ok exists $this2->{bookmarks}{25}, '... remembered bookmark';
@@ -145,7 +145,7 @@ ok $_->isa('Couch::DB::Document'), '... is doc '.$_->id
 
 ### find, third page of data, final and partial
 
-my $f3 = _result find_page3 => $db->find($query, _succeed => $f2);
+my $f3 = _result find_page3 => $db->find($query, succeed => $f2);
 my $this3 = $f3->_thisPage;
 #warn "THIS 3: ", Dumper $this3->{bookmarks};
 ok exists $this3->{bookmarks}{25}, '... remembered bookmark 1';
@@ -164,7 +164,7 @@ ok $_->isa('Couch::DB::Document'), '... is doc '.$_->id
 
 ### find, all at once
 
-my $f5 =  _result find_all => $db->find($query, _all => 1);
+my $f5 =  _result find_all => $db->find($query, all => 1);
 my $rows5 = $f5->page;
 cmp_ok @$rows5, '==', 70, '.. all at once';
 
@@ -179,7 +179,7 @@ sub map6($$)
 	42;
 }
 
-my $f6 =  _result find_all_map => $db->find($query, _all => 1, _map => \&map6);
+my $f6 =  _result find_all_map => $db->find($query, all => 1, map => \&map6);
 my $rows6 = $f6->page;
 cmp_ok @$rows6, '==', 70, '.. all at once';
 is $rows6->[0], 42, '... first 42';

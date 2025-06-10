@@ -56,8 +56,8 @@ sub couch() { $_[0]->{CDC_couch} }
 #-------------
 =section Managing a Cluster
 
-B<All CouchDB API calls> documented below, support C<%options> like C<_delay>,
-C<_client>, and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
+B<All CouchDB API calls> documented below, support C<%options> like C<delay>,
+C<client>, and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
 =method clusterState %options
  [CouchDB API "GET /_cluster_setup", since 2.0]

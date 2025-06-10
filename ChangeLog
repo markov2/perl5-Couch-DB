@@ -11,6 +11,7 @@ version 0.007:
 	- rename ::Design::viewSearch() into ::viewDocs()
 	- rename ::Result::page() into ::pageDocs()
 	- loads of work on the ::Design documents
+	- remove leading '_' from special call parameters.
 
 	Fixes:
 	- setResultDelayed() method name [paulinsche]

@@ -171,9 +171,9 @@ the indicated location.
 
 sub _clientIsMe($)   # check no client parameter is used
 {	my ($self, $args) = @_;
-	defined $args->{_client} and panic "No parameter 'client' allowed.";
-	$args->{_clients} && @{delete $args->{_clients}} and panic "No parameter '_clients' allowed.";
-	$args->{_client} = $self;
+	defined $args->{client} and panic "No parameter 'client' allowed.";
+	$args->{clients} && @{delete $args->{clients}} and panic "No parameter 'clients' allowed.";
+	$args->{client} = $self;
 }
 
 sub login(%)

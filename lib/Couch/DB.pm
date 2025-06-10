@@ -283,7 +283,7 @@ sub freshUUIDs($%)
 	my $bulk  = delete $args{bulk} || 50;
 
 	while($count > @$stock)
-	{	my $result = $self->requestUUIDs($bulk, _delay => 0) or last;
+	{	my $result = $self->requestUUIDs($bulk, delay => 0) or last;
 		push @$stock, @{$result->values->{uuids} || []};
 	}
 
@@ -397,8 +397,8 @@ reuse parts which are not modified.
 =option  paging HASH
 =default paging {}
 When the endpoint support paging, then its needed configuration
-data has been collected in here.  This enables the use of C<_succeed>,
-C<_page>, C<skip>, and friends.  See examples in section L</Pagination>.
+data has been collected in here.  This enables the use of C<succeed>,
+C<page>, C<skip>, and friends.  See examples in section L</Pagination>.
 =cut
 
 sub call($$%)
@@ -490,23 +490,10 @@ sub _resultsConfig($%)
 {	my ($self, $args, @more) = @_;
 	my %config;
 
-	# HTTP and paging controls
-	my @controls = grep /^_/, keys %$args;
-	foreach my $control (@controls)
-	{	my $param = delete $args->{$control};
-		$config{$control =~ s/^_//r} = $param if defined $param;
-	}
-
-	# Calls on certain events/moments in the process
-	my @events = grep /^on_/, keys %$args;
-	foreach my $event (@events)
-	{	my $code = delete $args->{$event};
-		push @{$config{$event}}, $code if defined $code;
-	}
-
+	unshift @more, %$args;
 	while(@more)
 	{	my ($key, $value) = (shift @more, shift @more);
-		if($key eq '_headers')
+		if($key eq 'headers')
 		{	# Headers are added, as default only
 			my $headers = $config{headers} ||= {};
 			exists $headers->{$_} or ($headers->{$_} = $value->{$_}) for keys %$value;
@@ -523,6 +510,8 @@ sub _resultsConfig($%)
 
 	$config{paging} && !$config{on_row} and panic "paging without on_row";
 
+	delete @{$args}{qw/delay client clients/};
+	delete @{$args}{grep /^on_/, keys %$args};
 	keys %$args and warn "Unused call parameters: ", join ', ', sort keys %$args;
 
 	%config;
@@ -534,44 +523,44 @@ sub _resultsPaging($%)
 
 	my %state = (harvested => []);
 	my $succ;  # successor
-	if(my $succeeds = delete $args->{_succeed})
-	{	delete $args->{_clients}; # no client switching within paging
+	if(my $succeeds = delete $args->{succeed})
+	{	delete $args->{clients}; # no client switching within paging
 
 		if(blessed $succeeds && $succeeds->isa('Couch::DB::Result'))
 		{	# continue from living previous result
 			$succ = $succeeds->nextPageSettings;
-			$args->{_client} = $succeeds->client;
+			$args->{client} = $succeeds->client;
 		}
 		else
 		{	# continue from resurrected from Result->pagingState()
 			my $h = $succeeds->{harvester}
 				or panic "_succeed does not contain data from pagingState() nor is a Result object.";
 
-			$h eq 'DEFAULT' || $args->{_harvester}
+			$h eq 'DEFAULT' || $args->{harvester}
 				or panic "Harvester does not survive pagingState(), resupply.";
 
-			$succeeds->{map} eq 'NONE' || $args->{_map}
+			$succeeds->{map} eq 'NONE' || $args->{map}
 				or panic "Map does not survive pagingState(), resupply.";
 
 			$succ  = $succeeds;
-			$args->{_client} = $succeeds->{client};
+			$args->{client} = $succeeds->{client};
 		}
 	}
 
 	$state{start}     = $succ->{start} || 0;
 	$state{skip}      = delete $args->{skip} || 0;
-	$state{all}       = delete $args->{_all} || 0;
-	$state{map}       = my $map = delete $args->{_map} || $succ->{map};
-	$state{harvester} = my $harvester = delete $args->{_harvester} || $succ->{harvester};
-	$state{page_size} = my $size = delete $args->{_page_size} || $succ->{page_size} || 25;
+	$state{all}       = delete $args->{all} || 0;
+	$state{map}       = my $map = delete $args->{map} || $succ->{map};
+	$state{harvester} = my $harvester = delete $args->{harvester} || $succ->{harvester};
+	$state{page_size} = my $size = delete $args->{page_size} || $succ->{page_size} || 25;
 	$state{req_max}   = delete $args->{limit} || $succ->{req_max} || 100;
 
-	if(my $page = delete $args->{_page})
+	if(my $page = delete $args->{page})
 	{	$state{start}  = ($page - 1) * $state{page_size};
 	}
 
 	$state{bookmarks} = $succ->{bookmarks} ||= { };
-	if(my $bm = delete $args->{_bookmark})
+	if(my $bm = delete $args->{bookmark})
 	{	$state{bookmarks}{$state{start}} = $bm;
 	}
 
@@ -904,25 +893,26 @@ C<Couch::DB> will totally hide these differences for you!
 
 Each method which is labeled C<< [CouchDB API] >> also accepts a few options
 which are controlling the calling progress.  These are available everywhere,
-hence no-where documented explicitly.  Those options start with an underscore (C<_>)
-or with C<on_> (events).
+hence no-where documented explicitly.  This options are either generic (supported
+everywhere, listed here), for paging (supported for some specific commands,
+described further below), or with C<on_> (events).
 
-At the moment, the following C<%options> are supported everywhere:
+At the moment, the following generic C<%options> are supported everywhere:
 
 =over 4
-=item * C<_delay> =E<gt> BOOLEAN, default C<false>
+=item * C<delay> =E<gt> BOOLEAN, default C<false>
 Do not perform and wait for the actual call, but prepare it to be used in parallel
 querying.  TO BE IMPLEMENTED/DOCUMENTED.
 
-=item * C<_client> =E<gt> $client-object or -name
+=item * C<client> =E<gt> $client-object or -name
 Use only the specified client (=server) to perform the call.
 
-=item * C<_clients> =E<gt> ARRAY-of-clients or a role
+=item * C<clients> =E<gt> ARRAY-of-clients or a role
 Use any of the specified clients to perform the call.  When not an ARRAY, the
 parameter is a C<role>: select all clients which can perform that role (the
 logged-in user of that client is allowed to perform that task).
 
-=item * C<_headers> =E<gt> HASH
+=item * C<headers> =E<gt> HASH
 Add headers to the request.  When applicable (for instance, the C<Accept>-header)
 this will overrule the internally calculated defaults.
 =back
@@ -937,7 +927,7 @@ only parameter.
 
 =item * C<on_final> =E<gt> CODE or ARRAY-of-CODE
 A CODE (sub) which is called when the interaction with the server has
-been completed.  This may happen much later, when combined with C<_delay>.
+been completed.  This may happen much later, when combined with C<delay>.
 The CODE gets the result object as only parameter, and returns a result
 object which might be different... as calls can be chained.
 
@@ -1002,7 +992,7 @@ need more results, you will need more calls.
 To get more answers, there are two mechanisms: some calls provide a
 C<skip> and C<limit> only.  Other calls implement the more sophisticated
 bookmark mechanism.  Both mechanisms are abstracted away by the
-C<_succeed> mechanism.
+C<succeed> mechanism.
 
 B<Be aware> that you shall provide the same query parameters to each
 call of the search method.  Succession may be broken when you change
@@ -1019,33 +1009,33 @@ the number of results is larger than what the server wants to produce
 in one go.
 
 Do not use this when you expect many or large results.  Maybe in
-combination with C<_map>.
+combination with C<map>.
 
-=item * C<_page> =E<gt> INTEGER (default 1)
+=item * C<page> =E<gt> INTEGER (default 1)
 Start-point of returned results, for calls which support paging.
 Pages are numbered starting from 1.  When available, bookmarks will
 be used for next pages.  Succeeding searches will automatically move
 through pages (see examples)
 
-=item * C<_page_size> =E<gt> INTEGER (default 25)
+=item * C<page_size> =E<gt> INTEGER (default 25)
 The CouchDB server will often not give you more than 25 or 50 answers
 at a time, but you do not want to know.
 
-=item * C<_succeed> =E<gt> $result or $result->paging
+=item * C<succeed> =E<gt> $result or $result->paging
 Make this query as successor of a previous query.  Some requests support
 paging (via bookmarks).  See examples in a section below.
 
-=item * C<_harvester> =E<gt> CODE
+=item * C<harvester> =E<gt> CODE
 How or what to extract per request.  You may add other information,
 like collecting response objects.  The CODE returns the extract LIST of
 objects/elements. Collection for a page stops once that combined list
-reaches C<_page_size>.
+reaches C<page_size>.
 
-=item * C<_bookmark> =E<gt> STRING
+=item * C<bookmark> =E<gt> STRING
 If you accidentally know the bookmark for the search.  Usually, this is
-automatically picked-up via C<_succeed>.
+automatically picked-up via C<succeed>.
 
-=item * C<_map> =E<gt> CODE
+=item * C<map> =E<gt> CODE
 Call the CODE on each of the (defined) harvested page elements.  The CODE
 is called with the result object, and one of the harvested elements.  When
 a single page requires multiple requests to the CouchDB server, this map
@@ -1063,28 +1053,28 @@ B<Be warned:> use as C<%option>, not as search parameter.
 
 =item * C<limit> =E<gt> INTEGER
 Do not request more than C<limit> number of results per request.  May be
-less than C<_page_size>.
+less than C<page_size>.
 B<Be warned:> use as C<%option>, not as search parameter.
 =back
 
 =example paging through result
 Get page by page, where you may use the C<limit> parameter to request
 for a number of elements.  Do not use C<skip>, except in the first call.
-The C<_succeed> handling will play tricks with C<_page>, C<_harvester>,
-and C<_client>, which you do not wish to know.
+The C<succeed> handling will play tricks with C<page>, C<harvester>,
+and C<client>, which you do not wish to know.
 
   my $page1 = $couch->find(\%search, limit => 12, skip => 300);
   my $rows1 = $page1->page;
   my @rows1 = $page1->pageRows;
   my @docs1 = map $_->doc, @rows1;
   
-  my $page2 = $couch->find(\%search, _succeed => $page1);
+  my $page2 = $couch->find(\%search, succeed => $page1);
   my $rows2 = $page2->page;
   my @docs2 = map $_->doc, $page2->page;
   my @docs2 = $page2->pageDocs;
   
   sub h { my ($result) = @_; $result->docs }
-  my $page3 = $couch->find(\%search, _succeed => $page2, _harvester => \&h);
+  my $page3 = $couch->find(\%search, succeed => $page2, harvester => \&h);
   my $docs3 = $page3->page;    # now docs!
   my @docs3 = $page3->pageRows;
 
@@ -1101,7 +1091,7 @@ harvester or map, then you need to resupply those.
   $session->save(current => serialized $page1->pagingState);
   ...
   my $prev  = deserialize $session->load('current');
-  my $page2 = $couch->find(\%search, _succeed => $prev);
+  my $page2 = $couch->find(\%search, succeed => $prev);
   my $rows2 = $page2->page;
 
 =example get all results in a loop
@@ -1110,7 +1100,7 @@ when the documents (with attachements?) are large.  Each C<$list>
 is a new result object.
 
   my $list;
-  while($list = $couch->find(\%search, _succeed => $list))
+  while($list = $couch->find(\%search, succeed => $list))
   {   my $rows = $list->page;
       @$rows or last;    # nothing left
       ...;    # use the rows
@@ -1122,20 +1112,20 @@ You can jump back and forward in the pages: bookmarks will remember the
 pages already seen.
 
   my $page4 = $couch->find(\%search,
-	limit      => 10,  # results per server request
-	_page_size => 50,  # results until complete
-    _page      =>  4,  # start point, may use bookmark
-    _harvester => sub { $_[0]->rows }, # default
+	limit     => 10,  # results per server request
+	page_size => 50,  # results until complete
+    page      =>  4,  # start point, may use bookmark
+    harvester => sub { $_[0]->rows }, # default
   );
   my $rows4 = $page4->page;
-  my $page5 = $couch->find(\%search, _succeed => $page4);
+  my $page5 = $couch->find(\%search, succeed => $page4);
   my $rows5 = $page5->page;
 
 =example get all results in one call
 Do not attempt this unless you know there there is a limited number of
 results, maybe just a bit more than a page.
 
-  my $all   = $couch->find(\%search, _all => 1) or die;
+  my $all   = $couch->find(\%search, all => 1) or die;
   my @rows6 = $all->pageRows;
 
 =example processing results when they arrive
@@ -1143,7 +1133,7 @@ When a page (may) require multiple calls to the server, this may enhance
 the user experience.
 
   sub do_something($$) { my ($result, $doc) = @_; ...; 42 }
-  my $all = $couch->find(\%search, _all => 1, _map => \&do_something);
+  my $all = $couch->find(\%search, all => 1, map => \&do_something);
   # $all->page will now show elements containing '42'.
 
 =cut

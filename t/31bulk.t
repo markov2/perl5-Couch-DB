@@ -35,7 +35,7 @@ _result saveBulkDel => $db->saveBulk([], delete => $victim);
 $trace && warn Dumper $victim;   # delete flag set, rev added
 ok $victim->isDeleted, '... deleted';
 
-my $all1  = _result search => $db->allDocs({include_docs => 1}, _all => 1);
+my $all1  = _result search => $db->allDocs({include_docs => 1}, all => 1);
 my $docs1 = $all1->page;
 #warn Dumper $docs1->[0];
 cmp_ok scalar @$docs1, '==', 69;   # one deleted

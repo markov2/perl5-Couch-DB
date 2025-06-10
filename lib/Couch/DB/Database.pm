@@ -88,8 +88,8 @@ sub _pathToDB(;$) { '/' . $_[0]->name . (defined $_[1] ? '/' . $_[1] : '') }
 #-------------
 =section Database information
 
-B<All CouchDB API calls> documented below, support C<%options> like C<_delay>,
-C<_client>, and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
+B<All CouchDB API calls> documented below, support C<%options> like C<delay>,
+C<client>, and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
 =method ping %options
  [CouchDB API "HEAD /{db}"]
@@ -113,7 +113,7 @@ call M<ping()> and wait for an anwser.
 
 sub exists()
 {	my $self = shift;
-	my $result = $self->ping(_delay => 0);
+	my $result = $self->ping(delay => 0);
 
 	  $result->code eq HTTP_NOT_FOUND ? 0
     : $result->code eq HTTP_OK        ? 1
@@ -527,7 +527,7 @@ sub designs(;$%)
 	$self->couch->call($method => $path,
 		($send ? (send => $send) : ()),
 		$couch->_resultsConfig(\%args,
-			on_row => @s==1 ? sub { $self->__designsRow(@_) } : undef,
+			on_row => @search==1 ? sub { $self->__designsRow(@_) } : undef,
 		),
 	);
 }
@@ -776,7 +776,7 @@ Usually called via M<Couch::DB::Design::viewDocs()>.
 =example getting all documents in a database
 Be warned: doing it this way is memory hungry: better use paging.
 
-  my $all  = $couch->db('users')->allDocs({include_docs => 1}, _all => 1);
+  my $all  = $couch->db('users')->allDocs({include_docs => 1}, all => 1);
   my $rows = $all->page;
   my @docs = map $_->doc, @$rows;
 =cut

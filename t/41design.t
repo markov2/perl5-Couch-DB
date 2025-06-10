@@ -46,7 +46,6 @@ my $l1 = $db->designs({include_docs => 1, conflicts => 1});
 $trace && warn Dumper [ $l1->answer ];
 
 my $l2 = $db->indexes;
-warn "INDEXES=", Dumper $l2->rowsRef;
 
 _result t1_update        => $t1->update({});
 $trace && warn Dumper [ $t1->revisions ];

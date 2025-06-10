@@ -237,10 +237,10 @@ C<include_docs>, then full docs are made available.
 
 =example return full index all as rows
  my $d    = $db->design('d');
- my $rows = $d->search('i', {}, _all => 1)->page;
+ my $rows = $d->search('i', {}, all => 1)->page;
 
  my $search = +{ include_docs => 1 };
- my @docs = $d->search('i', $search, _all => 1)->docs;
+ my @docs = $d->search('i', $search, all => 1)->docs;
 
 =cut
 
@@ -307,11 +307,11 @@ C<%options> and results.
 
 =example
   my %search;
-  my $c = $db->design('people')->viewDocs(customers => \%search, _all => 1);
+  my $c = $db->design('people')->viewDocs(customers => \%search, all => 1);
   my $hits = $c->page;
 
   my %search = (design => 'people', view => 'customers');
-  my $c = $db->allDocs(\%search, _all => 1);
+  my $c = $db->allDocs(\%search, all => 1);
 =cut
 
 sub viewDocs($;$%)
