@@ -25,6 +25,7 @@ t/20client.t
 t/30database.t
 t/31bulk.t
 t/40document.t
+t/41design.t
 t/50cluster.t
 t/Test.pm
 xt/99pod.t

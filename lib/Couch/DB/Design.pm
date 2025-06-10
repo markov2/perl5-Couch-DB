@@ -11,11 +11,18 @@ use Log::Report 'couch-db';
 use URI::Escape  qw/uri_escape/;
 use Scalar::Util qw/blessed/;
 
+my $id_generator;
+
 =chapter NAME
 
 Couch::DB::Design - handle design documents
 
 =chapter SYNOPSIS
+
+  my $ddoc = Couch::DB::Design->new(id => 'myname', db => $db);
+  my $ddoc = $db->design('myname');          # same
+  my $ddoc = $db->design('_design/myname');  # same
+  my $ddoc = $db->design;  # id generated
 
 =chapter DESCRIPTION
 
@@ -36,20 +43,44 @@ M<Couch::DB::Document>.
 
 =default id generated
 If no id is passed, then one gets generated: a UUID is requested from
-the server.
+the server.  You may also use a local generator via M<UUID::URandom>
+or M<Data::UUID>, which is (of course) more efficient.
 =cut
 
 sub init($)
 {	my ($self, $args) = @_;
-	$args->{id} ||= $args->{db}->couch->freshUUID;
+	my $which = $args->{id} || $id_generator->($args->{db} or panic);
+	my ($id, $base) = $which =~ m!^_design/(.*)! ? ($which, $1) : ("_design/$which", $which);
+	$args->{id} = $id;
+
 	$self->SUPER::init($args);
+	$self->{CDD_base} = $base;
+	$self;
 }
 
 #-------------
 =section Accessors
+
+=c_method setIdGenerator CODE
+When a design document is created without explicit C<id>, that will
+get generated.  By default, this is done by requesting a fresh UUID
+from the server.  You may change this into some local random collission
+free id generator for better performance.
+
+The CODE is called with the daabase object as only parameter.
 =cut
 
-sub _pathToDoc(;$) { $_[0]->db->_pathToDB('_design/' . $_[0]->id) . (defined $_[1] ? "/$_[1]" : '')  }
+$id_generator = sub ($) { $_[0]->couch->freshUUID };
+sub setIdGenerator($) { $id_generator = $_[1] }
+
+=method idBase
+Various calls need the C<id> without the C<_design>.  Whether the
+full document id for the design document or only the unique part
+is required/given is confusing.  This method returns the unique
+part.
+=cut
+
+sub idBase() { $_[0]->{CDD_base} }
 
 #-------------
 =section Document in the database
@@ -64,9 +95,11 @@ Returns the HTTP Headers containing a minimal amount of information about the
 specified design document.
 
 =method create \%data, %options
-Create a new design document.  Design documents do not use generated ids,
-so: you have to have specified one with M<new(id)>.  Therefore, this method
-is equivalent to M<update()>.
+ [CouchDB API "POST /{db}/_index", UNTESTED]
+Create a new design document.
+
+In Couch::DB, the client-side, not the server, generates ids.  Therefore,
+this method is equivalent to M<update()>.
 =cut
 
 sub create($%)
@@ -86,7 +119,9 @@ deprecated since 3.0, and are removed from 4.0.
 =cut
 
 sub update($%)
-{	my ($self, $data, $args) = @_;
+{	my ($self, $data, %args) = @_;
+	$data->{_id} = $self->id;
+
 	$self->couch
 		->toJSON($data, bool => qw/autoupdate/)
 		->check($data->{lists}, deprecated => '3.0.0', 'DesignDoc create() option list')
@@ -97,7 +132,7 @@ sub update($%)
 
 	#XXX Do we need more parameter conversions in the nested queries?
 
-	$self->SUPER::create($data, $args);
+	$self->SUPER::create($data, %args);
 }
 
 # get/delete/etc. are simply produced by extension of the _pathToDoc() which
@@ -180,7 +215,8 @@ Remove an index from this design document.
 
 sub deleteIndex($%)
 {	my ($self, $ddoc, $index, %args) = @_;
-	$self->couch->call(DELETE => $self->db->_pathToDB('_index/' . uri_escape($self->id) . '/json/' . uri_escape($index)),
+	my $id = $self->idBase;  # id() would also work
+	$self->couch->call(DELETE => $self->db->_pathToDB("_index/$id/json/" . uri_escape($index)),
 		$self->couch->_resultsConfig(\%args),
 	);
 }

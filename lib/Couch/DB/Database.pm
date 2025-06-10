@@ -6,6 +6,8 @@ package Couch::DB::Database;
 use Log::Report 'couch-db';
 
 use Couch::DB::Util   qw(flat);
+use Couch::DB::Document ();
+use Couch::DB::Design   ();
 
 use Scalar::Util      qw(weaken blessed);
 use HTTP::Status      qw(HTTP_OK HTTP_NOT_FOUND);
@@ -129,10 +131,9 @@ Collect information from the database, for instance about its clustering.
 =cut
 
 sub __detailsValues($$)
-{	my ($result, $raw) = @_;
-	my $couch = $result->couch;
+{	my ($self, $result, $raw) = @_;
 	my %values = %$raw;   # deep not needed;
-	$couch->toPerl(\%values, epoch => qw/instance_start_time/);
+	$self->couch->toPerl(\%values, epoch => qw/instance_start_time/);
 	\%values;
 }
 
@@ -144,7 +145,9 @@ sub details(%)
 	#XXX zero in old nodes?
 
 	$self->couch->call(GET => $self->_pathToDB($part ? '_partition/'.uri_escape($part) : undef),
-		$self->couch->_resultsConfig(\%args, on_values => \&__detailsValues),
+		$self->couch->_resultsConfig(\%args,
+			on_values => sub { $self->__detailsValues(@_) },
+		),
 	);
 }
 
@@ -277,10 +280,10 @@ Support for old replicators.
 =cut
 
 sub __ensure($$)
-{	my ($result, $raw) = @_;
+{	my ($self, $result, $raw) = @_;
 	return $raw unless $raw->{instance_start_time};  # exists && !=0
 	my $v = { %$raw };
-	$result->couch->toPerl($v, epoch => qw/instance_start_time/);
+	$self->couch->toPerl($v, epoch => qw/instance_start_time/);
 	$v;
 }
 
@@ -290,7 +293,9 @@ sub ensureFullCommit(%)
 	$self->couch->call(POST => $self->_pathToDB('_ensure_full_commit'),
 		deprecated => '3.0.0',
 		send       => { },
-		$self->couch->_resultsConfig(\%args, on_values => \&__ensure),
+		$self->couch->_resultsConfig(\%args,
+			on_values => sub { $self->__ensureValues(@_) },
+		),
 	);
 }
 
@@ -315,7 +320,7 @@ sub purgeDocs($%)
 	);
 }
 
-=method purgeRecordsLimit %options
+=method purgedRecordsLimit %options
  [CouchDB API "GET /{db}/_purged_infos_limit", UNTESTED]
 
 Returns the soft maximum number of records kept about deleting records.
@@ -323,7 +328,7 @@ Returns the soft maximum number of records kept about deleting records.
 
 #XXX seems not really a useful method.
 
-sub purgeRecordsLimit(%)
+sub purgedRecordsLimit(%)
 {	my ($self, %args) = @_;
 
 	$self->couch->call(GET => $self->_pathToDB('_purged_infos_limit'),
@@ -331,7 +336,7 @@ sub purgeRecordsLimit(%)
 	);
 }
 
-=method purgeRecordsLimitSet $limit, %options
+=method purgedRecordsLimitSet $limit, %options
  [CouchDB API "PUT /{db}/_purged_infos_limit", UNTESTED]
 
 Set a new soft limit.  The default is 1000.
@@ -339,7 +344,7 @@ Set a new soft limit.  The default is 1000.
 
 #XXX attribute of database creation
 
-sub purgeRecordsLimitSet($%)
+sub purgedRecordsLimitSet($%)
 {	my ($self, $value, %args) = @_;
 
 	$self->couch->call(PUT => $self->_pathToDB('_purged_infos_limit'),
@@ -447,7 +452,7 @@ The details about each index are stored in design documents.  You may have
 more than one index per design document, but any change to such document
 will force a rebuild of all other indices in the same file.
 
-=method design $ddocid|$ddoc
+=method design [$ddocid|$ddoc|undef]
 Returns the M<Couch::DB::Design> object which manages a design document.
 The document will not be read until an explicit call to C<get()>.
 The C<$ddocid> may start with C<_design/> which will be ignored.
@@ -455,9 +460,9 @@ The C<$ddocid> may start with C<_design/> which will be ignored.
 
 sub design($)
 {	my ($self, $which) = @_;
-	blessed $which && $which->isa('Couch::DB::Design')
-	  ? ($which =~ s!^design/!!r)
-	  : Couch::DB::Design->new(id => $which, db => $self);
+
+	return $which if blessed $which && $which->isa('Couch::DB::Design');
+	Couch::DB::Design->new(id => $which, db => $self);
 }
 
 =method designs [\%search|\@%search, %options]
@@ -473,33 +478,7 @@ If there are searches, then C<GET> is used, otherwise the C<POST> version.
 The returned structure depends on the searches and the number of searches.
 =cut
 
-sub designs(;$%)
-{	my ($self, $search, %args) = @_;
-	my $couch   = $self->couch;
-	my @search  = flat $search;
-
-	my ($method, $path, $send) = (GET => $self->_pathToDB('_design_docs'), undef);
-	if(@search)
-	{	$method = 'POST';
-	 	my @s   = map $self->_designPrepare($method, $_), @search;
-
-		if(@search==1)
-		{	$send  = $search[0];
-		}
-		else
-		{	$send  = +{ queries => \@search };
-			$path .= '/queries';
-		}
-	}
-
-	$self->couch->call($method => $path,
-		($send ? (send => $send) : ()),
-		$couch->_resultsConfig(\%args),
-	);
-}
-
-
-sub _designPrepare($$$)
+sub __designsPrepare($$$)
 {	my ($self, $method, $data, $where) = @_;
 	$method eq 'POST' or panic;
 	my $s     = +{ %$data };
@@ -512,31 +491,77 @@ sub _designPrepare($$$)
 	$s;
 }
 
-=method createIndex \%config, %options
- [CouchDB API "POST /{db}/_index", UNTESTED]
-Create/confirm an index on the database.  By default, the index
-C<name> and the name for the design document C<ddoc> are generated.
-You can also call C<Couch::DB::Design::createIndex()>.
-=cut
+sub __designsRow($$%)
+{	my ($self, $result, $index, %args) = @_;
+	my $column = $args{column} || 0;
+	my $answer = $result->answer->[$column]{rows}[$index] or return;
+	my $values = $result->values->[$column]{rows}[$index];
 
-sub createIndex($%)
-{	my ($self, $config, %args) = @_;
-	my $couch  = $self->couch;
-	my $which  = delete $config->{ddoc} || $couch->freshUUID;
-	$self->design($which)->createIndex($config, %args);
+	  ( answer    => $answer,
+		values    => $values,
+		ddocdata  => $values->{doc},
+		docparams => { db => $self },
+	  );
+}
+
+sub designs(;$%)
+{	my ($self, $search, %args) = @_;
+	my $couch   = $self->couch;
+	my @search  = flat $search;
+
+	my ($method, $path, $send) = (GET => $self->_pathToDB('_design_docs'), undef);
+	if(@search)
+	{	$method = 'POST';
+	 	my @s   = map $self->__designsPrepare($method, $_), @search;
+
+		if(@search==1)
+		{	$send  = $s[0];
+		}
+		else
+		{	$send  = +{ queries => \@s };
+			$path .= '/queries';
+		}
+	}
+
+	$self->couch->call($method => $path,
+		($send ? (send => $send) : ()),
+		$couch->_resultsConfig(\%args,
+			on_row => sub { $self->__designsRow(@_) },
+		),
+	);
 }
 
 =method indexes %options
  [CouchDB API "GET /{db}/_index", UNTESTED]
 
-Collect all indexes for the database.
+Collect all indexes for the database.  This command supports rows.
 =cut
+
+sub __indexesRow($$%)
+{	my ($self, $result, $index, %args) = @_;
+	my $answer = $result->answer->{indexes}[$index] or return ();
+
+	  (	answer => $answer,
+		values => $result->values->{indexes}[$index],
+	  );
+}
+
+sub __indexesValues()
+{	my ($self, $raw) = @_;
+	my %values = %$raw;   # deep not needed (yes)
+	$self->couch->toPerl(\%values, bool => qw/partitioned/);
+	$values{design} = $self->design($values{ddoc}) if $values{ddoc};
+	\%values;
+}
 
 sub indexes(%)
 {	my ($self, %args) = @_;
 
 	$self->couch->call(GET => $self->_pathToDB('_index'),
-		$self->couch->_resultsConfig(\%args),
+		$self->couch->_resultsConfig(\%args,
+			on_values => sub { $self->__indexesValues(@_) },
+			on_row    => sub { $self->__indexesRow(@_) },
+		),
 	);
 }
 

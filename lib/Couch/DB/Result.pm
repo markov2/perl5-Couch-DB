@@ -290,20 +290,6 @@ sub rowsRef()
 	$rows;
 }
 
-=method docs
-Return only the document information which is kept in the rows.  Some
-rows may contain more search information.
-Returns a LIST of M<Couch::DB::Document>-objects.
-=cut
-
-sub docs() { map $_->doc, $_[0]->rows }
-
-=method docsRef
-Returns a reference to the documents.
-=cut
-
-sub docsRef() { [ map $_->doc, $_[0]->rows ] }
-
 =method row $rownr, %options
 Returns a M<Couch::DB::Row> object (or an empty LIST) which represents one
 row in a paging answer.  Row numbers start on 1.
@@ -319,9 +305,12 @@ sub row($$%)
 	keys %data or return ();
 
 	my $doc;
+	my $dp = delete $data{docparams} || {};
 	if(my $dd = delete $data{docdata})
-	{	my $dp = delete $data{docparams} || {};
-		$doc   = Couch::DB::Document->fromResult($self, $dd, %$dp);
+	{	$doc  = Couch::DB::Document->fromResult($self, $dd, %$dp);
+	}
+	elsif($dd = delete $data{ddocdata})
+	{	$doc  = Couch::DB::Design->fromResult($self, $dd, %$dp);
 	}
 
 	my $row = Couch::DB::Row->new(%data, result => $self, rownr => $rownr, doc => $doc);
@@ -334,6 +323,20 @@ sub row($$%)
 =cut
 
 sub numberOfRows() { scalar @{$_[0]->rowsRef} }
+
+=method docs
+Return only the document information which is kept in the rows.  Some
+rows may contain more search information.
+Returns a LIST of M<Couch::DB::Document>-objects.
+=cut
+
+sub docs() { map $_->doc, $_[0]->rows }
+
+=method docsRef
+Returns a reference to the documents.
+=cut
+
+sub docsRef() { [ map $_->doc, $_[0]->rows ] }
 
 #-------------
 =section Paging through results
