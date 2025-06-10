@@ -24,6 +24,11 @@ Couch::DB::Design - handle design documents
   my $ddoc = $db->design('_design/myname');  # same
   my $ddoc = $db->design;  # id generated
 
+  my $results = $db->design('d')->search('i', ...) or die;
+  my $results = $db->search(d => 'i', ...); # same
+  my $results = $db->search($ddoc => 'i', ...); # same
+
+
 =chapter DESCRIPTION
 
 In CouchDB, design documents provide the main interface for building
@@ -221,10 +226,10 @@ sub deleteIndex($%)
 	);
 }
 
-=method indexFind $index, [\%search, %options]
+=method search $index, [\%search, %options]
  [CouchDB API "GET /{db}/_design/{ddoc}/_search/{index}", UNTESTED]
 
-Executes a text search request against the named $index.  The default
+Executes a (text) search request against the named $index.  The default
 C<%search> contains the whole index.  When the search contains
 C<include_docs>, then full docs are made available.
 
@@ -232,27 +237,28 @@ C<include_docs>, then full docs are made available.
 
 =example return full index all as rows
  my $d    = $db->design('d');
- my $rows = $d->indexFind('i', {}, _all => 1)->page;
+ my $rows = $d->search('i', {}, _all => 1)->page;
 
- my $search = { include_docs => 1 };
- my @docs = $d->indexFind('i', $search, _all => 1)->docs;
+ my $search = +{ include_docs => 1 };
+ my @docs = $d->search('i', $search, _all => 1)->docs;
 
 =cut
 
-sub __indexRow(%)
+sub __searchRow(%)
 {	my ($self, $result, $index, %args) = @_;
 	my $answer = $result->answer->{rows}[$index] or return ();
 	my $values = $result->values->{rows}[$index];
 
 	  (	answer    => $answer,
 		values    => $values,
-		( $args{full_docs} ? (docdata => $values, docparams => { db => $self }) : ()),
+		docdata   => $args{full_docs} ? $values : undef,
+		docparams => { db => $self },
 	  );
 }
 
-sub indexFind($$%)
+sub search($$%)
 {	my ($self, $index, $search, %args) = @_;
-	my $query = $search ? +{ %$search } : {};
+	my $query = defined $search ? +{ %$search } : {};
 
 	# Everything into the query :-(  Why no POST version?
 	my $couch = $self->couch;
@@ -265,7 +271,7 @@ sub indexFind($$%)
 		introduced => '3.0.0',
 		query      => $query,
 		$couch->_resultsPaging(\%args,
-			on_row => sub { $self->__indexRow(@_, full_docs => $search->{include_docs}) },
+			on_row => sub { $self->__searchRow(@_, full_docs => $search->{include_docs}) },
 		),
 	);
 }

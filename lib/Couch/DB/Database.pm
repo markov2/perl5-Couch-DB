@@ -476,6 +476,8 @@ parameters are added and missing.
 
 If there are searches, then C<GET> is used, otherwise the C<POST> version.
 The returned structure depends on the searches and the number of searches.
+
+When only one %search is run, then rows are supported.
 =cut
 
 sub __designsPrepare($$$)
@@ -493,9 +495,8 @@ sub __designsPrepare($$$)
 
 sub __designsRow($$%)
 {	my ($self, $result, $index, %args) = @_;
-	my $column = $args{column} || 0;
-	my $answer = $result->answer->[$column]{rows}[$index] or return;
-	my $values = $result->values->[$column]{rows}[$index];
+	my $answer = $result->answer->{rows}[$index] or return;
+	my $values = $result->values->{rows}[$index];
 
 	  ( answer    => $answer,
 		values    => $values,
@@ -526,7 +527,7 @@ sub designs(;$%)
 	$self->couch->call($method => $path,
 		($send ? (send => $send) : ()),
 		$couch->_resultsConfig(\%args,
-			on_row => sub { $self->__designsRow(@_) },
+			on_row => @s==1 ? sub { $self->__designsRow(@_) } : undef,
 		),
 	);
 }
@@ -563,6 +564,24 @@ sub indexes(%)
 			on_row    => sub { $self->__indexesRow(@_) },
 		),
 	);
+}
+
+=method search $ddoc, $index, [\%search, %options]
+Run a search (Mango or text) on the database.  The search base is
+described in the C<$index> in design document C<$ddoc>.  The design
+document may be specified as id or object.
+
+=example search
+
+  # Twice the same
+  my $r = $db->search(myddoc => myindex => \%search);
+  my $r = $db->design('myddoc')->search(myindex => \%search);
+
+=cut
+
+sub search($$;$%)
+{	my ($self, $ddoc, $index, $search, %args) = @_;
+	$self->design($ddoc)->search($index, $search, %args);
 }
 
 #-------------

@@ -314,7 +314,7 @@ sub row($$%)
 	}
 
 	my $row = Couch::DB::Row->new(%data, result => $self, rownr => $rownr, doc => $doc);
-	$doc->row($row);
+	$doc->row($row) if $doc;
 
 	$self->{CDR_rows}[$index] = $row;    # Remember partial result for rows()
 }

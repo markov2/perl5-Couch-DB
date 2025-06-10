@@ -7,6 +7,7 @@ version 0.007:
 
 	Changes:
 	- rename ::Database::search() into ::allDocs()
+	- rename ::Design::indexFind() into ::search(), add $db->search()
 	- rename ::Design::viewSearch() into ::viewDocs()
 	- rename ::Result::page() into ::pageDocs()
 	- loads of work on the ::Design documents
