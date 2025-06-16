@@ -529,8 +529,6 @@ sub _resultsPaging($%)
 		if(blessed $succeeds && $succeeds->isa('Couch::DB::Result'))
 		{	# continue from living previous result
 			$succ = $succeeds->nextPageSettings;
-use Data::Dumper;
-warn "SUCCEEDS=", Dumper $succ;
 			$args->{client} = $succeeds->client;
 		}
 		else
@@ -588,7 +586,7 @@ warn "SUCCEEDS=", Dumper $succ;
 		}
 		elsif($stop eq 'SMALLER')
 		{	my $first;
-			$state{$stop} = sub {
+			$state{stop} = sub {
 				return $_[0]->numberOfRows < $first if defined $first;
 				$first = $_[0]->numberOfRows;
 				0;
@@ -596,7 +594,7 @@ warn "SUCCEEDS=", Dumper $succ;
 		}
 		elsif($stop =~ m/^UPTO\((\d+)\)$/)
 		{	my $upto = $1;
-			$state{$stop} = sub { $_[0]->numberOfRows <= $upto };
+			$state{stop} = sub { $_[0]->numberOfRows <= $upto };
 		}
 		else
 		{	panic "Unknown stop value `$stop`";
