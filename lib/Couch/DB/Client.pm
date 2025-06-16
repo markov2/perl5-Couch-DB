@@ -300,8 +300,8 @@ then the call will be made, but the old successfully retreived information will
 not be lost.
 =cut
 
-sub __serverInfoValues
-{	my ($result, $data) = @_;
+sub __serverInfoValues($$)
+{	my ($self, $result, $data) = @_;
 	my $values = { %$data };
 
 	# 3.3.3 does not contain the vendor/version, as the example in the spec says
@@ -324,7 +324,9 @@ sub serverInfo(%)
 	}
 
 	my $result = $self->couch->call(GET => '/',
-		$self->couch->_resultsConfig(\%args, on_values => \&__serverInfoValues),
+		$self->couch->_resultsConfig(\%args,
+			on_values => sub { $self->__serverInfoValues(@_) }
+		),
 	);
 
 	if($cached ne 'PING')
@@ -500,8 +502,8 @@ sub dbUpdates($%)
 List all known nodes, and those currently used for the cluster.
 =cut
 
-sub __clusterNodeValues($)
-{	my ($result, $data) = @_;
+sub __clusterNodeValues($$)
+{	my ($self, $result, $data) = @_;
 	my $couch   = $result->couch;
 
 	my %values  = %$data;
@@ -519,7 +521,9 @@ sub clusterNodes(%)
 
 	$self->couch->call(GET => '/_membership',
 		introduced => '2.0.0',
-		$self->couch->_resultsConfig(\%args, on_values => \&__clusterNodeValues),
+		$self->couch->_resultsConfig(\%args,
+			on_values => sub { $self->__clusterNodeValues(@_) }
+		),
 	);
 }
 
@@ -532,7 +536,7 @@ All %options are posted as parameters.
 =cut
 
 sub __replicateValues($$)
-{	my ($result, $raw) = @_;
+{	my ($self, $result, $raw) = @_;
 	my $couch   = $result->couch;
 
 	my $history = delete $raw->{history} or return $raw;
@@ -560,7 +564,9 @@ sub replicate($%)
 
 	$couch->call(POST => '/_replicate',
 		send   => $rules,
-		$couch->_resultsConfig(\%args, on_values => \&__replicateValues),
+		$couch->_resultsConfig(\%args,
+			on_values => sub { $self->__replicateValues(@_) }
+		),
 	);
 }
 
@@ -583,7 +589,7 @@ sub __replJobsRow($$%)
 }
 
 sub __replJobsValues($$)
-{	my ($result, $raw) = @_;
+{	my ($self, $result, $raw) = @_;
 	my $couch   = $result->couch;
 	my $values  = dclone $raw;
 
@@ -606,8 +612,8 @@ sub replicationJobs(%)
 
 	$self->couch->call(GET => '/_scheduler/jobs',
 		$self->couch->_resultsPaging(\%args,
-			on_values => \&__replJobsValues,
-			on_row    => \&__replJobsRow,
+			on_values => sub { $self->__replJobsValues(@_) },
+			on_row    => sub { $self->__replJobsRow(@_) },
 		),
 	);
 }
@@ -634,7 +640,7 @@ sub __replDocRow($$%)
 }
 
 sub __replDocValues($$)
-{	my ($result, $raw) = @_;
+{	my ($self, $result, $raw) = @_;
 	my $v = +{ %$raw }; # $raw->{info} needs no conversions
 
 	$result->couch
@@ -645,10 +651,10 @@ sub __replDocValues($$)
 }
 
 sub __replDocsValues($$)
-{	my ($result, $raw) = @_;
+{	my ($self, $result, $raw) = @_;
 	my $couch   = $result->couch;
 	my $values  = dclone $raw;
-	$values->{docs} = [ map __replDocValues($result, $_), @{$values->{docs} || []} ];
+	$values->{docs} = [ map $self->__replDocValues($result, $_), @{$values->{docs} || []} ];
 	$values;
 }
 
@@ -664,8 +670,8 @@ sub replicationDocs(%)
 
 	$self->couch->call(GET => $path,
 		$self->couch->_resultsPaging(\%args,
-			on_values => \&__replDocsValues,
-			on_row    => \&__replDocRow,
+			on_values => sub { $self->__replDocsValues(@_) },
+			on_row    => sub { $self->__replDocRow(@_) },
 		),
 	);
 }
@@ -683,8 +689,8 @@ Pass a C<dbname> for the database which contains the replication information.
 #XXX the output differs from replicationDoc, so different method
 
 sub __replOneDocValues($$)
-{	my ($result, $raw) = @_;
-	__replDocValues($result, $_), $raw;
+{	my ($self, $result, $raw) = @_;
+	$self->__replDocValues($result, $raw);
 }
 
 sub replicationDoc($%)
@@ -698,7 +704,7 @@ sub replicationDoc($%)
 
 	$self->couch->call(GET => $path,
 		$self->couch->_resultsConfig(\%args,
-			on_values => \&__replOneDocValues,
+			on_values => sub { $self->__replOneDocValues(@_) },
 		),
 	);
 }
@@ -711,7 +717,7 @@ return you the name of the node represented by the CouchDB instance.
 =cut
 
 sub __nodeNameValues($)
-{	my ($result, $raw) = @_;
+{	my ($self, $result, $raw) = @_;
 	my $values = dclone $raw;
 	$result->couch->toPerl($values, node => qw/name/);
 	$values;
@@ -722,7 +728,9 @@ sub nodeName($%)
 	$self->_clientIsMe(\%args);
 
 	$self->couch->call(GET => "/_node/$name",
-		$self->couch->_resultsConfig(\%args, on_values => \&__nodeNameValues),
+		$self->couch->_resultsConfig(\%args,
+			on_values => sub { $self->__nodeNameValues(@_) }
+		),
 	);
 }
 

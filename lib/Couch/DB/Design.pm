@@ -193,10 +193,8 @@ sub details(%)
 =method createIndex \%config, %options
  [CouchDB API "POST /{db}/_index", UNTESTED]
 
-Create an index on the database.  When you like a generated design
-document name, you can use M<Couch::DB::Database::createIndex()>.
-If the name already exists and the configuration is different, then
-the index be get regenerated.
+Create an index on the database.  If the name already exists and the
+configuration is different, then the index be get regenerated.
 =cut
 
 sub createIndex($%)
@@ -245,7 +243,7 @@ C<include_docs>, then full docs are made available.
 =cut
 
 sub __searchRow(%)
-{	my ($self, $result, $index, %args) = @_;
+{	my ($self, $result, $index, $column, %args) = @_;
 	my $answer = $result->answer->{rows}[$index] or return ();
 	my $values = $result->values->{rows}[$index];
 
@@ -294,7 +292,7 @@ sub indexDetails($%)
 #-------------
 =section Views
 
-=method viewDocs $view, [\%search|\@%search), %options]
+=method viewDocs $view, [\%search|\@%search], %options]
  [CouchDB API "GET /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}/queries", UNTESTED]

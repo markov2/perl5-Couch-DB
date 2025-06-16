@@ -477,7 +477,7 @@ parameters are added and missing.
 If there are searches, then C<GET> is used, otherwise the C<POST> version.
 The returned structure depends on the searches and the number of searches.
 
-When only one %search is run, then rows are supported.
+Rows are supported.
 =cut
 
 sub __designsPrepare($$$)
@@ -527,7 +527,7 @@ sub designs(;$%)
 	$self->couch->call($method => $path,
 		($send ? (send => $send) : ()),
 		$couch->_resultsConfig(\%args,
-			on_row => @search==1 ? sub { $self->__designsRow(@_) } : undef,
+			on_row => sub { $self->__designsRow(@_, queries => scalar(@search)) },
 		),
 	);
 }
@@ -737,7 +737,7 @@ sub inspectDocs($%)
 	);
 }
 
-=method allDocs [\%query|\@queries, %options]
+=method allDocs [\%query|\@queries], %options]
  [CouchDB API "GET /{db}/_all_docs"]
  [CouchDB API "POST /{db}/_all_docs"]
  [CouchDB API "POST /{db}/_all_docs/queries", UNTESTED]
@@ -839,7 +839,7 @@ sub allDocs(;$%)
 	$couch->call($method => $path,
 		@params,
 		$couch->_resultsPaging(\%args,
-			on_row   => sub { $self->__allDocsRow(@_, local => $local) },
+			on_row   => sub { $self->__allDocsRow(@_, local => $local, queries => scalar(@search)) },
 		),
 	);
 }

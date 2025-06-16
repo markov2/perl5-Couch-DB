@@ -164,7 +164,7 @@ Show the resharding activity.
 =cut
 
 sub __jobValues($$)
-{	my ($couch, $job) = @_;
+{	my ($self, $couch, $job) = @_;
 
 	$couch->toPerl($job, isotime => qw/start_time update_time/)
 	      ->toPerl($job, node => qw/node/);
@@ -174,11 +174,11 @@ sub __jobValues($$)
 }
 
 sub __reshardJobsValues($$)
-{	my ($result, $data) = @_;
+{	my ($self, $result, $data) = @_;
 	my $couch  = $result->couch;
 
 	my $values = dclone $data;
-	__jobValues($couch, $_) for @{$values->{jobs} || []};
+	$self->__jobValues($couch, $_) for @{$values->{jobs} || []};
 	$values;
 }
 
@@ -187,7 +187,9 @@ sub reshardJobs(%)
 
 	$self->couch->call(GET => '/_reshard/jobs',
 		introduced => '2.4.0',
-		$self->couch->_resultsConfig(\%args, on_values => \&__reshardJobsValues),
+		$self->couch->_resultsConfig(\%args,
+			on_values => sub { $self->__reshardJobsValues(@_) },
+		),
 	);
 }
 
@@ -198,7 +200,7 @@ Create resharding jobs.
 =cut
 
 sub __reshardStartValues($$)
-{	my ($result, $data) = @_;
+{	my ($self, $result, $data) = @_;
 	my $values = dclone $data;
 	$result->couch->toPerl($_, node => 'node')
 		for @$values;
@@ -212,7 +214,9 @@ sub reshardStart($%)
 	$self->couch->call(POST => '/_reshard/jobs',
 		introduced => '2.4.0',
 		send       => $create,
-		$self->couch->_resultsConfig(\%args, on_values => \&__reshardStartValues),
+		$self->couch->_resultsConfig(\%args,
+			on_values => sub { $self->__reshardStartValues(@_) },
+		),
 	);
 }
 
@@ -223,11 +227,11 @@ Show the resharding activity.
 =cut
 
 sub __reshardJobValues($$)
-{	my ($result, $data) = @_;
+{	my ($self, $result, $data) = @_;
 	my $couch  = $result->couch;
 
 	my $values = dclone $data;
-	__jobValues($couch, $values);
+	$self->__jobValues($couch, $values);
 	$values;
 }
 
@@ -236,7 +240,8 @@ sub reshardJob($%)
 
 	$self->couch->call(GET => "/_reshard/jobs/$jobid",
 		introduced => '2.4.0',
-		$self->couch->_resultsConfig(\%args, on_values => \&__reshardJobValues),
+		$self->couch->_resultsConfig(\%args,
+			on_values => sub { $self->__reshardJobValues(@_) }),
 	);
 }
 
@@ -304,7 +309,7 @@ a C<$db> as M<Couch::DB::Database>-object.
 =cut
 
 sub __dbshards($$)
-{	my ($result, $data) = @_;
+{	my ($self, $result, $data) = @_;
 	my $couch  = $result->couch;
 
 	my %values = %$data;
@@ -318,7 +323,9 @@ sub shardsForDB($%)
 
 	$self->couch->call(GET => $db->_pathToDB('_shards'),
 		introduced => '2.0.0',
-		$self->couch->_resultsConfig(\%args, on_values => \&__dbshards),
+		$self->couch->_resultsConfig(\%args,
+			on_values => sub { $self->__dbshards(@_) },
+		),
 	);
 }
 
@@ -342,7 +349,9 @@ sub shardsForDoc($%)
 
 	$self->couch->call(GET => $db->_pathToDB('_shards/'.$doc->id),
 		introduced => '2.0.0',
-		$self->couch->_resultsConfig(\%args, on_values => \&__docshards),
+		$self->couch->_resultsConfig(\%args,
+			on_values => sub { $self->__docshards(@_) },
+		),
 	);
 }
 

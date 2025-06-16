@@ -111,7 +111,7 @@ sub values() { $_[0]->{CDR_values} || $_[0]->answer }
 =method rowNumberInResult
 =cut
 
-sub pageNumber() { ... }
+sub pageNumber() { $_[0]->result->pageNumber }
 sub rowNumberInPage() { ... }
 sub rowNumberInSearch() { ... }
 sub rowNumberInResult() { $_[0]->{CDR_rownr} }

@@ -114,6 +114,7 @@ sub init($)
 	$self->{CDR_on_values} = pile delete $args->{on_values};
 	$self->{CDR_on_row}    = pile delete $args->{on_row};
 	$self->{CDR_code}      = HTTP_MULTIPLE_CHOICES;
+
 	$self->{CDR_page}      = delete $args->{paging};
 	$self->{CDR_seqnr}     = ++$seqnr;
 
@@ -263,7 +264,7 @@ sub values(@)
 When a result (potentially) contains multiple rows, then paging is supported.
 But you may also wish to access the rows directly.
 
-=method rows
+=method rows [$qnr]
 Some CouchDB calls can be used with paging.  In that case, the answer will
 show something which reflects rows.  This method wraps the values in the
 rows into M<Couch::DB::Row>-objects.
@@ -274,34 +275,43 @@ records at once.  In this case, you must specify the query sequence number
 (starts with zero)
 =cut
 
-sub rows() { @{$_[0]->rowsRef} }
+sub rows(;$) { @{$_[0]->rowsRef($_[1])} }
 
-=method rowsRef
+=method rowsRef [$qnr]
 Returns a reference to the returned rows.
 =cut
 
-sub rowsRef()
-{	my $self = shift;
-	my $rows = $self->{CDR_rows} ||= [];
-	return $rows if $self->{CDR_rows_complete};
+sub rowsRef(;$)
+{	my ($self, $qnr) = @_;
 
-	for(my $rownr = 1; $self->row($rownr); $rownr++) { }
-	$self->{CDR_rows_complete} = 1;
+	! $self->inPagingMode
+		or panic "Call used in paging mode, so use the page* methods.";
+
+	$self->_rowsRef($qnr // 0);
+}
+
+sub _rowsRef($)
+{	my ($self, $qnr) = @_;
+	my $rows = $self->{CDR_rows}[$qnr] ||= [];
+	return $rows if $self->{CDR_rows_complete}[$qnr];
+
+	for(my $rownr = 1; $self->row($rownr, $qnr); $rownr++) { }
+	$self->{CDR_rows_complete}[$qnr] = 1;
 	$rows;
 }
 
-=method row $rownr, %options
+=method row $rownr, [$qnr]
 Returns a M<Couch::DB::Row> object (or an empty LIST) which represents one
 row in a paging answer.  Row numbers start on 1.
 =cut
 
-sub row($$%)
-{	my ($self, $rownr, %args) = @_;
-	my $rows  = $self->{CDR_rows};
+sub row($;$)
+{	my ($self, $rownr, $qnr) = @_;
+	my $rows  = $self->{CDR_rows}[$qnr //= 0] ||= [];
 	my $index = $rownr -1;
 	return $rows->[$index] if exists $rows->[$index];
 
-	my %data = map $_->($self, $rownr-1), reverse @{$self->{CDR_on_row}};
+	my %data = map $_->($self, $rownr-1, column => $qnr), reverse @{$self->{CDR_on_row}};
 	keys %data or return ();
 
 	my $doc;
@@ -316,30 +326,45 @@ sub row($$%)
 	my $row = Couch::DB::Row->new(%data, result => $self, rownr => $rownr, doc => $doc);
 	$doc->row($row) if $doc;
 
-	$self->{CDR_rows}[$index] = $row;    # Remember partial result for rows()
+	$rows->[$index] = $row;    # Remember partial result for rows()
 }
 
-=method numberOfRows
+=method numberOfRows [$qnr]
 =cut
 
-sub numberOfRows() { scalar @{$_[0]->rowsRef} }
+sub numberOfRows(;$) { scalar @{$_[0]->rowsRef($_[1])} }
 
-=method docs
+=method docs [$qnr]
 Return only the document information which is kept in the rows.  Some
 rows may contain more search information.
 Returns a LIST of M<Couch::DB::Document>-objects.
 =cut
 
-sub docs() { map $_->doc, $_[0]->rows }
+sub docs(;$) { map $_->doc, $_[0]->rows($_[1]) }
 
-=method docsRef
+=method docsRef [$qnr]
 Returns a reference to the documents.
 =cut
 
-sub docsRef() { [ map $_->doc, $_[0]->rows ] }
+sub docsRef(;$) { [ map $_->doc, $_[0]->rows($_[1]) ] }
+
+=method doc $nr, [$qnr]
+Returns the document of the indicated row.  The counter is the row counter,
+so starts at one.
+=cut
+
+sub doc($;$)
+{	my ($self, $rownr, $qnr) = @_;
+	my $r = $self->row($rownr, $qnr);
+	defined $r ? $r->doc : undef;
+}
 
 #-------------
 =section Paging through results
+
+Only when this result is produced by a call in "paging mode" (uses the C<all> or
+C<page_size> parameters), then the follow C<page*> methods are available to get
+the data.  Otherwise, use the C<row*> and C<doc*> methods.
 
 =method pagingState %options
 Returns information about the logical next page for this response, in a format
@@ -368,12 +393,21 @@ sub pagingState(%)
 }
 
 =method supportsPaging
-[0.100] Returns whether the result supports paging.
+[0.100] Returns whether the result supports paging.  Still, you may not use
+this in paging mode.
 =cut
 
 sub supportsPaging() { defined $_[0]->{CDR_page} }
 
-# The next is used r/w when _succeed is a result object, and when results
+=method inPagingMode
+Returns true when this call may be chained with other calls to come up to
+a number of rows which match the number you desire.  True when either
+call parameter C<all> is true, or a C<page_size> is given.
+=cut
+
+sub inPagingMode() { my $r = $_[0]->{CDR_page}; $r && $r->{paging_mode} }
+
+# The next is used r/w when succeed is a result object, and when results
 # have arrived.
 
 sub _thisPage() { $_[0]->{CDR_page} or panic "Call does not support paging." }
@@ -387,7 +421,8 @@ sub nextPageSettings()
 {	my $self = shift;
 	my %next = %{$self->_thisPage};
 	delete $next{harvested};
-	$next{start} += (delete $next{skip}) + @{$self->page};
+	$next{start} += (delete $next{skip}) + @{$self->_rowsRef(0)};
+	$next{pagenr}++;
 	\%next;
 }
 
@@ -407,20 +442,30 @@ Method M<pageRows()> will return the rows as a LIST.
    print template($t, rows => $r->page);
 =cut
 
-sub page() { $_[0]->_thisPage->{harvested} }
+sub page()
+{	my $self = shift;
 
-sub _pageAdd($@)
-{	my $this     = shift->_thisPage;
-	my $bookmark = shift;
-	my $page     = $this->{harvested};
-	if(@_)
-	{	push @$page, @_;
-		$this->{bookmarks}{$this->{start} + $this->{skip} + @$page} = $bookmark
-			if defined $bookmark;
+	$self->inPagingMode
+		or panic "Call not in paging mode, use the row* and doc* alternative methods.";
+
+	$self->_thisPage->{harvested};
+}
+
+sub _pageAdd($$)
+{	my ($self, $bookmark, $found) = @_;
+	my $this = $self->_thisPage;
+	my $page = $this->{harvested};
+	if(@$found)
+	{	push @$page, @$found;
 	}
-	else
-	{	$this->{end_reached} = 1;
+
+	if(defined $bookmark)
+	{	my $recv = $this->{start} + $this->{skip} + @$page;
+		$this->{bookmarks}{$recv} = $bookmark;
 	}
+
+	$this->{end_reached} = ! @$found || $this->{stop}->($self);
+
 	$page;
 }
 
@@ -430,6 +475,13 @@ as ARRAY (reference).
 =cut
 
 sub pageRows() { @{$_[0]->page} }
+
+=method pageNumber
+When in paging mode, pages all have the same size.  Otherwise, this will count
+the number of calls made with variable number of rows.
+=cut
+
+sub pageNumber() { $_[0]->_thisPage->{pagenr} }
 
 =method pageDocs
 Returns the LIST of documents (M<Couch::DB::Document> objects), which are
@@ -449,6 +501,13 @@ contained in the rows.
 
 sub pageDocs() { map $_->doc, @{$_[0]->page} }
 
+=method pageDoc $rownr
+Returns the document (M<Couch::DB::Document> object) on the indicated row
+in the page (starts at 1).
+=cut
+
+sub pageDoc($) { my $r = $_[0]->page->[$_[1]-1]; defined $r ? $r->doc : undef }
+
 =method pageIsPartial
 Returns a true value when there should be made another attempt to fill the
 page upto the the requested page size.
@@ -456,7 +515,9 @@ page upto the the requested page size.
 
 sub pageIsPartial()
 {	my $this = shift->_thisPage;
-	! $this->{end_reached} && ($this->{all} || @{$this->{harvested}} < $this->{page_size});
+	     $this->{paging_mode}
+	  && ! $this->{end_reached}
+	  && ($this->{all} || @{$this->{harvested}} < $this->{page_size});
 }
 
 =method isLastPage

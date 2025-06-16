@@ -39,12 +39,13 @@ is_deeply $p1{paging}, +{
 	bookmarks => {},
 	harvester => undef,
 	harvested => [],
-	page_size => 25,
+	page_size => undef,
 	req_max   => 100,
 	skip      => 0,
 	start     => 0,
 	all       => 0,
     map       => undef,
+	page_mode => !!0,
 }, '... defaults';
 
 my %p2 = $couch->_resultsPaging( +{
@@ -67,6 +68,7 @@ is_deeply $p2{paging}, +{
 	start     => 140,
 	all       => 0,
     map       => undef,
+	page_mode => 1,
 }, '... all fresh';
 
 
@@ -74,7 +76,8 @@ is_deeply $p2{paging}, +{
 
 my $query;   # undef = return all documents
 
-my $f1 = _result find_page1 => $db->find($query);
+my $f1 = _result find_page1 => $db->find($query, limit => 25);
+ok ! $f1->inPagingMode, '... not paging';
 
 my $docs1 = $f1->answer->{docs};
 ok defined $docs1, '... contains docs';

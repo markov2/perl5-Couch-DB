@@ -174,7 +174,7 @@ sub api() { $_[0]->{CD_api} }
 =method createClient %options
 Create a client object which handles a server.  All options are passed
 to M<Couch::DB::Client>.  The C<couch> parameter is added for you.
-The client will also be added via M<addClient()>, and is returned.
+The client will also be added via M<addClient()>, and is then returned.
 
 It may be useful to create to clients to the same server: one with admin
 rights, and one without.  Or clients to different nodes, to create
@@ -220,7 +220,7 @@ return the same object.
 sub cluster() { $_[0]->{CD_cluster} ||= Couch::DB::Cluster->new(couch => $_[0]) }
 
 #-------------
-=section Unrelated calls
+=section Ungrouped calls
 
 =method searchAnalyze %options
  [CouchDB API "POST /_search_analyze", since 3.0, UNTESTED]
@@ -529,6 +529,8 @@ sub _resultsPaging($%)
 		if(blessed $succeeds && $succeeds->isa('Couch::DB::Result'))
 		{	# continue from living previous result
 			$succ = $succeeds->nextPageSettings;
+use Data::Dumper;
+warn "SUCCEEDS=", Dumper $succ;
 			$args->{client} = $succeeds->client;
 		}
 		else
@@ -549,15 +551,20 @@ sub _resultsPaging($%)
 
 	$state{start}     = $succ->{start} || 0;
 	$state{skip}      = delete $args->{skip} || 0;
-	$state{all}       = delete $args->{all} || 0;
+	$state{all}       = delete $args->{all}  || 0;
 	$state{map}       = my $map = delete $args->{map} || $succ->{map};
 	$state{harvester} = my $harvester = delete $args->{harvester} || $succ->{harvester};
-	$state{page_size} = my $size = delete $args->{page_size} || $succ->{page_size} || 25;
-	$state{req_max}   = delete $args->{limit} || $succ->{req_max} || 100;
+	$state{page_size} = my $size = delete $args->{page_size} || $succ->{page_size};
+	$state{req_rows}  = delete $args->{limit} || $succ->{req_rows} || 100;
+	$state{page_mode} = !! ($state{all} || $size);
+	$state{stop}      = my $stop = delete $args->{stop} || $succ->{stop} || 'EMPTY';
 
-	if(my $page = delete $args->{page})
-	{	$state{start}  = ($page - 1) * $state{page_size};
+	my $page;
+	if($page = delete $args->{page})
+	{	defined $size or panic "page parameter only usefull with page_size.";
+		$state{start} = ($page - 1) * $size;
 	}
+	$state{pagenr}    = delete $args->{pagenr} // $succ->{pagenr} // $page // 1;
 
 	$state{bookmarks} = $succ->{bookmarks} ||= { };
 	if(my $bm = delete $args->{bookmark})
@@ -569,8 +576,32 @@ sub _resultsPaging($%)
 		my $result = shift or return;
 		my @found  = flat $harvester->($result);
 		@found     = map $map->($result, $_), @found if $map;
-		$result->_pageAdd($result->answer->{bookmark}, @found);  # also call with 0
+
+		# The answer does not tell me that we are on the last page.
+		$result->_pageAdd($result->answer->{bookmark}, \@found);  # also call with 0
 	};
+
+	if(ref $stop ne 'CODE')
+	{	if($stop eq 'EMPTY')
+		{	# we always stop when there were no rows returned
+			$state{stop} = sub { 0 };
+		}
+		elsif($stop eq 'SMALLER')
+		{	my $first;
+			$state{$stop} = sub {
+				return $_[0]->numberOfRows < $first if defined $first;
+				$first = $_[0]->numberOfRows;
+				0;
+			};
+		}
+		elsif($stop =~ m/^UPTO\((\d+)\)$/)
+		{	my $upto = $1;
+			$state{$stop} = sub { $_[0]->numberOfRows <= $upto };
+		}
+		else
+		{	panic "Unknown stop value `$stop`";
+		}
+	}
 
 	$self->_resultsConfig($args, @more, on_final => $harvest, paging => \%state),
 }
@@ -581,7 +612,10 @@ sub _pageRequest($$$$)
 	my $progress = @{$paging->{harvested}};      # within the page
 	my $start    = $paging->{start};
 
-	$params->{limit} = $paging->{all} ? $paging->{req_max} : (min $paging->{page_size} - $progress, $paging->{req_max});
+	$params->{limit}
+	  = $paging->{page_size}
+	  ? (min $paging->{page_size} - $progress, $paging->{req_rows})
+	  : $paging->{req_rows};
 
 	if(my $bookmark = $paging->{bookmarks}{$start + $progress})
 	{	$params->{bookmark} = $bookmark;
@@ -983,16 +1017,43 @@ See F<https://docs.couchdb.org/en/stable/ddocs/mango.html>
 Confusing? Yes it is.  There are often multiple solutions for the
 same problem.
 
-=section Pagination
+=section Paging
 
-Searches tend to give a large number of results.  CouchDB calls will
-refuse to return too many answers at a time (typically 25).  When you
-need more results, you will need more calls.
+Searches tend to give a large number of results.  The CouchDB server
+will refuse to return too many answers at a time (typically 25).
+When you need more results, you will need to do more calls.
 
-To get more answers, there are two mechanisms: some calls provide a
-C<skip> and C<limit> only.  Other calls implement the more sophisticated
-bookmark mechanism.  Both mechanisms are abstracted away by the
-C<succeed> mechanism.
+We distinguish three cases:
+
+=over 4
+=item 1. no paging possible
+Most commands will give you the full requested knowledge in one go.
+In some cases, the result may still present parts of the reply in
+convenient rows.
+
+=item 2. paging possible, but not used
+Command may support C<skip>, C<limit>, and/or C<bookmark>.  You decide
+you need them.  You can even use C<succeed> (see below).  However, the
+number of rows you get in the result can differ from your expectations.
+You may expect to get 50 elements, but sometimes get 10.  Use the
+"row"- and "doc" methods on the result object.
+
+=item 3. paging used
+When you provide options C<all> or C<page_size>, then your call gets
+into paging mode: the server will be polled until the requested number
+of results has been received.
+
+You cannot use the row commands on the result, because it will only
+return the rows of the last call which was made to fulfil your request.
+Now, you need to use the page commands of the result object.
+=back
+
+=subsection paging possible
+
+To get more answers, CouchDB implements two mechanisms: some calls
+provide a C<skip> and C<limit> only.  Other calls implement the more
+sophisticated bookmark mechanism.  Both mechanisms are abstracted away
+in this library by the C<succeed> mechanism.
 
 B<Be aware> that you shall provide the same query parameters to each
 call of the search method.  Succession may be broken when you change
@@ -1000,26 +1061,34 @@ some parameters: it is not fully documented which ones are needed to
 continue, so simply pass all again.  Probably, it is save to change
 the C<limit> between pages.
 
-To manage paged results, selected calls support the following options:
+The following parameters can be used then the CouchDB call supports
+paging (this will be documented explicitly at these methods)
 
 =over 4
-=item * C<all> =E<gt> BOOLEAN (default false)
-Return all results at once.  This may involve multiple calls, like when
-the number of results is larger than what the server wants to produce
-in one go.
 
-Do not use this when you expect many or large results.  Maybe in
-combination with C<map>.
+=item * C<skip> =E<gt> INTEGER
+Do not return this amount of first following elements.
+B<Be warned:> use as C<%option>, not as search parameter.
 
-=item * C<page> =E<gt> INTEGER (default 1)
-Start-point of returned results, for calls which support paging.
-Pages are numbered starting from 1.  When available, bookmarks will
-be used for next pages.  Succeeding searches will automatically move
-through pages (see examples)
+=item * C<limit> =E<gt> INTEGER
+Do not request more than C<limit> number of results per request.  May be
+less than C<page_size>.
+B<Be warned:> use as C<%option>, not as search parameter.
 
-=item * C<page_size> =E<gt> INTEGER (default 25)
-The CouchDB server will often not give you more than 25 or 50 answers
-at a time, but you do not want to know.
+=item * C<bookmark> =E<gt> STRING
+If you accidentally know the bookmark for the search.  Usually, this is
+automatically picked-up via C<succeed>.
+
+=item * C<stop> =E<gt> CODE|'EMPTY'|'SMALLER'|'UPTO($nr)'
+When do we stop asking the server for more pages?  When the call returned
+no rows, then we always stop.  C<EMPTY> reflect the same.
+
+With C<SMALLER>, you will also stop when fewer rows were returned than in
+the first call.  It's not sure what the normal number of rows is what the
+server returns, but probably always the same until the source runs out.
+
+When C<UPTO> is used with some value (for instance C<UPTO(5)>) then no new
+call is made when less or equal to that number of rows is returned.
 
 =item * C<succeed> =E<gt> $result or $result->paging
 Make this query as successor of a previous query.  Some requests support
@@ -1028,12 +1097,7 @@ paging (via bookmarks).  See examples in a section below.
 =item * C<harvester> =E<gt> CODE
 How or what to extract per request.  You may add other information,
 like collecting response objects.  The CODE returns the extract LIST of
-objects/elements. Collection for a page stops once that combined list
-reaches C<page_size>.
-
-=item * C<bookmark> =E<gt> STRING
-If you accidentally know the bookmark for the search.  Usually, this is
-automatically picked-up via C<succeed>.
+objects/elements.
 
 =item * C<map> =E<gt> CODE
 Call the CODE on each of the (defined) harvested page elements.  The CODE
@@ -1046,16 +1110,36 @@ Your CODE may return the harvested object, but also something small
 (even undef) which will free-up the memory use of the object immediately.
 However: at least return a single scalar (it will be returned in the
 "page"), because an empty list signals "end of results".
-
-=item * C<skip> =E<gt> INTEGER
-Do not return this amount of first following elements.
-B<Be warned:> use as C<%option>, not as search parameter.
-
-=item * C<limit> =E<gt> INTEGER
-Do not request more than C<limit> number of results per request.  May be
-less than C<page_size>.
-B<Be warned:> use as C<%option>, not as search parameter.
 =back
+
+=subsection paging used
+
+To manage paged results, selected calls support the following options:
+
+=over 4
+=item * C<all> =E<gt> BOOLEAN (default false)
+Return all results at once.  This may involve multiple calls, like when
+the number of results is larger than what the server wants to produce
+in one go.
+
+Avoid to use this when you expect many or large results.  Although, in
+such case C<map> may help you a lot.
+
+=item * C<page_size> =E<gt> INTEGER (default 25)
+The CouchDB server will often not give you more than 25 or 50 answers
+at a time, but you do not want to know.
+
+=item * C<page> =E<gt> INTEGER (default 1)
+Start-point of returned results, for calls which support paging.
+Pages are numbered starting from 1.  When available, bookmarks will
+be used for next pages.  Succeeding searches will automatically move
+through pages (see examples)
+
+=item * C<pagenr> =E<gt> INTEGER (default C<page>)
+The start of the page counter, for display purposes.
+
+=back
+
 
 =example paging through result
 Get page by page, where you may use the C<limit> parameter to request
@@ -1063,7 +1147,7 @@ for a number of elements.  Do not use C<skip>, except in the first call.
 The C<succeed> handling will play tricks with C<page>, C<harvester>,
 and C<client>, which you do not wish to know.
 
-  my $page1 = $couch->find(\%search, limit => 12, skip => 300);
+  my $page1 = $couch->find(\%search, limit => 12, skip => 300, page_size => 10);
   my $rows1 = $page1->page;
   my @rows1 = $page1->pageRows;
   my @docs1 = map $_->doc, @rows1;
@@ -1078,7 +1162,7 @@ and C<client>, which you do not wish to know.
   my $docs3 = $page3->page;    # now docs!
   my @docs3 = $page3->pageRows;
 
-=example paging via a session
+=example paging with a website user session
 When you cannot ask for pages within a single continuous process, because
 the page is shown to a user who has to take action to see an other page,
 then save the pagingState.
@@ -1086,7 +1170,7 @@ then save the pagingState.
 The state cannot contain code references, so when you have a specific
 harvester or map, then you need to resupply those.
 
-  my $page1 = $couch->find(\%search);
+  my $page1 = $couch->find(\%search, page_size => 50);
   my $rows1 = $page1->page;
   $session->save(current => serialized $page1->pagingState);
   ...
@@ -1101,11 +1185,17 @@ is a new result object.
 
   my $list;
   while($list = $couch->find(\%search, succeed => $list))
-  {   my $rows = $list->page;
-      @$rows or last;    # nothing left
-      ...;    # use the rows
+  {   my @rows = $list->rows;
+      @rows or last;    # nothing left
+      ...;              # use the rows
   }
+
+  # Checks the success of $list, not the number of rows
   $list or die "Stopped somewhere with ". $list->message;
+
+This call does not use C<page_size> or C<all>, so the number of rows
+received per loop may differ by decission of the server.  You cannot
+use the C<page*> set of methods, only the C<row*> and C<doc> methods.
 
 =example get one page of results
 You can jump back and forward in the pages: bookmarks will remember the
@@ -1121,12 +1211,21 @@ pages already seen.
   my $page5 = $couch->find(\%search, succeed => $page4);
   my $rows5 = $page5->page;
 
+When paging (here selected via C<page_size>, you cannot use the
+the C<row*> and C<doc> methods on the result object: you need to
+use the C<page*> versions.
+
 =example get all results in one call
-Do not attempt this unless you know there there is a limited number of
-results, maybe just a bit more than a page.
+When you ask for all answers at once, you must be aware this can consume
+a lot of time and memory.  Your clients will keep on requesting data from
+the server until all rows have been collected.
 
   my $all   = $couch->find(\%search, all => 1) or die;
   my @rows6 = $all->pageRows;
+
+You may consider to use C<map> here: to extract the data immediately
+when it comes in.  In this case, you can reduce the amount of information
+which has to be kept in memory immediately on arrival.
 
 =example processing results when they arrive
 When a page (may) require multiple calls to the server, this may enhance
