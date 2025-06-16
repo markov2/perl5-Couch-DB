@@ -44,7 +44,7 @@ my $all2   = _result allDocs2 => $db->allDocs({include_docs => 1}, all => 1);
 my $doc2_4 = $all2->pageDoc(4);
 isa_ok $doc2_4, 'Couch::DB::Document';
 
-warn Dumper $doc2_4->latest;
+#warn Dumper $doc2_4->latest;
 is $doc2_4->latest->{nr}, 12, '... right document';  # 1, 10, 11, 12,
 
 my $docs2 = $all2->page;

@@ -455,9 +455,7 @@ sub _pageAdd($$)
 {	my ($self, $bookmark, $found) = @_;
 	my $this = $self->_thisPage;
 	my $page = $this->{harvested};
-	if(@$found)
-	{	push @$page, @$found;
-	}
+	push @$page, @$found;
 
 	if(defined $bookmark)
 	{	my $recv = $this->{start} + $this->{skip} + @$page;
@@ -465,7 +463,6 @@ sub _pageAdd($$)
 	}
 
 	$this->{end_reached} = ! @$found || $this->{stop}->($self);
-
 	$page;
 }
 
@@ -515,7 +512,7 @@ page upto the the requested page size.
 
 sub pageIsPartial()
 {	my $this = shift->_thisPage;
-	     $this->{paging_mode}
+	     $this->{page_mode}
 	  && ! $this->{end_reached}
 	  && ($this->{all} || @{$this->{harvested}} < $this->{page_size});
 }

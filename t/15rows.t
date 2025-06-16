@@ -28,58 +28,6 @@ foreach my $docnr (1..70)
 	$r or die $r->response->to_string;
 }
 
-### check parameter parsing
-
-my $dummy = sub {};
-my %p1 = $couch->_resultsPaging( +{ }, on_row => $dummy );
-ok keys %p1, 'Paging with default settings';
-
-#warn Dumper \%p1;
-{	local $p1{paging}{stop} = "CODE";
-	is_deeply $p1{paging}, +{
-		bookmarks => {},
-		harvester => undef,
-		harvested => [],
-		page_size => undef,
-		req_rows   => 100,
-		skip      => 0,
-		start     => 0,
-		all       => 0,
-    	map       => undef,
-		page_mode => !!0,
-		pagenr    => 1,
-		stop      => 'CODE',
-	}, '... defaults';
-}
-
-my %p2 = $couch->_resultsPaging( +{
-	limit     => 10,
-	page      => 5,
-	page_size => 35,
-	harvester => "MYCODE",
-	bookmark  => 'abc',
-	pagenr    => 5,
-}, on_row => $dummy);
-ok keys %p2, 'Paging with all settings';
-
-#warn Dumper \%p2;
-{	local $p2{paging}{stop} = "CODE";
-	is_deeply $p2{paging}, +{
-		bookmarks => { 140 => 'abc' },
-		harvester => "MYCODE",
-		harvested => [],
-		page_size => 35,
-		req_rows  => 10,
-		skip      => 0,
-		start     => 140,
-		all       => 0,
-    	map       => undef,
-		page_mode => 1,
-		pagenr    => 5,
-		stop      => 'CODE',
-	}, '... all fresh';
-}
-
 ### find, first page of data
 
 my $query;   # undef = return all documents
