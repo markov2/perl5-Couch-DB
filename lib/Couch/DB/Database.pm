@@ -22,7 +22,7 @@ Couch::DB::Database - One database connection
   my $db   = Couch::DB->db('my-db');
 
   # (search) documents in the database
-  my $docs = $db->allDocs->{docs};
+  my @docs = $db->allDocs->docs;
 
 =chapter DESCRIPTION
 

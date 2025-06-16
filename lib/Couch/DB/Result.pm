@@ -405,7 +405,7 @@ a number of rows which match the number you desire.  True when either
 call parameter C<all> is true, or a C<page_size> is given.
 =cut
 
-sub inPagingMode() { my $r = $_[0]->{CDR_page}; $r && $r->{paging_mode} }
+sub inPagingMode() { my $r = $_[0]->{CDR_page}; $r && $r->{page_mode} }
 
 # The next is used r/w when succeed is a result object, and when results
 # have arrived.

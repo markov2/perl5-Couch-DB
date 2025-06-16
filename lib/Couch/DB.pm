@@ -569,7 +569,7 @@ sub _resultsPaging($%)
 	{	$state{bookmarks}{$state{start}} = $bm;
 	}
 
-	$harvester ||= sub { $_[0]->rows };
+	$harvester ||= sub { $_[0]->_rowsRef(0) };
 	my $harvest = sub {
 		my $result = shift or return;
 		my @found  = flat $harvester->($result);

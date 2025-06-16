@@ -38,7 +38,7 @@ ok $victim->isDeleted, '... deleted';
 my $all1  = _result search => $db->allDocs({include_docs => 1}, all => 1);
 my $docs1 = $all1->page;
 #warn "DOC1", Dumper $docs1->[0];
-cmp_ok scalar @$docs1, '==', 69;   # one deleted
+cmp_ok scalar @$docs1, '==', 69, '... one deleted';
 
 _result removed          => $db->remove;
 

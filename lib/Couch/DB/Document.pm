@@ -23,7 +23,7 @@ Couch::DB::Document - one document as exchanged with a CouchDB server
   $doc->save;
   $db->saveBulk([$doc]);
 
-  my $content = $db->latest;
+  my $content = $db->latest;  # content of latest revision
 
 =chapter DESCRIPTION
 
