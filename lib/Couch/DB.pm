@@ -38,6 +38,9 @@ Couch::DB - CouchDB database client
    my $cluster = $couch->cluster;     # Couch::DB::Cluster object
    my $client  = $couch->createClient(...);  # Couch::DB::Client
 
+   my $results = $db->find(...) or die;
+   my $results = $db->search(...) or die;
+
 =chapter DESCRIPTION
 
 When this module was written, there were already a large number of
@@ -171,6 +174,14 @@ sub api() { $_[0]->{CD_api} }
 #-------------
 =section Interface starting points
 
+The CouchDB specification does group API calls a bit, but not too
+strong.  C<Couch::DB> has chosen to group them much stronger.  This
+helps with carity in the method names.  All methods which do something
+with the database are addressed via C<<$couch->db($name)>> and
+provided via a M<Couch::DB::Database> object.  All methods which
+relate to cluster management are implemented in M<Couch::DB::Cluster>,
+with access via C<<$couch->cluster>>, et cetera.
+
 =method createClient %options
 Create a client object which handles a server.  All options are passed
 to M<Couch::DB::Client>.  The C<couch> parameter is added for you.
@@ -222,10 +233,11 @@ sub cluster() { $_[0]->{CD_cluster} ||= Couch::DB::Cluster->new(couch => $_[0]) 
 #-------------
 =section Ungrouped calls
 
-=method searchAnalyze %options
+=method searchAnalyze \%config, %options
  [CouchDB API "POST /_search_analyze", since 3.0, UNTESTED]
 
-Check what the build-in Lucene tokenizer(s) will do with your text.
+Check what the build-in Lucene tokenizer(s) will do with your text.  This uses
+the Clouseau backend.
 
 =requires analyzer KIND
 =requires text STRING
@@ -233,17 +245,14 @@ Check what the build-in Lucene tokenizer(s) will do with your text.
 
 #XXX the API-doc might be mistaken, calling the "analyzer" parameter "field".
 
-sub searchAnalyze(%)
-{	my ($self, %args) = @_;
-
-	my %send = (
-		analyzer => delete $args{analyzer} // panic "No analyzer specified.",
-		text     => delete $args{text}     // panic "No text to inspect specified.",
-	);
+sub searchAnalyze($%)
+{	my ($self, $config, %args) = @_;
+	exists $config->{analyzer} or panic "No analyzer specified.";
+	exists $config->{text}     or panic "No text to inspect specified.";
 
 	$self->call(POST => '/_search_analyze',
 		introduced => '3.0',
-		send       => \%send,
+		send       => $config,
 		$self->_resultsConfig(\%args),
 	);
 }
@@ -800,19 +809,6 @@ Other extensions are hopefully added in the future.  Preferrably as part
 of this release so it gets maintained together.  The extensions are not
 too difficult to create and certainly quite small.
 
-=section Where can I find what?
-
-The CouchDB API lists all endpoints as URLs.  This library, however,
-creates an Object Oriented interface around these calls: you do not
-see the internals in the resulting code.  Knowing the CouchDB API,
-it is usually immediately clear where to find a certain end-point:
-C<< /{db} >> will be in M<Couch::DB::Database>.  A major exception is
-anything what has to do with replication and sharding: this is bundled
-in M<Couch::DB::Cluster>.
-
-Have a look at F<https://perl.overmeer.net/couch-db/reference.html>.
-Keep that page open in your browser while developing.
-
 =section Thick interface
 
 The CouchDB client interface is based on HTTP.  It is really easy to
@@ -872,12 +868,23 @@ You could also write
   my $uuids  = $couch->requestUUIDs(100)->values->{uuids};
 
 because "values()" will terminate when the database call did not result
-in a successful answer.  Last alternative:
+in a successful answer.  Some convenience methods are provided as well,
+which makes the last alternative:
 
    my @uuids = $couch->freshUUIDs(100);
 
-Besides calls, there are all kinds of facility methods, which add
-further abstraction from the server connection.
+=subsection Where can I find what?
+
+The CouchDB API lists all endpoints as URLs.  This library, however,
+creates an Object Oriented interface around these calls: you do not
+see the internals in the resulting code.  Knowing the CouchDB API,
+it is usually immediately clear where to find a certain end-point:
+C<< /{db} >> will be in M<Couch::DB::Database>.  A major exception is
+anything what has to do with replication and sharding: this is bundled
+in M<Couch::DB::Cluster>.
+
+Have a look at F<https://perl.overmeer.net/couch-db/reference.html>.
+Keep that page open in your browser while developing.
 
 =subsection Type conversions
 
@@ -957,7 +964,7 @@ Used to produce rows where the answer of a call produces a list of
 answers.
 =back
 
-=section Searching with CouchDB
+=subsection Searching with CouchDB
 
 CouchDB supports various search mechanisms, which are confusingly
 named.  Their configuration is stored in design documents (see
@@ -994,7 +1001,7 @@ See F<https://docs.couchdb.org/en/stable/ddocs/mango.html>
 Confusing? Yes it is.  There are often multiple solutions for the
 same problem.
 
-=section Paging
+=subsection Paging
 
 Searches tend to give a large number of results.  The CouchDB server
 will refuse to return too many answers at a time (typically 25).
@@ -1025,7 +1032,7 @@ return the rows of the last call which was made to fulfil your request.
 Now, you need to use the page commands of the result object.
 =back
 
-=subsection paging possible
+=subsubsection paging possible
 
 To get more answers, CouchDB implements two mechanisms: some calls
 provide a C<skip> and C<limit> only.  Other calls implement the more
@@ -1089,7 +1096,7 @@ However: at least return a single scalar (it will be returned in the
 "page"), because an empty list signals "end of results".
 =back
 
-=subsection paging used
+=subsubsection paging used
 
 To manage paged results, selected calls support the following options:
 

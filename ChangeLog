@@ -5,6 +5,12 @@
 
 version 0.201:
 
+	Changes:
+	- changed parameters of ::searchAnalyze().
+
+	Improvements:
+	- better organization of docs.
+
 version 0.200: Wed 18 Jun 12:26:20 CEST 2025
 
 	Changes:
