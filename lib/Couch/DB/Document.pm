@@ -131,7 +131,7 @@ sub _consume($$)
 
 sub fromResult($$$%)
 {	my ($class, $result, $data, %args) = @_;
-	$class->new(%args, result => $result)->_consume($result, $data);
+	$class->new(%args, result => $result)->_consume($result, { %$data });
 }
 
 #-------------

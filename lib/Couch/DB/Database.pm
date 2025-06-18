@@ -183,6 +183,22 @@ sub create(%)
  [CouchDB API "DELETE /{db}"]
 
 Remove the database.
+
+=example be sure a database does not exist
+Any call returns a success, which you should test; there are many reasons
+why they may fail.  So, for any call, you should write like this:
+
+  my $r = $couch->db('test')->remove;
+  $r or error "Cannot remove database 'test'; $r";
+
+However, in this case you may not want to cast an error at reply code 404
+(not found). Away means away.  So, this works:
+
+  $r && $r->code != 404 or error $r;
+
+  use HTTP::Status  qw(HTTP_NOT_FOUND);
+  $r && $r->code != HTTP_NOT_FOUND or error $r;
+  
 =cut
 
 sub remove(%)
@@ -533,7 +549,7 @@ sub designs(;$%)
 }
 
 =method indexes %options
- [CouchDB API "GET /{db}/_index", UNTESTED]
+ [CouchDB API "GET /{db}/_index"]
 
 Collect all indexes for the database.  This command supports rows.
 =cut

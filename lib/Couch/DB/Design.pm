@@ -238,11 +238,11 @@ C<include_docs>, then full docs are made available.
  my $rows = $d->search('i', {}, all => 1)->page;
 
  my $search = +{ include_docs => 1 };
- my @docs = $d->search('i', $search, all => 1)->docs;
+ my @docs = $d->search('i', \%search, all => 1)->pageDocs;
 
 =cut
 
-sub __searchRow(%)
+sub __searchRow($$$%)
 {	my ($self, $result, $index, $column, %args) = @_;
 	my $answer = $result->answer->{rows}[$index] or return ();
 	my $values = $result->values->{rows}[$index];
@@ -252,6 +252,16 @@ sub __searchRow(%)
 		docdata   => $args{full_docs} ? $values : undef,
 		docparams => { db => $self },
 	  );
+}
+
+sub __searchErrors($)
+{	my ($self, $result) = @_;
+warn "SEARCH ERRORS";
+	$result or return;
+
+	# Internal errors of the search are not reflected in the status of the
+	my $a   = $result->answer;
+	exists $a->{error} ? $result->setStatus(600, $a->{reason}) : undef;
 }
 
 sub search($$%)
@@ -269,7 +279,8 @@ sub search($$%)
 		introduced => '3.0.0',
 		query      => $query,
 		$couch->_resultsPaging(\%args,
-			on_row => sub { $self->__searchRow(@_, full_docs => $search->{include_docs}) },
+			on_row   => sub { $self->__searchRow(@_, full_docs => $search->{include_docs}) },
+			on_final => sub { $self->__searchErrors(@_) },
 		),
 	);
 }

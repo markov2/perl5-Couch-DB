@@ -21,7 +21,8 @@ ok defined $couch, 'Created the framework';
 
 my $db = $couch->db('test');
 _result removed          => $db->remove;
-_result create           => $db->create;
+
+_result create           => $db->create or die;
 
 foreach my $docnr (1..70)
 {	my $r = $db->doc("doc$docnr")->create({nr => $docnr});

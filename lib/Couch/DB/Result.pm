@@ -114,7 +114,6 @@ sub init($)
 	$self->{CDR_on_values} = pile delete $args->{on_values};
 	$self->{CDR_on_row}    = pile delete $args->{on_row};
 	$self->{CDR_code}      = HTTP_MULTIPLE_CHOICES;
-
 	$self->{CDR_page}      = delete $args->{paging};
 	$self->{CDR_seqnr}     = ++$seqnr;
 
@@ -547,9 +546,11 @@ sub setFinalResult($%)
 	delete $self->{CDR_values};
 	delete $self->{CDR_rows};
 
+#warn "CODE=$code, $self";
 	# "on_error" handler
 	unless(is_success $code)
 	{	$_->($self) for @{$self->{CDR_on_error}};
+		return undef;
 	}
 
 	# "on_final" handler

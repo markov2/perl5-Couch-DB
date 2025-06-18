@@ -7,6 +7,7 @@ use lib 'lib', 't';
 use Couch::DB::Util qw(simplified);
 use Test;
 
+plan skip_all => "needs lucene server";
 #$dump_answers = 1;
 #$dump_values  = 1;
 #$trace = 1;
@@ -15,7 +16,13 @@ my $couch = _framework;
 ok defined $couch, 'Created the framework';
 
 my $db = $couch->db('test');
+_result removed          => $db->remove;
 _result create           => $db->create;
+
+foreach my $docnr (1..50)
+{	my $r = $db->doc("doc$docnr")->create({nr => $docnr});
+	$r or die $r->response->to_string;
+}
 
 ####### $db->design;
 
@@ -42,13 +49,22 @@ is $t1->couch, $couch, '... couch';
 _result t1_create        => $t1->create({});
 $trace && warn Dumper [ $t1->revisions ];
 
-my $l1 = $db->designs({include_docs => 1, conflicts => 1});
-$trace && warn Dumper [ $l1->answer ];
-
-my $l2 = $db->indexes;
-
 _result t1_update        => $t1->update({});
 $trace && warn Dumper [ $t1->revisions ];
+
+my $l0 = _result create_index => $db->design('d')->createIndex({
+	type  => 'text',
+	name  => 'myindex',
+	index => { fields => [ 'nr' ]}
+});
+warn $l0;
+$l0 or die $l0->answer->{reason};
+
+my $l1 = _result designs => $db->designs({include_docs => 1, conflicts => 1});
+#warn Dumper $l1->rowsRef;
+
+my $l2 = _result indexes => $db->indexes;
+# warn "INDEXES=", Dumper [ map Dumper($_->answer), $l2->rows ];
 
 my $t2 = $db->design('testddoc1');
 isa_ok $t2, 'Couch::DB::Design';
@@ -72,6 +88,17 @@ $trace && warn "REV INFO=", Dumper $t2->revisionsInfo;
 
 $trace && warn $r2->request->to_string;
 $trace && warn $r2->response->to_string;
+
+my $r3 = _result search => $db->search('_design/d' => myindex => {
+		include_docs => 1,
+		query => "nr:*"
+	}, page_size => 30);
+
+$r3 or die "ERROR: ", $r3->answer->{reason};
+warn $r3;
+warn Dumper $r3->answer;
+warn $_->id, ' = ', Dumper $_->latest for $r3->pageDocs;
+
 
 ####### Cleanup
 _result removed          => $db->remove;

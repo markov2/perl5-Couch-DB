@@ -347,16 +347,13 @@ sub client($)
 Call some couchDB server, to get work done.  This is the base for any
 interaction with the server.
 
+Besides the explicitly listed parameters, this C<call> method is also responsible
+for handling the generic parameters which influence the connection to the server
+(like C<delay>, C<client>, and C<headers>) and hook into events (like C<on_final>
+and C<on_error>).
+
 B<Note:> you should probably not use this method yourself: all endpoint of
 CouchDB are available via a nice, abstract wrapper.
-
-=option  delay BOOLEAN
-=default delay C<false>
- [PARTIAL]
-
-Do not execute the server call yet, but prepare it only in a way that
-it can be combined with other clients in parallel.
-See M<Couch::DB::Result> chapter L</DETAILS> about delayed requests.
 
 =option  query HASH
 =default query C<undef>
@@ -367,32 +364,6 @@ Query parameters for the request.
 The content to be sent with POST and PUT methods.
 in those cases, even when there is nothing to pass on, simply to be
 explicit about that.
-
-=option  on_chain   CODE
-=default on_chain   C<undef>
-When the call ends successfully, then run the chain code.  Event
-C<on_error> and C<on_final> are only called on the last results of
-the chain.
-
-=option  clients ARRAY|$role
-=default clients C<undef>
-Explicitly use only the specified clients (M<Couch::DB::Client>-objects)
-for the query.  When none are given, then all are used (in order of
-precedence).  When a $role (string) is provided, it is used to select
-a subset of the defined clients.
-
-=option  client M<Couch::DB::Client>|$name
-=default client C<undef>
-Select a specific client connection to be used, as object or by name.
-
-=option  on_values CODE
-=default on_values C<undef>
-A function (sub) which transforms the data of the CouchDB answer into
-useful Perl values and objects.  See M<Couch::DB::toPerl()>.
-The function is called with the result and a partially or unprocessed
-reponse (answer).  That data shall not be modified.  Return a new
-data-structure which contains the processed information, which may
-reuse parts which are not modified.
 
 =option  paging HASH
 =default paging {}
@@ -924,10 +895,14 @@ C<Couch::DB> will totally hide these differences for you!
 =subsection Generic parameters
 
 Each method which is labeled C<< [CouchDB API] >> also accepts a few options
-which are controlling the calling progress.  These are available everywhere,
-hence no-where documented explicitly.  This options are either generic (supported
-everywhere, listed here), for paging (supported for some specific commands,
-described further below), or with C<on_> (events).
+which are controlling the calling progress.  They are handled by the M<call()>
+method which implements the API calls.
+
+These parameters are available for every API call, hence no-where
+documented explicitly.  These options are either about the connection
+between client and server, for result paging, or processing event hooks.
+
+=subsubsection Connection parameters
 
 At the moment, the following generic C<%options> are supported everywhere:
 
@@ -948,6 +923,8 @@ logged-in user of that client is allowed to perform that task).
 Add headers to the request.  When applicable (for instance, the C<Accept>-header)
 this will overrule the internally calculated defaults.
 =back
+
+=subsubsection Processing events
 
 Besides, at the moment we support the following events:
 
@@ -993,14 +970,16 @@ in a database.  The value may be complex, and may contain extracts
 and computed elements based on each document.
 See F<https://docs.couchdb.org/en/stable/ddocs/views/>
 
-=item * Index
-Keeps Lucene (mainly full text search) indexes on a database.  The
-interface uses Clouseau or Nouveau wrapper libraries around the Lucene
-core.
+=item * Search
+Use Lucene (mainly full text search) indexes on a database.  The
+interface uses Clouseau wrapper libraries around the Lucene core.
 See F<https://docs.couchdb.org/en/stable/ddocs/search.html>
 
 Clouseau was introduced in CouchDB 3.0.0, and now being phased out
 because it got stuck on Java 8. It has index type C<text>.
+
+=item * Search
+Uses Lucene indexes via the (new) Nouveau wrapper.
 Nouveau was introduced as beta in 3.4.1 as alternative, with index
 type C<nouveau>.
 
@@ -1079,7 +1058,7 @@ automatically picked-up via C<succeed>.
 
 =item * C<stop> =E<gt> CODE|'EMPTY'|'SMALLER'|'UPTO($nr)'
 When do we stop asking the server for more pages?  When the call returned
-no rows, then we always stop.  C<EMPTY> reflect the same.
+no rows, then we always stop.  C<EMPTY> reflects the same.
 
 With C<SMALLER>, you will also stop when fewer rows were returned than in
 the first call.  It's not sure what the normal number of rows is what the
