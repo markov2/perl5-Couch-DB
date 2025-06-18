@@ -254,16 +254,6 @@ sub __searchRow($$$%)
 	  );
 }
 
-sub __searchErrors($)
-{	my ($self, $result) = @_;
-warn "SEARCH ERRORS";
-	$result or return;
-
-	# Internal errors of the search are not reflected in the status of the
-	my $a   = $result->answer;
-	exists $a->{error} ? $result->setStatus(600, $a->{reason}) : undef;
-}
-
 sub search($$%)
 {	my ($self, $index, $search, %args) = @_;
 	my $query = defined $search ? +{ %$search } : {};
@@ -279,8 +269,7 @@ sub search($$%)
 		introduced => '3.0.0',
 		query      => $query,
 		$couch->_resultsPaging(\%args,
-			on_row   => sub { $self->__searchRow(@_, full_docs => $search->{include_docs}) },
-			on_final => sub { $self->__searchErrors(@_) },
+			on_row => sub { $self->__searchRow(@_, full_docs => $search->{include_docs}) },
 		),
 	);
 }

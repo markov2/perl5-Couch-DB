@@ -7,9 +7,9 @@ use lib 'lib', 't';
 use Couch::DB::Util qw(simplified);
 use Test;
 
-$dump_answers = 1;
-$dump_values  = 1;
-$trace = 1;
+#$dump_answers = 1;
+#$dump_values  = 1;
+#$trace = 1;
 
 my $couch = _framework;
 ok defined $couch, 'Created the framework';
