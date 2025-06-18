@@ -254,37 +254,28 @@ sub userRolesChange(%)
 	);
 }
 
-=method changes %options
+=method changes \%query, %options
  [CouchDB API "GET /{db}/_changes", TODO]
  [CouchDB API "POST /{db}/_changes", TODO]
 
 Feed of changes made on this database.
+
+This very complex API call seems to be mainly used to communicate between
+nodes, hence not (yet) implemented for this library.
 =cut
 
-sub changes { ... }
+sub changes($%) { ... }
 
-=method compact %options
+=method compactViews %options
  [CouchDB API "POST /{db}/_compact"]
- [CouchDB API "POST /{db}/_compact/{ddoc}", UNTESTED]
 
 Instruct the database files to be compacted now.  By default, the data gets
 compacted on unexpected moments.
-
-=option  design $design|$ddocid
-=default design C<undef>
-Compact all indexes related to this design document, instead.
 =cut
 
-sub compact(%)
+sub compactViews(%)
 {	my ($self, %args) = @_;
-	my $path = $self->_pathToDB('_compact');
-
-	if(my $ddoc = delete $args{design})
-	{	$path .= '/' . (blessed $ddoc ? $ddoc->id :$ddoc);
-	}
-
-	$self->couch->call(POST => $path,
-		send  => { },
+	$self->couch->call(POST => $self->_pathToDB('_compact');
 		$self->couch->_resultsConfig(\%args),
 	);
 }

@@ -7,6 +7,7 @@ version 0.201:
 
 	Changes:
 	- changed parameters of ::searchAnalyze().
+	- ::DB::compact() split into ::compactViews() and ::Design::compactViews()
 
 	Improvements:
 	- better organization of docs.

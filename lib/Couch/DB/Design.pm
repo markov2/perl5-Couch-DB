@@ -317,6 +317,22 @@ sub viewDocs($;$%)
 	$self->db->allDocs($search, view => $view, design => $self, %args);
 }
 
+=method compactViews %options
+ [CouchDB API "POST /{db}/_compact/{ddoc}", UNTESTED]
+
+Start the compacting (optimization) of all views in this design document.
+See M<Couch::DB::Database::compactViews()> to start them for all design
+documents at once.
+=cut
+
+sub compactViews(%)
+{	my ($self, %args) = @_;
+
+	$self->couch->call(POST => $self->_pathToDB('_compact/', uri_escape($ddoc->baseId)),
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
 #-------------
 =section Functions
 
