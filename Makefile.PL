@@ -2,7 +2,7 @@ use ExtUtils::MakeMaker;
 
 require 5.026;
 
-my $VERSION = '0.100';
+my $VERSION = '0.200';
 
 my %prereq =  # also included in t/00use.t
   (	'DateTime'			=> 0

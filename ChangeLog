@@ -3,7 +3,7 @@
 	  All code was made by Mark Overmeer.
 	  Attributes refer to people who made contributions in ideas and bug-reports.
 
-version 0.007:
+version 0.200:
 
 	Changes:
 	- rename ::Database::search() into ::allDocs()
