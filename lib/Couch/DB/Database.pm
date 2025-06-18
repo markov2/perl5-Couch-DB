@@ -122,7 +122,7 @@ sub exists()
 
 =method details %options
  [CouchDB API "GET /{db}"]
- [CouchDB API "GET /{db}/_partition/{partition}", UNTESTED]
+ [CouchDB API "GET /{db}/_partition/{partition_id}", UNTESTED]
 
 Collect information from the database, for instance about its clustering.
 
@@ -760,7 +760,7 @@ sub inspectDocs($%)
  [CouchDB API "GET /{db}/_local_docs", UNTESTED]
  [CouchDB API "POST /{db}/_local_docs", UNTESTED]
  [CouchDB API "POST /{db}/_local_docs/queries", UNTESTED]
- [CouchDB API "GET /{db}/_partition/{partition}/_all_docs", UNTESTED]
+ [CouchDB API "GET /{db}/_partition/{partition_id}/_all_docs", UNTESTED]
 
 Get the documents, optionally limited by a view.  If there are queries,
 then C<POST> is used, otherwise the C<GET> endpoint.

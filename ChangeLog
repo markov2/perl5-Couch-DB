@@ -10,6 +10,7 @@ version 0.201:
 
 	Improvements:
 	- better organization of docs.
+	- adapt to minor documentation changes in API calls.
 
 version 0.200: Wed 18 Jun 12:26:20 CEST 2025
 

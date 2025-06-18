@@ -211,7 +211,7 @@ sub createIndex($%)
 }
 
 =method deleteIndex $index, %options
- [CouchDB API "DELETE /{db}/_index/{designdoc}/json/{name}", UNTESTED]
+ [CouchDB API "DELETE /{db}/_index/{design_doc}/json/{name}", UNTESTED]
 
 Remove an index from this design document.
 =cut
@@ -296,7 +296,7 @@ sub indexDetails($%)
  [CouchDB API "GET /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
  [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}/queries", UNTESTED]
- [CouchDB API "GET /{db}/_partition/{partition}/_design/{ddoc}/_view/{view}", UNTESTED]
+ [CouchDB API "GET /{db}/_partition/{partition_id}/_design/{ddoc}/_view/{view}", UNTESTED]
 
 Executes the specified view function.
 
