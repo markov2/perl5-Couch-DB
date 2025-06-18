@@ -158,16 +158,28 @@ fill_impls_by_call;
 
 my %http_method_counts;
 map $http_method_counts{$_->{http_method}}++, @$_ for values %impls_by_call;
-warn Dumper \%http_method_counts;
+warn "HTTP METHODS COUNTS: ", Dumper \%http_method_counts;
 
 my %status_counts;
 map $status_counts{$_->{status}}++, @$_ for values %impls_by_call;
-warn Dumper \%status_counts;
+warn "IMPLEMENTATION STATUS COUNTS: ", Dumper \%status_counts;
+
 
 my %mistakes = map +($_ => 1), keys %impls_by_call;
 delete @mistakes{keys %index};
 
-warn "Implementation mismatch: $_\n" for sort keys %mistakes;
+if(keys %mistakes)
+{	warn "IMPLEMENTED, NOT in API:\n";
+	warn "   $_\n" for sort keys %mistakes;
+}
+
+
+my %missing = map +($_ => 1), keys %index;
+delete @missing{keys %impls_by_call};
+if(keys %missing)
+{	warn "MISSING, API but not implemented:\n";
+	warn "   $_\n" for sort keys %missing;
+}
 
 sub progress()
 {	print <<__PROGRESS;
@@ -260,7 +272,7 @@ __HEADER
 	foreach my $use (sort keys %impls_by_use)
 	{	my @calls;
 		foreach my $impl (@{$impls_by_use{$use}})
-		{	my $call = $index{$impl->{call}} or die $impl->{call};
+		{	my $call = $index{$impl->{call}} or die "DISAPPEARED: ", $impl->{call};
 			$call->{status} = $impl->{status};
 			push @calls, $call;
 		}

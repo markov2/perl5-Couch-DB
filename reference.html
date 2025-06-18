@@ -31,13 +31,13 @@
   complete.  Below, you find the follow conditions.
   <table id="status-explain">
   <tr><td>DONE</td>
-      <td class="count">43</td>
-      <td>Minimally tested: visual inspection only.</td></tr>
+      <td class="count">44</td>
+      <td>Minimally tested: sometimes visual inspection only.</td></tr>
   <tr><td>PARTIAL</td>
       <td class="count">4</td>
       <td>Minimally tested, not completely implemented.</td></tr>
   <tr><td>UNTESTED</td>
-      <td class="count">77</td>
+      <td class="count">76</td>
       <td>Implemented but never tried.</td></tr>
   <tr><td>TODO</td>
       <td class="count">2</td>
@@ -73,7 +73,7 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#get--_all_dbs">GET /_all_dbs</a></td>
       <td class="status">DONE</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Client.pod#%24obj-%3EdatabaseNames%28%25options%29">$client-&gt;databaseNames(%options)</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Client.pod#%24obj-%3EdatabaseNames%28%5B-%5C%25search%2C-%25options-%5D%29">$client-&gt;databaseNames([ \%search, %options ])</a></td></tr>
   <tr><td class="descr"><p>Returns a list of all the databases</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
@@ -101,14 +101,14 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#get--_dbs_info">GET /_dbs_info</a></td>
       <td class="status">DONE</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Client.pod#%24obj-%3EdatabaseInfo%28%25options%29">$client-&gt;databaseInfo(%options)</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Client.pod#%24obj-%3EdatabaseInfo%28%5B%5C%25search%2C-%25options%5D%29">$client-&gt;databaseInfo([\%search, %options])</a></td></tr>
   <tr><td class="descr"><p>Returns all databases information</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#post--_dbs_info">POST /_dbs_info</a></td>
       <td class="status">DONE</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Client.pod#%24obj-%3EdatabaseInfo%28%25options%29">$client-&gt;databaseInfo(%options)</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Client.pod#%24obj-%3EdatabaseInfo%28%5B%5C%25search%2C-%25options%5D%29">$client-&gt;databaseInfo([\%search, %options])</a></td></tr>
   <tr><td class="descr"><p>Returns information of a list of the specified databases</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
@@ -183,6 +183,13 @@
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#get--_node-node-name-_smoosh-status">GET /_node/{node-name}/_smoosh/status</a></td>
+      <td class="status">MISSING</td>
+      <td class="use"></td></tr>
+  <tr><td class="descr"><p>Returns metrics of the CouchDB's auto-compaction daemon</p></td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td></tr>
+  <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#get--_node-node-name-_stats">GET /_node/{node-name}/_stats</a></td>
       <td class="status">UNTESTED</td>
       <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Node.pod#%24obj-%3Estats%28%25options%29">$node-&gt;stats(%options)</a></td></tr>
@@ -201,6 +208,13 @@
       <td class="status">UNTESTED</td>
       <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Node.pod#%24obj-%3Esoftware%28%25options%29">$node-&gt;software(%options)</a></td></tr>
   <tr><td class="descr"><p>Returns system-level server version informations</p></td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td></tr>
+  <tr class="first">
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#post--_nouveau_analyze">POST /_nouveau_analyze</a></td>
+      <td class="status">MISSING</td>
+      <td class="use"></td></tr>
+  <tr><td class="descr"><p>Tests the results of analyzer tokenization</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
@@ -304,7 +318,7 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#post--_search_analyze">POST /_search_analyze</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB.pod#%24obj-%3EsearchAnalyze%28%25options%29">$couch-&gt;searchAnalyze(%options)</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB.pod#%24obj-%3EsearchAnalyze%28%5C%25config%2C-%25options%29">$couch-&gt;searchAnalyze(\%config, %options)</a></td></tr>
   <tr><td class="descr"><p>Tests the results of analyzer tokenization</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
@@ -402,21 +416,21 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#get--db-_all_docs">GET /{db}/_all_docs</a></td>
       <td class="status">DONE</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Esearch%28%5B%5C%25search%7C%5C%40%25search%2C-%25options%5D%29">$db-&gt;search([\%search|\@%search, %options])</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EallDocs%28%5B%5C%25query%7C%5C%40queries%5D%2C-%25options%5D%29">$db-&gt;allDocs([\%query|\@queries], %options])</a></td></tr>
   <tr><td class="descr"><p>Returns a built-in view of all documents in this database</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#post--db-_all_docs">POST /{db}/_all_docs</a></td>
       <td class="status">DONE</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Esearch%28%5B%5C%25search%7C%5C%40%25search%2C-%25options%5D%29">$db-&gt;search([\%search|\@%search, %options])</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EallDocs%28%5B%5C%25query%7C%5C%40queries%5D%2C-%25options%5D%29">$db-&gt;allDocs([\%query|\@queries], %options])</a></td></tr>
   <tr><td class="descr"><p>Returns a built-in view of all documents in this database</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#post--db-_all_docs-queries">POST /{db}/_all_docs/queries</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Esearch%28%5B%5C%25search%7C%5C%40%25search%2C-%25options%5D%29">$db-&gt;search([\%search|\@%search, %options])</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EallDocs%28%5B%5C%25query%7C%5C%40queries%5D%2C-%25options%5D%29">$db-&gt;allDocs([\%query|\@queries], %options])</a></td></tr>
   <tr><td class="descr"><p>Returns results for the specified queries</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
@@ -437,15 +451,15 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/changes.html#get--db-_changes">GET /{db}/_changes</a></td>
       <td class="status">TODO</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Echanges%28%25options%29">$db-&gt;changes(%options)</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Echanges%28%5C%25query%2C-%25options%29">$db-&gt;changes(\%query, %options)</a></td></tr>
   <tr><td class="descr"><p>Returns changes for the given database</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/changes.html#post--db-_changes">POST /{db}/_changes</a></td>
       <td class="status">TODO</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Echanges%28%25options%29">$db-&gt;changes(%options)</a></td></tr>
-  <tr><td class="descr"><p>Returns changes for the given database for certain document IDs</p></td>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Echanges%28%5C%25query%2C-%25options%29">$db-&gt;changes(\%query, %options)</a></td></tr>
+  <tr><td class="descr"><p>Returns changes for the given database for certain document IDs or selector filter.</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
@@ -533,6 +547,20 @@
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/nouveau.html#get--db-_design-ddoc-_nouveau-index">GET /{db}/_design/{ddoc}/_nouveau/{index}</a></td>
+      <td class="status">MISSING</td>
+      <td class="use"></td></tr>
+  <tr><td class="descr"><p>Returns results for the specified nouveau index</p></td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td></tr>
+  <tr class="first">
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/nouveau.html#get--db-_design-ddoc-_nouveau_info-index">GET /{db}/_design/{ddoc}/_nouveau_info/{index}</a></td>
+      <td class="status">MISSING</td>
+      <td class="use"></td></tr>
+  <tr><td class="descr"><p>Returns metadata for the specified nouveau index</p></td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td></tr>
+  <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/rewrites.html#any--db-_design-ddoc-_rewrite-path">ANY /{db}/_design/{ddoc}/_rewrite/{path}</a></td>
       <td class="status">UNSUPPORTED</td>
       <td class="use"></td></tr>
@@ -542,7 +570,7 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/search.html#get--db-_design-ddoc-_search-index">GET /{db}/_design/{ddoc}/_search/{index}</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EindexFind%28%24index%2C-%25options%29">$ddoc-&gt;indexFind($index, %options)</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3Esearch%28%24index%2C-%5B%5C%25search%2C-%25options%5D%29">$ddoc-&gt;search($index, [\%search, %options])</a></td></tr>
   <tr><td class="descr"><p>Returns results for the specified search index</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
@@ -598,21 +626,21 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/views.html#get--db-_design-ddoc-_view-view">GET /{db}/_design/{ddoc}/_view/{view}</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EviewSearch%28%24view%2C-%5B%5C%25search%7C%5C%40%25search%29%2C-%25options%5D%29">$ddoc-&gt;viewSearch($view, [\%search|\@%search), %options])</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EviewDocs%28%24view%2C-%5B%5C%25search%7C%5C%40%25search%5D%2C-%25options%5D%29">$ddoc-&gt;viewDocs($view, [\%search|\@%search], %options])</a></td></tr>
   <tr><td class="descr"><p>Returns results for the specified stored view</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/views.html#post--db-_design-ddoc-_view-view">POST /{db}/_design/{ddoc}/_view/{view}</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EviewSearch%28%24view%2C-%5B%5C%25search%7C%5C%40%25search%29%2C-%25options%5D%29">$ddoc-&gt;viewSearch($view, [\%search|\@%search), %options])</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EviewDocs%28%24view%2C-%5B%5C%25search%7C%5C%40%25search%5D%2C-%25options%5D%29">$ddoc-&gt;viewDocs($view, [\%search|\@%search], %options])</a></td></tr>
   <tr><td class="descr"><p>Returns results for the specified view</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/views.html#post--db-_design-ddoc-_view-view-queries">POST /{db}/_design/{ddoc}/_view/{view}/queries</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EviewSearch%28%24view%2C-%5B%5C%25search%7C%5C%40%25search%29%2C-%25options%5D%29">$ddoc-&gt;viewSearch($view, [\%search|\@%search), %options])</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EviewDocs%28%24view%2C-%5B%5C%25search%7C%5C%40%25search%5D%2C-%25options%5D%29">$ddoc-&gt;viewDocs($view, [\%search|\@%search], %options])</a></td></tr>
   <tr><td class="descr"><p>Returns results for the specified queries</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
@@ -683,12 +711,12 @@
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#post--db-_find">POST /{db}/_find</a></td>
       <td class="status">DONE</td>
       <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Efind%28%5B%5C%25search%2C-%25options%5D%29">$db-&gt;find([\%search, %options])</a></td></tr>
-  <tr><td class="descr"><p>Find documents within a given database</p></td>
+  <tr><td class="descr"><p>Find documents within a given database.</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#get--db-_index">GET /{db}/_index</a></td>
-      <td class="status">UNTESTED</td>
+      <td class="status">DONE</td>
       <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Eindexes%28%25options%29">$db-&gt;indexes(%options)</a></td></tr>
   <tr><td class="descr"><p>List all indexes.</p></td>
       <td>&nbsp;</td>
@@ -696,15 +724,22 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#post--db-_index">POST /{db}/_index</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EcreateIndex%28%5C%25filter%2C-%25options%29">$db-&gt;createIndex(\%filter, %options)</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3Ecreate%28%5C%25data%2C-%25options%29">$ddoc-&gt;create(\%data, %options)</a></td></tr>
   <tr><td class="descr"><p>Create a new index.</p></td>
       <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EcreateIndex%28%5C%25filter%2C-%25options%29">$ddoc-&gt;createIndex(\%filter, %options)</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EcreateIndex%28%5C%25config%2C-%25options%29">$ddoc-&gt;createIndex(\%config, %options)</a></td></tr>
   <tr class="first">
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#delete--db-_index-designdoc-json-name">DELETE /{db}/_index/{designdoc}/json/{name}</a></td>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#post--db-_index-_bulk_delete">POST /{db}/_index/_bulk_delete</a></td>
+      <td class="status">MISSING</td>
+      <td class="use"></td></tr>
+  <tr><td class="descr"><p>Delete indexes in bulk.</p></td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td></tr>
+  <tr class="first">
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#delete--db-_index-design_doc-json-name">DELETE /{db}/_index/{design_doc}/json/{name}</a></td>
       <td class="status">UNTESTED</td>
       <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EdeleteIndex%28%24index%2C-%25options%29">$ddoc-&gt;deleteIndex($index, %options)</a></td></tr>
-  <tr><td class="descr"><p>Delete an index</p></td>
+  <tr><td class="descr"><p>Delete an index.</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
@@ -738,21 +773,21 @@
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/local.html#get--db-_local_docs">GET /{db}/_local_docs</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Esearch%28%5B%5C%25search%7C%5C%40%25search%2C-%25options%5D%29">$db-&gt;search([\%search|\@%search, %options])</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EallDocs%28%5B%5C%25query%7C%5C%40queries%5D%2C-%25options%5D%29">$db-&gt;allDocs([\%query|\@queries], %options])</a></td></tr>
   <tr><td class="descr"><p>Returns a built-in view of all local (non-replicating) documents in this database</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/local.html#post--db-_local_docs">POST /{db}/_local_docs</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Esearch%28%5B%5C%25search%7C%5C%40%25search%2C-%25options%5D%29">$db-&gt;search([\%search|\@%search, %options])</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EallDocs%28%5B%5C%25query%7C%5C%40queries%5D%2C-%25options%5D%29">$db-&gt;allDocs([\%query|\@queries], %options])</a></td></tr>
   <tr><td class="descr"><p>Returns a built-in view of all local (non-replicating) documents in this database</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#post--db-_all_docs-queries">POST /{db}/_local_docs/queries</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Esearch%28%5B%5C%25search%7C%5C%40%25search%2C-%25options%5D%29">$db-&gt;search([\%search|\@%search, %options])</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EallDocs%28%5B%5C%25query%7C%5C%40queries%5D%2C-%25options%5D%29">$db-&gt;allDocs([\%query|\@queries], %options])</a></td></tr>
   <tr><td class="descr"><p></p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
@@ -761,6 +796,34 @@
       <td class="status">UNTESTED</td>
       <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3ErevisionsMissing%28%5C%25plan%2C-%25options%29">$db-&gt;revisionsMissing(\%plan, %options)</a></td></tr>
   <tr><td class="descr"><p>By given list of document revisions returns the document revisions that do not exist in the database</p></td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td></tr>
+  <tr class="first">
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/cleanup.html#post--db-_nouveau_cleanup">POST /{db}/_nouveau_cleanup</a></td>
+      <td class="status">MISSING</td>
+      <td class="use"></td></tr>
+  <tr><td class="descr"><p>Deletes unreachable nouveau search indexes for the database</p></td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td></tr>
+  <tr class="first">
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#get--db-_partition-partition_id">GET /{db}/_partition/{partition_id}</a></td>
+      <td class="status">UNTESTED</td>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Edetails%28%25options%29">$db-&gt;details(%options)</a></td></tr>
+  <tr><td class="descr"><p>Returns document and size info for the given partition</p></td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td></tr>
+  <tr class="first">
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#get--db-_partition-partition_id-_all_docs">GET /{db}/_partition/{partition_id}/_all_docs</a></td>
+      <td class="status">UNTESTED</td>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EallDocs%28%5B%5C%25query%7C%5C%40queries%5D%2C-%25options%5D%29">$db-&gt;allDocs([\%query|\@queries], %options])</a></td></tr>
+  <tr><td class="descr"><p>Return all docs in the specified partition</p></td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td></tr>
+  <tr class="first">
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#get--db-_partition-partition_id-_design-ddoc-_view-view">GET /{db}/_partition/{partition_id}/_design/{ddoc}/_view/{view}</a></td>
+      <td class="status">UNTESTED</td>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EviewDocs%28%24view%2C-%5B%5C%25search%7C%5C%40%25search%5D%2C-%25options%5D%29">$ddoc-&gt;viewDocs($view, [\%search|\@%search], %options])</a></td></tr>
+  <tr><td class="descr"><p>Execute a partitioned query</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
@@ -778,27 +841,6 @@
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#get--db-_partition-partition">GET /{db}/_partition/{partition}</a></td>
-      <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Edetails%28%25options%29">$db-&gt;details(%options)</a></td></tr>
-  <tr><td class="descr"><p>Returns document and size info for the given partition</p></td>
-      <td>&nbsp;</td>
-      <td>&nbsp;</td></tr>
-  <tr class="first">
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#get--db-_partition-partition-_all_docs">GET /{db}/_partition/{partition}/_all_docs</a></td>
-      <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Esearch%28%5B%5C%25search%7C%5C%40%25search%2C-%25options%5D%29">$db-&gt;search([\%search|\@%search, %options])</a></td></tr>
-  <tr><td class="descr"><p>Return all docs in the specified partition</p></td>
-      <td>&nbsp;</td>
-      <td>&nbsp;</td></tr>
-  <tr class="first">
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#get--db-_partition-partition-_design-ddoc-_view-view">GET /{db}/_partition/{partition}/_design/{ddoc}/_view/{view}</a></td>
-      <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EviewSearch%28%24view%2C-%5B%5C%25search%7C%5C%40%25search%29%2C-%25options%5D%29">$ddoc-&gt;viewSearch($view, [\%search|\@%search), %options])</a></td></tr>
-  <tr><td class="descr"><p>Execute a partitioned query</p></td>
-      <td>&nbsp;</td>
-      <td>&nbsp;</td></tr>
-  <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/misc.html#post--db-_purge">POST /{db}/_purge</a></td>
       <td class="status">UNTESTED</td>
       <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EpurgeDocs%28%5C%25plan%2C-%25options%29">$db-&gt;purgeDocs(\%plan, %options)</a></td></tr>
@@ -806,16 +848,23 @@
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/misc.html#get--db-_purged_infos">GET /{db}/_purged_infos</a></td>
+      <td class="status">MISSING</td>
+      <td class="use"></td></tr>
+  <tr><td class="descr"><p>Returns a history list of purged document IDs and revisions</p></td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td></tr>
+  <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/misc.html#get--db-_purged_infos_limit">GET /{db}/_purged_infos_limit</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EpurgeRecordsLimit%28%25options%29">$db-&gt;purgeRecordsLimit(%options)</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EpurgedRecordsLimit%28%25options%29">$db-&gt;purgedRecordsLimit(%options)</a></td></tr>
   <tr><td class="descr"><p>Returns the limit of historical purges to store in the database</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/misc.html#put--db-_purged_infos_limit">PUT /{db}/_purged_infos_limit</a></td>
       <td class="status">UNTESTED</td>
-      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EpurgeRecordsLimitSet%28%24limit%2C-%25options%29">$db-&gt;purgeRecordsLimitSet($limit, %options)</a></td></tr>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EpurgedRecordsLimitSet%28%24limit%2C-%25options%29">$db-&gt;purgedRecordsLimitSet($limit, %options)</a></td></tr>
   <tr><td class="descr"><p>Sets the limit of historical purges to store in the database</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
@@ -838,6 +887,13 @@
       <td class="status">UNTESTED</td>
       <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3ErevisionLimitSet%28%24limit%2C-%25options%29">$db-&gt;revisionLimitSet($limit, %options)</a></td></tr>
   <tr><td class="descr"><p>Sets the limit of historical revisions to store for a single document in the database</p></td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td></tr>
+  <tr class="first">
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/cleanup.html#post--db-_search_cleanup">POST /{db}/_search_cleanup</a></td>
+      <td class="status">MISSING</td>
+      <td class="use"></td></tr>
+  <tr><td class="descr"><p>Deletes unreachable search indexes for the database</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
   <tr class="first">
@@ -959,7 +1015,7 @@
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB.pod#%24obj-%3ErequestUUIDs%28%24count%2C-%25options%29">$couch-&gt;requestUUIDs($count, %options)</a></td>
       <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#get--_uuids">GET /_uuids</a></td></tr>
-  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB.pod#%24obj-%3EsearchAnalyze%28%25options%29">$couch-&gt;searchAnalyze(%options)</a></td>
+  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB.pod#%24obj-%3EsearchAnalyze%28%5C%25config%2C-%25options%29">$couch-&gt;searchAnalyze(\%config, %options)</a></td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#post--_search_analyze">POST /_search_analyze</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Client.pod#%24obj-%3EactiveTasks%28%25options%29">$client-&gt;activeTasks(%options)</a></td>
@@ -968,13 +1024,13 @@
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Client.pod#%24obj-%3EclusterNodes%28%25options%29">$client-&gt;clusterNodes(%options)</a></td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#get--_membership">GET /_membership</a></td></tr>
-  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Client.pod#%24obj-%3EdatabaseInfo%28%25options%29">$client-&gt;databaseInfo(%options)</a></td>
+  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Client.pod#%24obj-%3EdatabaseInfo%28%5B%5C%25search%2C-%25options%5D%29">$client-&gt;databaseInfo([\%search, %options])</a></td>
       <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#get--_dbs_info">GET /_dbs_info</a></td></tr>
   <tr><td>&nbsp;</td>
       <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#post--_dbs_info">POST /_dbs_info</a></td></tr>
-  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Client.pod#%24obj-%3EdatabaseNames%28%25options%29">$client-&gt;databaseNames(%options)</a></td>
+  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Client.pod#%24obj-%3EdatabaseNames%28%5B-%5C%25search%2C-%25options-%5D%29">$client-&gt;databaseNames([ \%search, %options ])</a></td>
       <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#get--_all_dbs">GET /_all_dbs</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Client.pod#%24obj-%3EdbUpdates%28%5C%25feed%2C-%25options%29">$client-&gt;dbUpdates(\%feed, %options)</a></td>
@@ -1055,7 +1111,28 @@
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Cluster.pod#%24obj-%3EsyncShards%28%24db%2C-%25options%29">$cluster-&gt;syncShards($db, %options)</a></td>
       <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/shard.html#post--db-_sync_shards">POST /{db}/_sync_shards</a></td></tr>
-  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Echanges%28%25options%29">$db-&gt;changes(%options)</a></td>
+  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EallDocs%28%5B%5C%25query%7C%5C%40queries%5D%2C-%25options%5D%29">$db-&gt;allDocs([\%query|\@queries], %options])</a></td>
+      <td class="status">DONE</td>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#get--db-_all_docs">GET /{db}/_all_docs</a></td></tr>
+  <tr><td>&nbsp;</td>
+      <td class="status">UNTESTED</td>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/local.html#get--db-_local_docs">GET /{db}/_local_docs</a></td></tr>
+  <tr><td>&nbsp;</td>
+      <td class="status">UNTESTED</td>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#get--db-_partition-partition_id-_all_docs">GET /{db}/_partition/{partition_id}/_all_docs</a></td></tr>
+  <tr><td>&nbsp;</td>
+      <td class="status">DONE</td>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#post--db-_all_docs">POST /{db}/_all_docs</a></td></tr>
+  <tr><td>&nbsp;</td>
+      <td class="status">UNTESTED</td>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#post--db-_all_docs-queries">POST /{db}/_all_docs/queries</a></td></tr>
+  <tr><td>&nbsp;</td>
+      <td class="status">UNTESTED</td>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/local.html#post--db-_local_docs">POST /{db}/_local_docs</a></td></tr>
+  <tr><td>&nbsp;</td>
+      <td class="status">UNTESTED</td>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#post--db-_all_docs-queries">POST /{db}/_local_docs/queries</a></td></tr>
+  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Echanges%28%5C%25query%2C-%25options%29">$db-&gt;changes(\%query, %options)</a></td>
       <td class="status">TODO</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/changes.html#get--db-_changes">GET /{db}/_changes</a></td></tr>
   <tr><td>&nbsp;</td>
@@ -1070,9 +1147,6 @@
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Ecreate%28%25options%29">$db-&gt;create(%options)</a></td>
       <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/common.html#put--db">PUT /{db}</a></td></tr>
-  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EcreateIndex%28%5C%25filter%2C-%25options%29">$db-&gt;createIndex(\%filter, %options)</a></td>
-      <td class="status">UNTESTED</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#post--db-_index">POST /{db}/_index</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Edesigns%28%5B%5C%25search%7C%5C%40%25search%2C-%25options%5D%29">$db-&gt;designs([\%search|\@%search, %options])</a></td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#get--db-_design_docs">GET /{db}/_design_docs</a></td></tr>
@@ -1087,7 +1161,7 @@
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/common.html#get--db">GET /{db}</a></td></tr>
   <tr><td>&nbsp;</td>
       <td class="status">UNTESTED</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#get--db-_partition-partition">GET /{db}/_partition/{partition}</a></td></tr>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#get--db-_partition-partition_id">GET /{db}/_partition/{partition_id}</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EensureFullCommit%28%25options%29">$db-&gt;ensureFullCommit(%options)</a></td>
       <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/compact.html#post--db-_ensure_full_commit">POST /{db}/_ensure_full_commit</a></td></tr>
@@ -1104,7 +1178,7 @@
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#post--db-_partition-partition_id-_explain">POST /{db}/_partition/{partition_id}/_explain</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Eindexes%28%25options%29">$db-&gt;indexes(%options)</a></td>
-      <td class="status">UNTESTED</td>
+      <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#get--db-_index">GET /{db}/_index</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EinspectDocs%28%5C%40docs%2C-%25options%29">$db-&gt;inspectDocs(\@docs, %options)</a></td>
       <td class="status">UNTESTED</td>
@@ -1115,15 +1189,15 @@
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EpurgeDocs%28%5C%25plan%2C-%25options%29">$db-&gt;purgeDocs(\%plan, %options)</a></td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/misc.html#post--db-_purge">POST /{db}/_purge</a></td></tr>
-  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EpurgeRecordsLimit%28%25options%29">$db-&gt;purgeRecordsLimit(%options)</a></td>
-      <td class="status">UNTESTED</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/misc.html#get--db-_purged_infos_limit">GET /{db}/_purged_infos_limit</a></td></tr>
-  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EpurgeRecordsLimitSet%28%24limit%2C-%25options%29">$db-&gt;purgeRecordsLimitSet($limit, %options)</a></td>
-      <td class="status">UNTESTED</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/misc.html#put--db-_purged_infos_limit">PUT /{db}/_purged_infos_limit</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EpurgeUnusedViews%28%25options%29">$db-&gt;purgeUnusedViews(%options)</a></td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/compact.html#post--db-_view_cleanup">POST /{db}/_view_cleanup</a></td></tr>
+  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EpurgedRecordsLimit%28%25options%29">$db-&gt;purgedRecordsLimit(%options)</a></td>
+      <td class="status">UNTESTED</td>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/misc.html#get--db-_purged_infos_limit">GET /{db}/_purged_infos_limit</a></td></tr>
+  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EpurgedRecordsLimitSet%28%24limit%2C-%25options%29">$db-&gt;purgedRecordsLimitSet($limit, %options)</a></td>
+      <td class="status">UNTESTED</td>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/misc.html#put--db-_purged_infos_limit">PUT /{db}/_purged_infos_limit</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Eremove%28%25options%29">$db-&gt;remove(%options)</a></td>
       <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/common.html#delete--db">DELETE /{db}</a></td></tr>
@@ -1142,27 +1216,6 @@
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EsaveBulk%28%5C%40docs%2C-%25options%29">$db-&gt;saveBulk(\@docs, %options)</a></td>
       <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#post--db-_bulk_docs">POST /{db}/_bulk_docs</a></td></tr>
-  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3Esearch%28%5B%5C%25search%7C%5C%40%25search%2C-%25options%5D%29">$db-&gt;search([\%search|\@%search, %options])</a></td>
-      <td class="status">DONE</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#get--db-_all_docs">GET /{db}/_all_docs</a></td></tr>
-  <tr><td>&nbsp;</td>
-      <td class="status">UNTESTED</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/local.html#get--db-_local_docs">GET /{db}/_local_docs</a></td></tr>
-  <tr><td>&nbsp;</td>
-      <td class="status">UNTESTED</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#get--db-_partition-partition-_all_docs">GET /{db}/_partition/{partition}/_all_docs</a></td></tr>
-  <tr><td>&nbsp;</td>
-      <td class="status">DONE</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#post--db-_all_docs">POST /{db}/_all_docs</a></td></tr>
-  <tr><td>&nbsp;</td>
-      <td class="status">UNTESTED</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#post--db-_all_docs-queries">POST /{db}/_all_docs/queries</a></td></tr>
-  <tr><td>&nbsp;</td>
-      <td class="status">UNTESTED</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/local.html#post--db-_local_docs">POST /{db}/_local_docs</a></td></tr>
-  <tr><td>&nbsp;</td>
-      <td class="status">UNTESTED</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#post--db-_all_docs-queries">POST /{db}/_local_docs/queries</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Database.pod#%24obj-%3EuserRoles%28%25options%29">$db-&gt;userRoles(%options)</a></td>
       <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/security.html#get--db-_security">GET /{db}/_security</a></td></tr>
@@ -1193,7 +1246,10 @@
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EcloneInto%28%24doc%2C-%25options%29">$ddoc-&gt;cloneInto($doc, %options)</a></td>
       <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/common.html#copy--db-_design-ddoc">COPY /{db}/_design/{ddoc}</a></td></tr>
-  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EcreateIndex%28%5C%25filter%2C-%25options%29">$ddoc-&gt;createIndex(\%filter, %options)</a></td>
+  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3Ecreate%28%5C%25data%2C-%25options%29">$ddoc-&gt;create(\%data, %options)</a></td>
+      <td class="status">UNTESTED</td>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#post--db-_index">POST /{db}/_index</a></td></tr>
+  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EcreateIndex%28%5C%25config%2C-%25options%29">$ddoc-&gt;createIndex(\%config, %options)</a></td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#post--db-_index">POST /{db}/_index</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3Edelete%28%25options%29">$ddoc-&gt;delete(%options)</a></td>
@@ -1201,7 +1257,7 @@
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/common.html#delete--db-_design-ddoc">DELETE /{db}/_design/{ddoc}</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EdeleteIndex%28%24index%2C-%25options%29">$ddoc-&gt;deleteIndex($index, %options)</a></td>
       <td class="status">UNTESTED</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#delete--db-_index-designdoc-json-name">DELETE /{db}/_index/{designdoc}/json/{name}</a></td></tr>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/database/find.html#delete--db-_index-design_doc-json-name">DELETE /{db}/_index/{design_doc}/json/{name}</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3Edetails%28%25options%29">$ddoc-&gt;details(%options)</a></td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/common.html#get--db-_design-ddoc-_info">GET /{db}/_design/{ddoc}/_info</a></td></tr>
@@ -1214,9 +1270,6 @@
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EindexDetails%28%24index%2C-%25options%29">$ddoc-&gt;indexDetails($index, %options)</a></td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/search.html#get--db-_design-ddoc-_search_info-index">GET /{db}/_design/{ddoc}/_search_info/{index}</a></td></tr>
-  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EindexFind%28%24index%2C-%25options%29">$ddoc-&gt;indexFind($index, %options)</a></td>
-      <td class="status">UNTESTED</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/search.html#get--db-_design-ddoc-_search-index">GET /{db}/_design/{ddoc}/_search/{index}</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3Elist%28%24function%2C-%24view%2C-%25options%29">$ddoc-&gt;list($function, $view, %options)</a></td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/render.html#get--db-_design-ddoc-_list-func-view">GET /{db}/_design/{ddoc}/_list/{func}/{view}</a></td></tr>
@@ -1229,6 +1282,9 @@
   <tr><td>&nbsp;</td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/render.html#post--db-_design-ddoc-_list-func-other-ddoc-view">POST /{db}/_design/{ddoc}/_list/{func}/{other-ddoc}/{view}</a></td></tr>
+  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3Esearch%28%24index%2C-%5B%5C%25search%2C-%25options%5D%29">$ddoc-&gt;search($index, [\%search, %options])</a></td>
+      <td class="status">UNTESTED</td>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/search.html#get--db-_design-ddoc-_search-index">GET /{db}/_design/{ddoc}/_search/{index}</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3Eshow%28%24function%2C-%5B%24doc%7C%24docid%7Cundef%2C-%25options%5D%29">$ddoc-&gt;show($function, [$doc|$docid|undef, %options])</a></td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/render.html#get--db-_design-ddoc-_show-func">GET /{db}/_design/{ddoc}/_show/{func}</a></td></tr>
@@ -1244,12 +1300,12 @@
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3Eupdate%28%5C%25data%2C-%25options%29">$ddoc-&gt;update(\%data, %options)</a></td>
       <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/common.html#put--db-_design-ddoc">PUT /{db}/_design/{ddoc}</a></td></tr>
-  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EviewSearch%28%24view%2C-%5B%5C%25search%7C%5C%40%25search%29%2C-%25options%5D%29">$ddoc-&gt;viewSearch($view, [\%search|\@%search), %options])</a></td>
+  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Design.pod#%24obj-%3EviewDocs%28%24view%2C-%5B%5C%25search%7C%5C%40%25search%5D%2C-%25options%5D%29">$ddoc-&gt;viewDocs($view, [\%search|\@%search], %options])</a></td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/views.html#get--db-_design-ddoc-_view-view">GET /{db}/_design/{ddoc}/_view/{view}</a></td></tr>
   <tr><td>&nbsp;</td>
       <td class="status">UNTESTED</td>
-      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#get--db-_partition-partition-_design-ddoc-_view-view">GET /{db}/_partition/{partition}/_design/{ddoc}/_view/{view}</a></td></tr>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/partitioned-dbs.html#get--db-_partition-partition_id-_design-ddoc-_view-view">GET /{db}/_partition/{partition_id}/_design/{ddoc}/_view/{view}</a></td></tr>
   <tr><td>&nbsp;</td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/ddoc/views.html#post--db-_design-ddoc-_view-view">POST /{db}/_design/{ddoc}/_view/{view}</a></td></tr>
