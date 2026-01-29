@@ -1,14 +1,22 @@
+#oodist: *** DO NOT USE THIS VERSION FOR PRODUCTION ***
+#oodist: This file contains OODoc-style documentation which will get stripped
+#oodist: during its release in the distribution.  You can use this file for
+#oodist: testing, however the code of this development version may be broken!
+
 # SPDX-FileCopyrightText: 2024 Mark Overmeer <mark@overmeer.net>
 # SPDX-License-Identifier: Artistic-2.0
 
 package Couch::DB::Row;
 
-use Couch::DB::Util;
+use warnings;
+use strict;
 
 use Log::Report 'couch-db';
 
+use Couch::DB::Util;
 use Scalar::Util   qw/weaken/;
 
+#--------------------
 =chapter NAME
 
 Couch::DB::Row - a single row of a page
@@ -38,19 +46,19 @@ structures.
 
 =c_method new %options
 
-=requires result M<Couch::DB::Result>
+=requires result Couch::DB::Result
 The result-object which contains this row.
 
 =requires answer JSON
 The JSON structure from the result which represents this row.
 
 =option  values HASH
-=default values C<undef>
+=default values undef
 The answer about this row converted to Perl data types.  Default to
-the C<answer>.
+the P<answer>.
 
-=option  doc M<Couch::DB::Document>-object
-=default doc C<undef>
+=option  doc Couch::DB::Document-object
+=default doc undef
 
 =requires rownr INTEGER
 The location of this row in the result.  Starts at 1.
@@ -71,11 +79,11 @@ sub init($)
 	$self;
 }
 
-#-------------
+#--------------------
 =section Accessors
 
 =method result
-The M<Couch::DB::Result> structure which contained this row.  Within one
+The Couch::DB::Result structure which contained this row.  Within one
 page, this may be different for different rows.
 =cut
 
@@ -102,7 +110,7 @@ The answer about this row, translated into Perl data types.
 
 sub values() { $_[0]->{CDR_values} || $_[0]->answer }
 
-#-------------
+#--------------------
 =section Paging
 
 =method pageNumber

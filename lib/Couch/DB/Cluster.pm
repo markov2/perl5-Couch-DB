@@ -1,16 +1,24 @@
-# SPDX-FileCopyrightText: 2024 Mark Overmeer <mark@overmeer.net>
-# SPDX-License-Identifier: Artistic-2.0
+#oodist: *** DO NOT USE THIS VERSION FOR PRODUCTION ***
+#oodist: This file contains OODoc-style documentation which will get stripped
+#oodist: during its release in the distribution.  You can use this file for
+#oodist: testing, however the code of this development version may be broken!
+#oorestyle: not found P for method shardsForDoc($db)
+#oorestyle: not found P for method shardsForDoc($db)
 
 package Couch::DB::Cluster;
 
-use Couch::DB::Util  qw/flat/;;
+use warnings;
+use strict;
 
 use Log::Report 'couch-db';
 
-use Scalar::Util  qw(weaken);
-use URI::Escape   qw(uri_escape);
-use Storable      qw(dclone);
+use Couch::DB::Util qw/flat/;;
 
+use Scalar::Util    qw/weaken/;
+use URI::Escape     qw/uri_escape/;
+use Storable        qw/dclone/;
+
+#--------------------
 =chapter NAME
 
 Couch::DB::Cluster - interface for cluster management
@@ -37,30 +45,30 @@ B<Do not call> the method yourself: use M<Couch::DB::cluster()>.
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
 
 sub init($)
-{   my ($self, $args) = @_;
+{	my ($self, $args) = @_;
 
-    $self->{CDC_couch} = delete $args->{couch} or panic "Requires couch";
-    weaken $self->{CDC_couch};
+	$self->{CDC_couch} = delete $args->{couch} or panic "Requires couch";
+	weaken $self->{CDC_couch};
 
-    $self;
+	$self;
 }
 
 
-#-------------
+#--------------------
 =section Accessors
 =method couch
 =cut
 
 sub couch() { $_[0]->{CDC_couch} }
 
-#-------------
+#--------------------
 =section Managing a Cluster
 
 B<All CouchDB API calls> documented below, support C<%options> like C<delay>,
 C<client>, and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
 =method clusterState %options
- [CouchDB API "GET /_cluster_setup", since 2.0]
+  [CouchDB API "GET /_cluster_setup", since 2.0]
 
 Describes the status of this CouchDB instance is in the cluster.
 Option C<ensure_dbs_exist>.
@@ -82,18 +90,17 @@ sub clusterState(%)
 }
 
 =method clusterSetup $config, %options
- [CouchDB API "POST /_cluster_setup", since 2.0, UNTESTED]
+  [CouchDB API "POST /_cluster_setup", since 2.0, UNTESTED]
 
 Configure a node as a single (standalone) node, as part of a cluster,
 or finalise a cluster.
-
 =cut
 
 sub clusterSetup($%)
 {	my ($self, $config, %args) = @_;
 
 	$self->couch->toJSON($config, int => qw/port node_count/);
-	
+
 	$self->couch->call(POST => '/_cluster_setup',
 		introduced => '2.0.0',
 		send       => $config,
@@ -101,12 +108,12 @@ sub clusterSetup($%)
 	);
 }
 
-#-------------
+#--------------------
 =section Sharding
 
 =method reshardStatus %options
- [CouchDB API "GET /_reshard", since 2.4]
- [CouchDB API "GET /_reshard/state", since 2.4]
+  [CouchDB API "GET /_reshard", since 2.4]
+  [CouchDB API "GET /_reshard/state", since 2.4]
 
 Retrieve the state of resharding on the cluster.
 
@@ -114,7 +121,7 @@ B<Be warned> that the reply with counts returns C<state_reason>,
 where the version without returns C<reason>.
 
 =option  counts BOOLEAN
-=default counts C<false>
+=default counts false
 Include the job counts in the result.
 =cut
 
@@ -130,16 +137,15 @@ sub reshardStatus(%)
 }
 
 =method resharding %options
- [CouchDB API "PUT /_reshard/state", since 2.4, UNTESTED]
+  [CouchDB API "PUT /_reshard/state", since 2.4, UNTESTED]
 
 Start or stop the resharding process.
 
-=requires state STRING
-Can be C<stopped> or C<running>.  Stopped state can be resumed into running.
+=requires state 'stopped'|'running'
+Stopped state can be resumed into running.
 
 =option   reason STRING
-=default  reason C<undef>
-
+=default  reason undef
 =cut
 
 sub resharding(%)
@@ -158,7 +164,7 @@ sub resharding(%)
 }
 
 =method reshardJobs %options
- [CouchDB API "GET /_reshard/jobs", since 2.4]
+  [CouchDB API "GET /_reshard/jobs", since 2.4]
 
 Show the resharding activity.
 =cut
@@ -167,7 +173,7 @@ sub __jobValues($$)
 {	my ($self, $couch, $job) = @_;
 
 	$couch->toPerl($job, isotime => qw/start_time update_time/)
-	      ->toPerl($job, node => qw/node/);
+		->toPerl($job, node => qw/node/);
 
 	$couch->toPerl($_, isotime => qw/timestamp/)
 		for @{$job->{history} || []};
@@ -194,7 +200,7 @@ sub reshardJobs(%)
 }
 
 =method reshardStart \%create, %options
- [CouchDB API "POST /_reshard/jobs", since 2.4, UNTESTED]
+  [CouchDB API "POST /_reshard/jobs", since 2.4, UNTESTED]
 
 Create resharding jobs.
 =cut
@@ -221,7 +227,7 @@ sub reshardStart($%)
 }
 
 =method reshardJob $jobid, %options
- [CouchDB API "GET /_reshard/jobs/{jobid}", since 2.4, UNTESTED]
+  [CouchDB API "GET /_reshard/jobs/{jobid}", since 2.4, UNTESTED]
 
 Show the resharding activity.
 =cut
@@ -246,7 +252,7 @@ sub reshardJob($%)
 }
 
 =method reshardJobRemove $jobid, %options
- [CouchDB API "DELETE /_reshard/jobs/{jobid}", since 2.4, UNTESTED]
+  [CouchDB API "DELETE /_reshard/jobs/{jobid}", since 2.4, UNTESTED]
 
 Show the resharding activity.
 =cut
@@ -261,7 +267,7 @@ sub reshardJobRemove($%)
 }
 
 =method reshardJobState $jobid, %options
- [CouchDB API "GET /_reshard/jobs/{jobid}/state", since 2.4, UNTESTED]
+  [CouchDB API "GET /_reshard/jobs/{jobid}/state", since 2.4, UNTESTED]
 
 Show the resharding job status.
 =cut
@@ -276,14 +282,14 @@ sub reshardJobState($%)
 }
 
 =method reshardJobChange $jobid, %options
- [CouchDB API "PUT /_reshard/jobs/{jobid}/state", since 2.4, UNTESTED]
+  [CouchDB API "PUT /_reshard/jobs/{jobid}/state", since 2.4, UNTESTED]
 Change the resharding job status.
 
 =requires state STRING
 Can be C<new>, C<running>, C<stopped>, C<completed>, or C<failed>.
 
 =option   reason STRING
-=default  reason C<undef>
+=default  reason undef
 =cut
 
 sub reshardJobChange($%)
@@ -302,10 +308,10 @@ sub reshardJobChange($%)
 }
 
 =method shardsForDB $db, %options
- [CouchDB API "GET /{db}/_shards", since 2.0]
+  [CouchDB API "GET /{db}/_shards", since 2.0]
 
 Returns the structure of the shared used to store a database.  Pass this
-a C<$db> as M<Couch::DB::Database>-object.
+a $db as Couch::DB::Database-object.
 =cut
 
 sub __dbshards($$)
@@ -330,10 +336,10 @@ sub shardsForDB($%)
 }
 
 =method shardsForDoc $doc, %options
- [CouchDB API "GET /{db}/_shards/{docid}", since 2.0]
+  [CouchDB API "GET /{db}/_shards/{docid}", since 2.0]
 
 Returns the structure of the shared used to store a database.  Pass this
-a C<$db> as M<Couch::DB::Database>-object.
+a C<$db> as Couch::DB::Database-object.
 =cut
 
 sub __docshards($$)
@@ -356,10 +362,10 @@ sub shardsForDoc($%)
 }
 
 =method syncShards $db, %options
- [CouchDB API "POST /{db}/_sync_shards", since 2.3.1]
+  [CouchDB API "POST /{db}/_sync_shards", since 2.3.1]
 
 Force (re-)sharding of documents, usually in response to changes in the setup.
-Pass this a C<$db> as M<Couch::DB::Database>-object.
+Pass this a $db as Couch::DB::Database-object.
 =cut
 
 sub syncShards($%)

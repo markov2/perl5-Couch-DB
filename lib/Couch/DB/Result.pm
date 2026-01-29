@@ -1,15 +1,20 @@
-# SPDX-FileCopyrightText: 2024 Mark Overmeer <mark@overmeer.net>
-# SPDX-License-Identifier: Artistic-2.0
+#oodist: *** DO NOT USE THIS VERSION FOR PRODUCTION ***
+#oodist: This file contains OODoc-style documentation which will get stripped
+#oodist: during its release in the distribution.  You can use this file for
+#oodist: testing, however the code of this development version may be broken!
 
 package Couch::DB::Result;
 
-use Couch::DB::Util     qw(flat pile);
+use warnings;
+use strict;
+
+use Couch::DB::Util     qw/flat pile/;
 use Couch::DB::Document ();
 use Couch::DB::Row      ();
 
 use Log::Report   'couch-db';
-use HTTP::Status  qw(is_success status_constant_name HTTP_OK HTTP_CONTINUE HTTP_MULTIPLE_CHOICES);
-use Scalar::Util  qw(weaken blessed);
+use HTTP::Status  qw/is_success status_constant_name HTTP_OK HTTP_CONTINUE HTTP_MULTIPLE_CHOICES/;
+use Scalar::Util  qw/weaken blessed/;
 
 my %couch_code_names   = ();   # I think I saw them somewhere.  Maybe none
 
@@ -21,6 +26,7 @@ my %default_code_texts = (  # do not construct them all the time again
 
 my $seqnr = 0;
 
+#--------------------
 =chapter NAME
 
 Couch::DB::Result - the reply of a CouchDB server call
@@ -52,7 +58,7 @@ more.  So: let them run out-of-scope once you have collected your C<values()>.
 
 =chapter OVERLOADED
 
-=overload bool
+=overload bool boolean context
 These Return objects are overloaded to return a false value when there is
 any error.  For delayed collection of data, this status may change after
 this object is initially created.
@@ -63,6 +69,7 @@ use overload
 	'""'     => 'short',
 	fallback => 1;
 
+#--------------------
 =chapter METHODS
 
 =section Constructors
@@ -71,33 +78,33 @@ use overload
 
 For details on the C<on_*> event handlers, see L<Couch::DB/DETAILS>.
 
-=requires couch M<Couch::DB>-object
+=requires couch Couch::DB-object
 
-=option   on_final CODE|ARRAY
+=option   on_final CODE|\@codes
 =default  on_final C<< [ ] >>
 Called when the Result object has either an error or an success.
 
-=option   on_error CODE|ARRAY
+=option   on_error CODE|\@codes
 =default  on_error C<< [ ] >>
 Called each time when the result CODE changes to be "not a success".
 
-=option   on_values CODE|ARRAY
+=option   on_values CODE|\@codes
 =default  on_values C<< [ ] >>
 Provide a sub which translates incoming JSON data from the server, into
 pure perl.
 
-=option   on_chain CODE|ARRAY
+=option   on_chain CODE|\@codes
 =default  on_chain C<< [ ] >>
 When a request was completed, a new request can be made immediately.  This
 is especially usefull in combination with C<_delay>, and with internal
 logic.
 
-=option   on_row CODE|ARRAY
+=option   on_row CODE|\@codes
 =default  on_row C<< [ ] >>
-Produces a single M<Couch::DB::Row>-object when M<page()> is used.
+Produces a single Couch::DB::Row-object when M<page()> is used.
 
-=option   paging HASH
-=default  paging C<undef>
+=option   paging \%config
+=default  paging undef
 When a call support paging, internal information about it is passed in
 this HASH.
 =cut
@@ -120,7 +127,7 @@ sub init($)
 	$self;
 }
 
-#-------------
+#--------------------
 =section Accessors
 
 Generic accessors, not related to the Result content.
@@ -135,7 +142,7 @@ sub isDelayed() { $_[0]->code == HTTP_CONTINUE }
 sub isReady()   { $_[0]->{CDR_ready} }
 
 =method code
-Returns an HTTP status code (please use M<HTTP::Status>), which reflects
+Returns an HTTP status code (please use HTTP::Status), which reflects
 the condition of the answer.
 =cut
 
@@ -156,7 +163,7 @@ sub codeName(;$)
 }
 
 =method message
-Returns C<undef>, or a message (string) which explains why the status
+Returns undef, or a message (string) which explains why the status
 is as it is.
 =cut
 
@@ -191,20 +198,20 @@ result, which could help with debugging.
 =cut
 
 sub short()
-{	my $self = shift;
+{	my $self   = shift;
 	my $client = $self->client;
 	my $req    = $self->request;
 
 	$client && $req
-	  ? (sprintf "RESULT %07d.%08d %-6s %s\n", $client->seqnr, $self->seqnr, $req->method, $req->url =~ s/\?.*/?.../r)
-	  : (sprintf "RESULT prepare.%08d\n", $self->seqnr);
+	? (sprintf "RESULT %07d.%08d %-6s %s\n", $client->seqnr, $self->seqnr, $req->method, $req->url =~ s/\?.*/?.../r)
+	: (sprintf "RESULT prepare.%08d\n", $self->seqnr);
 }
 
-#-------------
+#--------------------
 =section When the document is collected
 
 =method client
-Which client M<Couch::DB::Client> was used in the last action.  Initially,
+Which client Couch::DB::Client was used in the last action.  Initially,
 none.  When the results are ready, the client is known.
 
 =method request
@@ -226,6 +233,8 @@ as HASH of raw data: the bare result of the request.
 
 You can better use the M<values()> method, which returns the data in a far more
 Perlish way: as Perl booleans, DateTime objects, and so on.
+
+=error document not ready: $err
 =cut
 
 sub answer(%)
@@ -234,8 +243,8 @@ sub answer(%)
 	return $self->{CDR_answer}
 		if defined $self->{CDR_answer};
 
- 	$self->isReady
-		or error __x"Document not ready: {err}", err => $self->message;
+	$self->isReady
+		or error __x"document not ready: {err}", err => $self->message;
 
 	$self->{CDR_answer} = $self->couch->_extractAnswer($self->response);
 }
@@ -257,7 +266,7 @@ sub values(@)
 	$self->{CDR_values} = $values;
 }
 
-#-------------
+#--------------------
 =section Results containing rows
 
 When a result (potentially) contains multiple rows, then paging is supported.
@@ -266,7 +275,7 @@ But you may also wish to access the rows directly.
 =method rows [$qnr]
 Some CouchDB calls can be used with paging.  In that case, the answer will
 show something which reflects rows.  This method wraps the values in the
-rows into M<Couch::DB::Row>-objects.
+rows into Couch::DB::Row-objects.
 
 (At least with) M<Couch::DB::Database::find()> you can supply multiple
 queries at the same time.  They will all use the same paging, usually C<_all>
@@ -300,7 +309,7 @@ sub _rowsRef($)
 }
 
 =method row $rownr, [$qnr]
-Returns a M<Couch::DB::Row> object (or an empty LIST) which represents one
+Returns a Couch::DB::Row object (or an empty LIST) which represents one
 row in a paging answer.  Row numbers start on 1.
 =cut
 
@@ -336,7 +345,7 @@ sub numberOfRows(;$) { scalar @{$_[0]->rowsRef($_[1])} }
 =method docs [$qnr]
 Return only the document information which is kept in the rows.  Some
 rows may contain more search information.
-Returns a LIST of M<Couch::DB::Document>-objects.
+Returns a LIST of Couch::DB::Document-objects.
 =cut
 
 sub docs(;$) { map $_->doc, $_[0]->rows($_[1]) }
@@ -358,7 +367,7 @@ sub doc($;$)
 	defined $r ? $r->doc : undef;
 }
 
-#-------------
+#--------------------
 =section Paging through results
 
 Only when this result is produced by a call in "paging mode" (uses the C<all> or
@@ -369,7 +378,7 @@ the data.  Otherwise, use the C<row*> and C<doc*> methods.
 Returns information about the logical next page for this response, in a format
 which can be saved into a session.
 
-=option  max_bookmarks INTEGER
+=option  max_bookmarks $count
 =default max_bookmarks 10
 When you save this paging information into a session cookie, you should not
 store many bookmarks, because they are pretty large and do not compress.  Random
@@ -434,11 +443,11 @@ Method M<pageRows()> will return the rows as a LIST.
 
 =example compare page and pageRows
 
-   my $r = $db->find(...);
-   foreach my $row ($r->pageRows) { ... }
-   foreach my $row ( @{$r->page} ) { ... }
-   print template($t, rows => [ $r->pageRows ]);
-   print template($t, rows => $r->page);
+  my $r = $db->find(...);
+  foreach my $row ($r->pageRows) { ... }
+  foreach my $row ( @{$r->page} ) { ... }
+  print template($t, rows => [ $r->pageRows ]);
+  print template($t, rows => $r->page);
 =cut
 
 sub page()
@@ -466,7 +475,7 @@ sub _pageAdd($$)
 }
 
 =method pageRows
-Returns the LIST of rows (M<Couch::DB::Row> objects), where M<page()> returns it
+Returns the LIST of rows (Couch::DB::Row objects), where M<page()> returns it
 as ARRAY (reference).
 =cut
 
@@ -480,7 +489,7 @@ the number of calls made with variable number of rows.
 sub pageNumber() { $_[0]->_thisPage->{pagenr} }
 
 =method pageDocs
-Returns the LIST of documents (M<Couch::DB::Document> objects), which are
+Returns the LIST of documents (Couch::DB::Document objects), which are
 contained in the rows.
 
 =example of pageDocs()
@@ -498,7 +507,7 @@ contained in the rows.
 sub pageDocs() { map $_->doc, @{$_[0]->page} }
 
 =method pageDoc $rownr
-Returns the document (M<Couch::DB::Document> object) on the indicated row
+Returns the document (Couch::DB::Document object) on the indicated row
 in the page (starts at 1).
 =cut
 
@@ -511,9 +520,9 @@ page upto the the requested page size.
 
 sub pageIsPartial()
 {	my $this = shift->_thisPage;
-	     $this->{page_mode}
-	  && ! $this->{end_reached}
-	  && ($this->{all} || @{$this->{harvested}} < $this->{page_size});
+		$this->{page_mode}
+	&& ! $this->{end_reached}
+	&& ($this->{all} || @{$this->{harvested}} < $this->{page_size});
 }
 
 =method isLastPage
@@ -523,7 +532,7 @@ M<page()> may already be empty.
 
 sub isLastPage() { $_[0]->_thisPage->{end_reached} }
 
-#-------------
+#--------------------
 =section When the collecting is delayed
 
 =method setFinalResult \%data, %options
@@ -546,7 +555,6 @@ sub setFinalResult($%)
 	delete $self->{CDR_values};
 	delete $self->{CDR_rows};
 
-#warn "CODE=$code, $self";
 	# "on_error" handler
 	unless(is_success $code)
 	{	$_->($self) for @{$self->{CDR_on_error}};
@@ -562,7 +570,7 @@ sub setFinalResult($%)
 	my $tail   = $self;
 
 	while(@chains && $tail)
- 	{	$tail = (pop @chains)->($tail);
+	{	$tail = (pop @chains)->($tail);
 		blessed $tail && $tail->isa('Couch::DB::Result')
 			or panic "Chain must return a Result object";
 	}
@@ -571,7 +579,7 @@ sub setFinalResult($%)
 }
 
 =method setResultDelayed $plan, %options
-When defined, the result document is not yet collected.  The C<$plan> contains
+When defined, the result document is not yet collected.  The $plan contains
 framework specific information how to realize that in a later stage.
 =cut
 
@@ -590,11 +598,11 @@ collect the document.
 
 sub delayPlan() { $_[0]->{CDR_delayed} }
 
-#-------------
+#--------------------
 =chapter DETAILS
 
 This Result objects have many faces.  Understand them well, before you start
-programming with M<Couch::DB>.
+programming with Couch::DB.
 
 =section Result is an error
 
@@ -627,9 +635,9 @@ multiple queries, and then start them at the same time.
 
   my $find1 = $db->find(..., _delay => 1)
       or die $result->message;  # only preparation errors
-  
+
   if($find1->isDelayed) ...;    # true
-  
+
   my $result = $find1->run
       or die $result->message;  # network/server errors
 

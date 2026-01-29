@@ -1,8 +1,13 @@
-# SPDX-FileCopyrightText: 2024 Mark Overmeer <mark@overmeer.net>
-# SPDX-License-Identifier: Artistic-2.0
+#oodist: *** DO NOT USE THIS VERSION FOR PRODUCTION ***
+#oodist: This file contains OODoc-style documentation which will get stripped
+#oodist: during its release in the distribution.  You can use this file for
+#oodist: testing, however the code of this development version may be broken!
 
 package Couch::DB::Design;
 use parent 'Couch::DB::Document';
+
+use warnings;
+use strict;
 
 use Couch::DB::Util;
 
@@ -13,6 +18,7 @@ use Scalar::Util qw/blessed/;
 
 my $id_generator;
 
+#--------------------
 =chapter NAME
 
 Couch::DB::Design - handle design documents
@@ -38,7 +44,7 @@ extract information from CouchDB through one or more views.
 Design documents behave just like your own documents, but occupy the
 C<_design/> namespace in your database.  A bunch of the methods are
 therefore exactly the same as the methods in base-class
-M<Couch::DB::Document>.
+Couch::DB::Document.
 
 =chapter METHODS
 
@@ -48,8 +54,8 @@ M<Couch::DB::Document>.
 
 =default id generated
 If no id is passed, then one gets generated: a UUID is requested from
-the server.  You may also use a local generator via M<UUID::URandom>
-or M<Data::UUID>, which is (of course) more efficient.
+the server.  You may also use a local generator via UUID::URandom
+or Data::UUID, which is (of course) more efficient.
 =cut
 
 sub init($)
@@ -63,7 +69,7 @@ sub init($)
 	$self;
 }
 
-#-------------
+#--------------------
 =section Accessors
 
 =c_method setIdGenerator CODE
@@ -87,20 +93,20 @@ part.
 
 sub idBase() { $_[0]->{CDD_base} }
 
-#-------------
+#--------------------
 =section Document in the database
 All methods below are inherited from standard documents.  Their call URI
 differs, but their implementation is the same.  On the other hand: they
 add interpretation on fields which do not start with '_'.
 
 =method exists %option
- [CouchDB API "HEAD /{db}/_design/{ddoc}"]
+  [CouchDB API "HEAD /{db}/_design/{ddoc}"]
 
 Returns the HTTP Headers containing a minimal amount of information about the
 specified design document.
 
 =method create \%data, %options
- [CouchDB API "POST /{db}/_index", UNTESTED]
+  [CouchDB API "POST /{db}/_index", UNTESTED]
 Create a new design document.
 
 In Couch::DB, the client-side, not the server, generates ids.  Therefore,
@@ -113,7 +119,7 @@ sub create($%)
 }
 
 =method update \%data, %options
- [CouchDB API "PUT /{db}/_design/{ddoc}"]
+  [CouchDB API "PUT /{db}/_design/{ddoc}"]
 
 Options C<filters>, C<lists>, C<shows>, and C<updates> are HASHes which
 map names to fragments of code written in programming language C<language>
@@ -143,19 +149,19 @@ sub update($%)
 # get/delete/etc. are simply produced by extension of the _pathToDoc() which
 # adds "_design/" to the front of the path.
 =method get %options
- [CouchDB API "GET /{db}/_design/{ddoc}"]
+  [CouchDB API "GET /{db}/_design/{ddoc}"]
 
 =method delete %options
- [CouchDB API "DELETE /{db}/_design/{ddoc}"]
+  [CouchDB API "DELETE /{db}/_design/{ddoc}"]
 
 =method cloneInto $doc, %options
- [CouchDB API "COPY /{db}/_design/{ddoc}"]
+  [CouchDB API "COPY /{db}/_design/{ddoc}"]
 
 =method appendTo $doc, %options
- [CouchDB API "COPY /{db}/_design/{ddoc}"]
+  [CouchDB API "COPY /{db}/_design/{ddoc}"]
 
 =method details %options
- [CouchDB API "GET /{db}/_design/{ddoc}/_info", UNTESTED]
+  [CouchDB API "GET /{db}/_design/{ddoc}/_info", UNTESTED]
 
 Obtains information about the specified design document, including the
 index, index size and current status of the design document and associated
@@ -170,28 +176,28 @@ sub details(%)
 	);
 }
 
-#-------------
+#--------------------
 =section Attachments
 
 =method attExists $name, %options
- [CouchDB API "HEAD /{db}/_design/{ddoc}/{attname}"]
+  [CouchDB API "HEAD /{db}/_design/{ddoc}/{attname}"]
 
 =method attLoad $name, %options
- [CouchDB API "GET /{db}/_design/{ddoc}/{attname}" ]
+  [CouchDB API "GET /{db}/_design/{ddoc}/{attname}" ]
 
 =method attSave $name, $data, %options
- [CouchDB API "PUT /{db}/_design/{ddoc}/{attname}" ]
+  [CouchDB API "PUT /{db}/_design/{ddoc}/{attname}" ]
 
 =method attDelete $name, %options
- [CouchDB API "DELETE /{db}/_design/{ddoc}/{attname}" ]
+  [CouchDB API "DELETE /{db}/_design/{ddoc}/{attname}" ]
 
 =cut
 
-#-------------
+#--------------------
 =section Indexes (indices)
 
 =method createIndex \%config, %options
- [CouchDB API "POST /{db}/_index", UNTESTED]
+  [CouchDB API "POST /{db}/_index", UNTESTED]
 
 Create an index on the database.  If the name already exists and the
 configuration is different, then the index be get regenerated.
@@ -211,7 +217,7 @@ sub createIndex($%)
 }
 
 =method deleteIndex $index, %options
- [CouchDB API "DELETE /{db}/_index/{design_doc}/json/{name}", UNTESTED]
+  [CouchDB API "DELETE /{db}/_index/{design_doc}/json/{name}", UNTESTED]
 
 Remove an index from this design document.
 =cut
@@ -225,20 +231,20 @@ sub deleteIndex($%)
 }
 
 =method search $index, [\%search, %options]
- [CouchDB API "GET /{db}/_design/{ddoc}/_search/{index}", UNTESTED]
+  [CouchDB API "GET /{db}/_design/{ddoc}/_search/{index}", UNTESTED]
 
 Executes a (text) search request against the named $index.  The default
-C<%search> contains the whole index.  When the search contains
+%search contains the whole index.  When the search contains
 C<include_docs>, then full docs are made available.
 
 (Of course) this command supports paging.
 
 =example return full index all as rows
- my $d    = $db->design('d');
- my $rows = $d->search('i', {}, all => 1)->page;
+  my $d    = $db->design('d');
+  my $rows = $d->search('i', {}, all => 1)->page;
 
- my $search = +{ include_docs => 1 };
- my @docs = $d->search('i', \%search, all => 1)->pageDocs;
+  my $search = +{ include_docs => 1 };
+  my @docs = $d->search('i', \%search, all => 1)->pageDocs;
 
 =cut
 
@@ -275,7 +281,7 @@ sub search($$%)
 }
 
 =method indexDetails $index, %options
- [CouchDB API "GET /{db}/_design/{ddoc}/_search_info/{index}", UNTESTED]
+  [CouchDB API "GET /{db}/_design/{ddoc}/_search_info/{index}", UNTESTED]
 
 Returns metadata for the specified search index.
 =cut
@@ -289,19 +295,19 @@ sub indexDetails($%)
 	);
 }
 
-#-------------
+#--------------------
 =section Views
 
 =method viewDocs $view, [\%search|\@%search], %options]
- [CouchDB API "GET /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
- [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
- [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}/queries", UNTESTED]
- [CouchDB API "GET /{db}/_partition/{partition_id}/_design/{ddoc}/_view/{view}", UNTESTED]
+  [CouchDB API "GET /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
+  [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}", UNTESTED]
+  [CouchDB API "POST /{db}/_design/{ddoc}/_view/{view}/queries", UNTESTED]
+  [CouchDB API "GET /{db}/_partition/{partition_id}/_design/{ddoc}/_view/{view}", UNTESTED]
 
 Executes the specified view function.
 
 This work is handled in M<Couch::DB::Database::allDocs()>.  See that method for
-C<%options> and results.
+%options and results.
 
 =example
   my %search;
@@ -318,7 +324,7 @@ sub viewDocs($;$%)
 }
 
 =method compactViews %options
- [CouchDB API "POST /{db}/_compact/{ddoc}", UNTESTED]
+  [CouchDB API "POST /{db}/_compact/{ddoc}", UNTESTED]
 
 Start the compacting (optimization) of all views in this design document.
 See M<Couch::DB::Database::compactViews()> to start them for all design
@@ -328,22 +334,22 @@ documents at once.
 sub compactViews(%)
 {	my ($self, %args) = @_;
 
-	$self->couch->call(POST => $self->_pathToDB('_compact/', uri_escape($ddoc->baseId)),
+	$self->couch->call(POST => $self->_pathToDB('_compact/', uri_escape($self->baseId)),
 		$self->couch->_resultsConfig(\%args),
 	);
 }
 
-#-------------
+#--------------------
 =section Functions
 
 =method show $function, [$doc|$docid|undef, %options]
- [CouchDB API "GET /{db}/_design/{ddoc}/_show/{func}", deprecated 3.0, removed 4.0, UNTESTED]
- [CouchDB API "POST /{db}/_design/{ddoc}/_show/{func}", deprecated 3.0, removed 4.0, UNTESTED]
- [CouchDB API "GET /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED]
- [CouchDB API "POST /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED]
+  [CouchDB API "GET /{db}/_design/{ddoc}/_show/{func}", deprecated 3.0, removed 4.0, UNTESTED]
+  [CouchDB API "POST /{db}/_design/{ddoc}/_show/{func}", deprecated 3.0, removed 4.0, UNTESTED]
+  [CouchDB API "GET /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED]
+  [CouchDB API "POST /{db}/_design/{ddoc}/_show/{func}/{docid}", deprecated 3.0, removed 4.0, UNTESTED]
 
-Apply show C<$function> on the document, as specified by C<$docid> or document object.  By
-default or explicit C<undef>, a "null" document will be used.
+Apply show $function on the document, as specified by $docid or document object.  By
+default or explicit undef, a "null" document will be used.
 =cut
 
 sub show($;$%)
@@ -359,16 +365,16 @@ sub show($;$%)
 }
 
 =method list $function, $view, %options
- [CouchDB API "GET /{db}/_design/{ddoc}/_list/{func}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
- [CouchDB API "POST /{db}/_design/{ddoc}/_list/{func}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
- [CouchDB API "GET /{db}/_design/{ddoc}/_list/{func}/{other-ddoc}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
- [CouchDB API "POST /{db}/_design/{ddoc}/_list/{func}/{other-ddoc}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
+  [CouchDB API "GET /{db}/_design/{ddoc}/_list/{func}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
+  [CouchDB API "POST /{db}/_design/{ddoc}/_list/{func}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
+  [CouchDB API "GET /{db}/_design/{ddoc}/_list/{func}/{other-ddoc}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
+  [CouchDB API "POST /{db}/_design/{ddoc}/_list/{func}/{other-ddoc}/{view}", deprecated 3.0, removed 4.0, UNTESTED]
 
-Executes a list function against the C<$view>.
+Executes a list function against the $view.
 
 =option  view_ddoc $ddoc|$ddocid
-=default view_ddoc C<undef>
-When the C<$view> resides in a different design.
+=default view_ddoc undef
+When the $view resides in a different design.
 =cut
 
 sub list($$%)
@@ -385,13 +391,12 @@ sub list($$%)
 }
 
 =method applyUpdate $function, [$doc|$docid|undef, %options]
- [CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}", UNTESTED]
- [CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}/{docid}", UNTESTED]
+  [CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}", UNTESTED]
+  [CouchDB API "POST /{db}/_design/{ddoc}/_update/{func}/{docid}", UNTESTED]
 
-See what the update function would change.  The update C<$function> is run
+See what the update function would change.  The update $function is run
 on a document, specified by id or object.  By default or explicit undef,
 a C<null> (missing) document will be used.
-
 =cut
 
 #XXX The 3.3.3 doc says /{docid} version requires PUT, but shows a POST example.

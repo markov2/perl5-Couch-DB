@@ -1,7 +1,12 @@
-# SPDX-FileCopyrightText: 2024 Mark Overmeer <mark@overmeer.net>
-# SPDX-License-Identifier: Artistic-2.0
+#oodist: *** DO NOT USE THIS VERSION FOR PRODUCTION ***
+#oodist: This file contains OODoc-style documentation which will get stripped
+#oodist: during its release in the distribution.  You can use this file for
+#oodist: testing, however the code of this development version may be broken!
 
 package Couch::DB;
+
+use strict;
+use warnings;
 use version;
 
 use Log::Report 'couch-db';
@@ -10,36 +15,37 @@ use Couch::DB::Client   ();
 use Couch::DB::Cluster  ();
 use Couch::DB::Database ();
 use Couch::DB::Node     ();
-use Couch::DB::Util     qw(flat);
+use Couch::DB::Util     qw/flat/;
 
 use DateTime          ();
 use DateTime::Format::ISO8601 ();
 use DateTime::Format::Mail    ();
 use JSON              qw/encode_json/;
-use List::Util        qw(first min);
-use Scalar::Util      qw(blessed);
+use List::Util        qw/first min/;
+use Scalar::Util      qw/blessed/;
 use Storable          qw/dclone/;
 use URI               ();
 use URI::Escape       qw/uri_escape uri_unescape/;
 
-use constant
-{	DEFAULT_SERVER => 'http://127.0.0.1:5984',
+use constant {
+	DEFAULT_SERVER => 'http://127.0.0.1:5984',
 };
 
+#--------------------
 =chapter NAME
 
 Couch::DB - CouchDB database client
 
 =chapter SYNOPSIS
 
-   use Couch::DB::Mojolicious ();
-   my $couch   = Couch::DB::Mojolicious->new(api => '3.3.3');
-   my $db      = $couch->db('my-db'); # Couch::DB::Database object
-   my $cluster = $couch->cluster;     # Couch::DB::Cluster object
-   my $client  = $couch->createClient(...);  # Couch::DB::Client
+  use Couch::DB::Mojolicious ();
+  my $couch   = Couch::DB::Mojolicious->new(api => '3.3.3');
+  my $db      = $couch->db('my-db'); # Couch::DB::Database object
+  my $cluster = $couch->cluster;     # Couch::DB::Cluster object
+  my $client  = $couch->createClient(...);  # Couch::DB::Client
 
-   my $results = $db->find(...) or die;
-   my $results = $db->search(...) or die;
+  my $results = $db->find(...) or die;
+  my $results = $db->search(...) or die;
 
 =chapter DESCRIPTION
 
@@ -49,10 +55,10 @@ This implementation provides a B<thick interface>: a far higher level
 of abstraction than the other modules. This should make your work much,
 much easier.
 
-Also, open F<https://perl.overmeer.net/couch-db/reference.html>
+Also, open L<https://perl.overmeer.net/couch-db/reference.html>
 in a browser window, as useful cross-reference: parameters for CouchDB
 are not documented in this Perl documentation!  For those, you need
-to visit F<https://docs.couchdb.org/en/stable/>.
+to visit L<https://docs.couchdb.org/en/stable/>.
 
 B<Please read> the L</DETAILS> section, further down, at least once
 before you start!
@@ -63,16 +69,16 @@ before you start!
 
 =c_method new %options
 Create a relation with a CouchDB server (cluster).  You should use
-totally separated M<Couch::DB>-objects for totally separate database
+totally separated Couch::DB-objects for totally separate database
 clusters.  B<Note:> you can only instantiate extensions of this class.
 
-When you do not specify a C<server>-url, but have an environment variable
+When you do not specify a P<server>-url, but have an environment variable
 C<PERL_COUCH_DB_SERVER>, then server url, username, and password are
 derived from it.
 
 =requires api $version
 You MUST specify the version of the server you expect to answer your
-queries.  M<Couch::DB> tries to hide differences between your expectations
+queries.  Couch::DB tries to hide differences between your expectations
 and the reality of the server version.
 
 The $version can be a string or a version object (see "man version").
@@ -91,12 +97,12 @@ explicitly set C<server =E<gt> undef>.
 Authentication method to be used by default for each client.
 
 =option  username STRING
-=default username C<undef>
-When a C<username> is given, it will be used together with C<auth> and
-C<password> to login to any created client.
+=default username undef
+When a username is given, it will be used together with P<auth> and
+P<password> to login to any created client.
 
 =option  password STRING
-=default password C<undef>
+=default password undef
 
 =option  to_perl HASH
 =default to_perl C<< +{ } >>
@@ -160,7 +166,7 @@ sub init($)
 	$self;
 }
 
-#-------------
+#--------------------
 =section Accessors
 
 =method api
@@ -171,20 +177,20 @@ automatically resolved.
 
 sub api() { $_[0]->{CD_api} }
 
-#-------------
+#--------------------
 =section Interface starting points
 
 The CouchDB specification does group API calls a bit, but not too
 strong.  C<Couch::DB> has chosen to group them much stronger.  This
 helps with carity in the method names.  All methods which do something
 with the database are addressed via C<<$couch->db($name)>> and
-provided via a M<Couch::DB::Database> object.  All methods which
-relate to cluster management are implemented in M<Couch::DB::Cluster>,
+provided via a Couch::DB::Database object.  All methods which
+relate to cluster management are implemented in Couch::DB::Cluster,
 with access via C<<$couch->cluster>>, et cetera.
 
 =method createClient %options
 Create a client object which handles a server.  All options are passed
-to M<Couch::DB::Client>.  The C<couch> parameter is added for you.
+to Couch::DB::Client.  The C<couch> parameter is added for you.
 The client will also be added via M<addClient()>, and is then returned.
 
 It may be useful to create to clients to the same server: one with admin
@@ -213,7 +219,7 @@ sub db($%)
 }
 
 =method node $name
-Returns a M<Couch::DB::Node>-object with the $name.  If the object does not
+Returns a Couch::DB::Node-object with the $name.  If the object does not
 exist yet, it gets created, otherwise reused.
 =cut
 
@@ -223,23 +229,23 @@ sub node($)
 }
 
 =method cluster
-Returns a M<Couch::DB::Cluster>-object, which organizes calls to
+Returns a Couch::DB::Cluster-object, which organizes calls to
 manipulate replication, sharding, and related jobs.  This will always
 return the same object.
 =cut
 
 sub cluster() { $_[0]->{CD_cluster} ||= Couch::DB::Cluster->new(couch => $_[0]) }
 
-#-------------
+#--------------------
 =section Ungrouped calls
 
 =method searchAnalyze \%config, %options
- [CouchDB API "POST /_search_analyze", since 3.0, UNTESTED]
+  [CouchDB API "POST /_search_analyze", since 3.0, UNTESTED]
 
 Check what the build-in Lucene tokenizer(s) will do with your text.  This uses
 the Clouseau backend.
 
-=requires analyzer KIND
+=requires analyzer $kind
 =requires text STRING
 =cut
 
@@ -258,7 +264,7 @@ sub searchAnalyze($%)
 }
 
 =method requestUUIDs $count, %options
- [CouchDB API "GET /_uuids", since 2.0]
+  [CouchDB API "GET /_uuids", since 2.0]
 
 Returns UUIDs (Universally unique identifiers), when the call was
 successful.  Better use M<freshUUIDs()>.  It is faster to use Perl
@@ -305,14 +311,14 @@ Returns one unique identifier.
 
 sub freshUUID(%) { my $s = shift; ($s->freshUUIDs(1, @_))[0] }
 
-#-------------
+#--------------------
 =section Processing
 
 The methods in this section implement the CouchDB API.  You should
 usually not need to use these yourself, as this libary abstracts them.
 
 =method addClient $client
-Add a M<Couch::DB::Client>-object to be used to contact the CouchDB
+Add a Couch::DB::Client-object to be used to contact the CouchDB
 cluster.  Returned is the couch object, so these calls are stackable.
 =cut
 
@@ -326,10 +332,10 @@ sub addClient($)
 }
 
 =method clients %options
-Returns a LIST with the defined clients; M<Couch::DB::Client>-objects.
+Returns a LIST with the defined clients; Couch::DB::Client-objects.
 
 =option  role $role
-=default role C<undef>
+=default role undef
 When defined, only return clients which are able to fulfill the
 specific $role.
 =cut
@@ -365,20 +371,23 @@ B<Note:> you should probably not use this method yourself: all endpoint of
 CouchDB are available via a nice, abstract wrapper.
 
 =option  query HASH
-=default query C<undef>
+=default query undef
 Query parameters for the request.
 
 =option  send  HASH
-=default send  C<undef>
+=default send  undef
 The content to be sent with POST and PUT methods.
 in those cases, even when there is nothing to pass on, simply to be
 explicit about that.
 
-=option  paging HASH
-=default paging {}
+=option  paging \%config
+=default paging C<+{}>
 When the endpoint support paging, then its needed configuration
 data has been collected in here.  This enables the use of C<succeed>,
 C<page>, C<skip>, and friends.  See examples in section L</Pagination>.
+=cut
+
+=error No clients can run $method $path.
 =cut
 
 sub call($$%)
@@ -394,7 +403,7 @@ sub call($$%)
 #use Data::Dumper;
 #warn "CALL ", Dumper \%args;
 
-    my $send = $args{send};
+	my $send = $args{send};
 	defined $send || ($method ne 'POST' && $method ne 'PUT')
 		or panic "No send in $method $path";
 
@@ -433,7 +442,7 @@ sub call($$%)
 		paging    => $paging,
 	);
 
-  CLIENT:
+CLIENT:
 	foreach my $client (@clients)
 	{
 		! $introduced || $client->version >= $introduced
@@ -442,7 +451,7 @@ sub call($$%)
 		if($paging)
 		{	do
 			{	# Merge paging setting into the request
-	    		$self->_pageRequest($paging, $method, $query, $send);
+				$self->_pageRequest($paging, $method, $query, $send);
 
 				$self->_callClient($result, $client, %args);
 				$result
@@ -591,9 +600,9 @@ sub _pageRequest($$$$)
 	my $start    = $paging->{start};
 
 	$params->{limit}
-	  = $paging->{page_size}
-	  ? (min $paging->{page_size} - $progress, $paging->{req_rows})
-	  : $paging->{req_rows};
+	= $paging->{page_size}
+	? (min $paging->{page_size} - $progress, $paging->{req_rows})
+	: $paging->{req_rows};
 
 	if(my $bookmark = $paging->{bookmarks}{$start + $progress})
 	{	$params->{bookmark} = $bookmark;
@@ -619,7 +628,7 @@ my %default_toperl = (  # sub ($couch, $name, $datum) returns value/object
 	epoch     => sub { DateTime->from_epoch(epoch => $_[2]) },
 	isotime   => sub { DateTime::Format::ISO8601->parse_datetime($_[2]) },
 	mailtime  => sub { DateTime::Format::Mail->parse_datetime($_[2]) },   # smart choice by CouchDB?
- 	version   => sub { version->parse($_[2]) },
+	version   => sub { version->parse($_[2]) },
 	node      => sub { $_[0]->node($_[2]) },
 );
 
@@ -716,7 +725,7 @@ Convert the (complex) $json structure into serialized JSON.  By default, it
 is beautified.
 
 =option  compact BOOLEAN
-=default compact C<false>
+=default compact false
 Produce compact (no white-space) JSON.
 =cut
 
@@ -732,6 +741,10 @@ check whether api limitiations apply.
 Parameter $change is either C<removed>, C<introduced>, or C<deprecated> (as
 strings).  The C<version> is taken from the CouchDB API documentation.
 The $what describes the element, to be used in error or warning messages.
+
+=error $what got removed in $release, but you specified api $api.
+=warning $what was introduced in $release, but you specified api $api.
+=warning $what got deprecated in api $release.
 =cut
 
 my (%surpress_depr, %surpress_intro);
@@ -763,8 +776,6 @@ sub check($$$$)
 	$self;
 }
 
-#-------------
-
 #### Extension which perform some tasks which are framework object specific.
 
 # Returns the JSON structure which is part of the response by the CouchDB
@@ -780,7 +791,7 @@ sub _messageContent($) { panic "must be extended" }
 
 1;
 
-#-------------
+#--------------------
 =chapter DETAILS
 
 =section Early adopters
@@ -800,9 +811,9 @@ You need to instantiate an extensions of this class.  At the moment,
 you can pick from:
 
 =over 4
-=item * M<Couch::DB::Mojolicious>
-Implements the client using the M<Mojolicious> framework, using M<Mojo::URL>,
-M<Mojo::UserAgent>, M<Mojo::IOLoop>, and many other.
+=item * Couch::DB::Mojolicious
+Implements the client using the M<Mojolicious> framework, using Mojo::URL,
+Mojo::UserAgent, Mojo::IOLoop, and many other.
 =back
 
 Other extensions are hopefully added in the future.  Preferrably as part
@@ -850,9 +861,9 @@ says: client calls to some CouchDB server.  Often, this connects to a node
 on your local server, but you can also connect to other servers and even
 multiple servers.
 
-All these API methods return a M<Couch::DB::Result> object, which can tell
+All these API methods return a Couch::DB::Result object, which can tell
 you how the call worked, and the results.  The resulting object is overloaded
-boolean to produce C<false> in case of an error.  So typically:
+boolean to produce false in case of an error.  So typically:
 
   my $couch  = Couch::DB::Mojolicious->new(version => '3.3.3');
   my $result = $couch->requestUUIDs(100);
@@ -871,7 +882,7 @@ because "values()" will terminate when the database call did not result
 in a successful answer.  Some convenience methods are provided as well,
 which makes the last alternative:
 
-   my @uuids = $couch->freshUUIDs(100);
+  my @uuids = $couch->freshUUIDs(100);
 
 =subsection Where can I find what?
 
@@ -879,11 +890,11 @@ The CouchDB API lists all endpoints as URLs.  This library, however,
 creates an Object Oriented interface around these calls: you do not
 see the internals in the resulting code.  Knowing the CouchDB API,
 it is usually immediately clear where to find a certain end-point:
-C<< /{db} >> will be in M<Couch::DB::Database>.  A major exception is
+C<< /{db} >> will be in Couch::DB::Database.  A major exception is
 anything what has to do with replication and sharding: this is bundled
-in M<Couch::DB::Cluster>.
+in Couch::DB::Cluster.
 
-Have a look at F<https://perl.overmeer.net/couch-db/reference.html>.
+Have a look at L<https://perl.overmeer.net/couch-db/reference.html>.
 Keep that page open in your browser while developing.
 
 =subsection Type conversions
@@ -895,7 +906,7 @@ which gives the uninterpreted, unabstracted results.
 
 This library also converts parameters from Perl space into JSON space.
 POST and PUT parameters travel in JSON documents.  In JSON, a boolean is
-C<true> and C<false> (without quotes).  In Perl, these are C<undef> and
+true and false (without quotes).  In Perl, these are undef and
 C<1> (and many alternatives).  For anything besides your own documents,
 C<Couch::DB> will totally hide these differences for you!
 
@@ -914,7 +925,7 @@ between client and server, for result paging, or processing event hooks.
 At the moment, the following generic C<%options> are supported everywhere:
 
 =over 4
-=item * C<delay> =E<gt> BOOLEAN, default C<false>
+=item * C<delay> =E<gt> BOOLEAN, default false
 Do not perform and wait for the actual call, but prepare it to be used in parallel
 querying.  TO BE IMPLEMENTED/DOCUMENTED.
 
@@ -968,19 +979,19 @@ answers.
 
 CouchDB supports various search mechanisms, which are confusingly
 named.  Their configuration is stored in design documents (see
-M<Couch::DB::Design>).  The mechanisms can often be combined.
+Couch::DB::Design).  The mechanisms can often be combined.
 
 =over 4
 =item * Views
 Views are docid-key-value tables which are following the changes made
 in a database.  The value may be complex, and may contain extracts
 and computed elements based on each document.
-See F<https://docs.couchdb.org/en/stable/ddocs/views/>
+See L<https://docs.couchdb.org/en/stable/ddocs/views/>
 
 =item * Search
 Use Lucene (mainly full text search) indexes on a database.  The
 interface uses Clouseau wrapper libraries around the Lucene core.
-See F<https://docs.couchdb.org/en/stable/ddocs/search.html>
+See L<https://docs.couchdb.org/en/stable/ddocs/search.html>
 
 Clouseau was introduced in CouchDB 3.0.0, and now being phased out
 because it got stuck on Java 8. It has index type C<text>.
@@ -994,7 +1005,7 @@ type C<nouveau>.
 The C<find()> method uses MongoDB compatible search statements,
 which can be combined with index and view restrictions.
 These indexes are of the (ill-named) type C<json>.
-See F<https://docs.couchdb.org/en/stable/ddocs/mango.html>
+See L<https://docs.couchdb.org/en/stable/ddocs/mango.html>
 
 =back
 
@@ -1135,12 +1146,12 @@ and C<client>, which you do not wish to know.
   my $rows1 = $page1->page;
   my @rows1 = $page1->pageRows;
   my @docs1 = map $_->doc, @rows1;
-  
+
   my $page2 = $couch->find(\%search, succeed => $page1);
   my $rows2 = $page2->page;
   my @docs2 = map $_->doc, $page2->page;
   my @docs2 = $page2->pageDocs;
-  
+
   sub h { my ($result) = @_; $result->docs }
   my $page3 = $couch->find(\%search, succeed => $page2, harvester => \&h);
   my $docs3 = $page3->page;    # now docs!
@@ -1188,8 +1199,8 @@ pages already seen.
   my $page4 = $couch->find(\%search,
 	limit     => 10,  # results per server request
 	page_size => 50,  # results until complete
-    page      =>  4,  # start point, may use bookmark
-    harvester => sub { $_[0]->rows }, # default
+  page      =>  4,  # start point, may use bookmark
+  harvester => sub { $_[0]->rows }, # default
   );
   my $rows4 = $page4->page;
   my $page5 = $couch->find(\%search, succeed => $page4);

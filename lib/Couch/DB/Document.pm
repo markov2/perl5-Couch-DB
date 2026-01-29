@@ -1,7 +1,13 @@
-# SPDX-FileCopyrightText: 2024 Mark Overmeer <mark@overmeer.net>
-# SPDX-License-Identifier: Artistic-2.0
+#oodist: *** DO NOT USE THIS VERSION FOR PRODUCTION ***
+#oodist: This file contains OODoc-style documentation which will get stripped
+#oodist: during its release in the distribution.  You can use this file for
+#oodist: testing, however the code of this development version may be broken!
 
 package Couch::DB::Document;
+
+use warnings;
+use strict;
+
 use Couch::DB::Util;
 
 use Log::Report 'couch-db';
@@ -9,6 +15,7 @@ use Scalar::Util             qw/weaken/;
 use MIME::Base64             qw/decode_base64/;
 use Devel::GlobalDestruction qw/in_global_destruction/;
 
+#--------------------
 =chapter NAME
 
 Couch::DB::Document - one document as exchanged with a CouchDB server
@@ -39,7 +46,7 @@ in your data.
 =c_method new %options
 
 =option   id  ID
-=default  id  C<undef>
+=default  id  undef
 When you are creating a new document (M<create()>), you may leave this open to get
 an id generated.  Otherwise, this parameter is required.
 
@@ -49,23 +56,23 @@ For all of the writes which support it, use batch (no wait) writing.  Of course,
 this may cause data to be lost when technical or logical issues emerge while the
 actual writing is done, but is much faster.
 
-=option   db   M<Couch::DB::Database>-object
-=default  db   C<undef>
+=option   db   Couch::DB::Database-object
+=default  db   undef
 If this document is database related.
 
 =option   local BOOLEAN
-=default  local C<false>
+=default  local false
 Use a local document: do not replicate it to other instances.  Only limited
 actions are permitted on local documents... probably they do not support
 attachments.
 
 =option   content DATA
-=default  content C<undef>
+=default  content undef
 Create a new document, with the first revision of the content.  Once saved,
 it will get a revision.
 
-=option   row  M<Couch::DB::Row>-object
-=default  row  C<undef>
+=option   row  Couch::DB::Row-object
+=default  row  undef
 =cut
 
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
@@ -134,7 +141,7 @@ sub fromResult($$$%)
 	$class->new(%args, result => $result)->_consume($result, { %$data });
 }
 
-#-------------
+#--------------------
 =section Accessors
 
 =method id
@@ -170,18 +177,19 @@ sub _saved($$;$)
 }
 
 =method row [$row]
-Returns the M<Couch::DB::Row>-object where this document was found, if any.
+Returns the Couch::DB::Row-object where this document was found, if any.
 =cut
 
 sub row(;$)
 {	my $self = shift;
 	@_ or return $self->{CDD_row};
+
 	$self->{CDD_row} = shift;
 	weaken($self->{CDD_row});
 	$self->{CDD_row};
 }
 
-#-------------
+#--------------------
 =section Content
 
 B<Warning:> Where Perl does not support the same data-types as JSON, you need to
@@ -220,6 +228,9 @@ Returns a sorted list of all known revisions, as retreived by a former
 call.  They are sorted, newest first.
 =cut
 
+=warning -hex
+=cut
+
 sub revisions()
 {	my $revs = $_[0]->{CDD_revs};
 	no warnings 'numeric';   # forget the "-hex" part of the rev
@@ -232,14 +243,15 @@ The latest revision of this document.
 
 sub rev() { ($_[0]->revisions)[0] }
 
-#-------------
+#--------------------
 =section Document details
 These methods usually require a M<get()> with sufficient parameters to
 be useable (they die on unsuffient details).
 
+=info no info yet.
 =cut
 
-sub _info() { $_[0]->{CDD_info} or panic "No info yet" }
+sub _info() { $_[0]->{CDD_info} or panic "no info yet." }
 
 =method conflicts
 Returns a LIST with conflict details.
@@ -258,6 +270,8 @@ sub updateSequence()   { $_[0]->_info->{_local_seq} }
 
 =method revisionsInfo
 Returns a HASH with all revisions and their status.
+
+=error you have requested the open_revs detail for the document yet.
 =cut
 
 sub revisionsInfo()
@@ -265,7 +279,7 @@ sub revisionsInfo()
 	return $self->{CDD_revinfo} if $self->{CDD_revinfo};
 
 	my $c = $self->_info->{_revs_info}
-		or error __x"You have requested the open_revs detail for the document yet.";
+		or error __x"you have requested the open_revs detail for the document yet.";
 
 	$self->{CDD_revinfo} = +{ map +($_->{rev} => $_), @$c };
 }
@@ -276,14 +290,14 @@ Returns a HASH with information about one $revision only.
 
 sub revisionInfo($) { $_[0]->revisionsInfo->{$_[1]} }
 
-#-------------
+#--------------------
 =section Document in the database
 
 B<All CouchDB API calls> documented below, support %options like C<_delay>
 and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 
 =method exists %option
- [CouchDB API "HEAD /{db}/{docid}"]
+  [CouchDB API "HEAD /{db}/{docid}"]
 
 Check whether the document exists.  You may get some useful response headers.
 
@@ -292,15 +306,15 @@ Check whether the document exists.  You may get some useful response headers.
 =cut
 
 sub exists(%)
-{   my ($self, %args) = @_;
+{	my ($self, %args) = @_;
 
-    $self->couch->call(HEAD => $self->_pathToDoc,
-        $self->couch->_resultsConfig(\%args),
-    );
+	$self->couch->call(HEAD => $self->_pathToDoc,
+		$self->couch->_resultsConfig(\%args),
+	);
 }
 
 =method create \%data, %options
- [CouchDB API "POST /{db}"]
+  [CouchDB API "POST /{db}"]
 
 Save this document for the first time to the database. Your content of the
 document is in %data.  When you pick your own document ids, you can also use
@@ -321,7 +335,7 @@ sub __created($$)
 	delete $data->{_id};  # do not polute the data
 	$self->_saved($v->{id}, $v->{rev}, $data);
 }
-	
+
 sub create($%)
 {	my ($self, $data, %args) = @_;
 	ref $data eq 'HASH' or panic "Attempt to create document without data.";
@@ -344,8 +358,8 @@ sub create($%)
 }
 
 =method update \%data, %options
- [CouchDB API "PUT /{db}/{docid}"]
- [CouchDB API "PUT /{db}/_local/{docid}"]
+  [CouchDB API "PUT /{db}/{docid}"]
+  [CouchDB API "PUT /{db}/_local/{docid}"]
 
 Save a new revision of this document to the database.  If docid is new,
 then it will be created, otherwise a new revision is added.  Your content
@@ -379,8 +393,8 @@ sub update($%)
 }
 
 =method get [\%flags, %options]
- [CouchDB API "GET /{db}/{docid}"]
- [CouchDB API "GET /{db}/_local/{docid}"]
+  [CouchDB API "GET /{db}/{docid}"]
+  [CouchDB API "GET /{db}/_local/{docid}"]
 
 Retrieve document data and information from the database.  There are a zillion
 of %options to collect additional meta-data.
@@ -415,8 +429,8 @@ sub get(%)
 	my $couch = $self->couch;
 
 	my %query  = $flags ? %$flags : ();
-	$couch->toQuery(\%query, bool => qw/attachments att_encoding_info conflicts
-		deleted_conflicts latest local_seq meta revs revs_info/);
+	$couch->toQuery(\%query,
+		bool => qw/attachments att_encoding_info conflicts deleted_conflicts latest local_seq meta revs revs_info/);
 
 	$couch->call(GET => $self->_pathToDoc,
 		query    => \%query,
@@ -428,8 +442,8 @@ sub get(%)
 }
 
 =method delete %options
- [CouchDB API "DELETE /{db}/{docid}"]
- [CouchDB API "DELETE /{db}/_local/{docid}"]
+  [CouchDB API "DELETE /{db}/{docid}"]
+  [CouchDB API "DELETE /{db}/_local/{docid}"]
 
 Flag the document to be deleted.  A new revision is created, which reflects this.
 Only later, when all replications know it and compaction is run, the document
@@ -451,7 +465,7 @@ sub delete(%)
 	my %query;
 	$query{batch} = 'ok' if exists $args{batch} ? delete $args{batch} : $self->batch;
 	$query{rev}   = delete $args{rev} || $self->rev;
-		
+
 	$couch->call(DELETE => $self->_pathToDoc,
 		query    => \%query,
 		$couch->_resultsConfig(\%args, on_final => sub { $self->__delete($_[0]) }),
@@ -459,18 +473,18 @@ sub delete(%)
 }
 
 =method cloneInto $doc, %options
- [CouchDB API "COPY /{db}/{docid}", PARTIAL]
- [CouchDB API "COPY /{db}/_local/{docid}", PARTIAL]
+  [CouchDB API "COPY /{db}/{docid}", PARTIAL]
+  [CouchDB API "COPY /{db}/_local/{docid}", PARTIAL]
 
 See also M<appendTo()>.
 
-For C<%options>, you can use C<batch> and C<rev>.
+For %options, you can use C<batch> and C<rev>.
 
 =example cloning one document into a new one
-   my $from = $db->doc('from');
-   $from->get or die;
-   my $to   = $db->doc('to');   # does not exist
-   $from->cloneInto($to) or die;
+  my $from = $db->doc('from');
+  $from->get or die;
+  my $to   = $db->doc('to');   # does not exist
+  $from->cloneInto($to) or die;
 =cut
 
 # Not yet implemented.  I don't like chaning the headers of my generic UA.
@@ -493,18 +507,18 @@ sub cloneInto($%)
 }
 
 =method appendTo $doc, %options
- [CouchDB API "COPY /{db}/{docid}", PARTIAL]
- [CouchDB API "COPY /{db}/_local/{docid}", PARTIAL]
+  [CouchDB API "COPY /{db}/{docid}", PARTIAL]
+  [CouchDB API "COPY /{db}/_local/{docid}", PARTIAL]
 
 See also M<cloneInto()>.
 As %options: C<batch> and C<rev>.
 
 =example appending one document into an other
-   my $from = $db->doc('from');
-   $from->get or die;
-   my $to   = $db->doc('to');   # does not exist
-   $to->get or die;
-   $from->appendTo($to) or die;
+  my $from = $db->doc('from');
+  $from->get or die;
+  my $to   = $db->doc('to');   # does not exist
+  $to->get or die;
+  $from->appendTo($to) or die;
 =cut
 
 sub appendTo($%)
@@ -528,7 +542,7 @@ sub appendTo($%)
 }
 
 
-#-------------
+#--------------------
 =section Attachments
 
 =method attInfo $name
@@ -547,7 +561,7 @@ sub attachments() { keys %{$_[0]->_info->{_attachments}} }
 sub attachment($) { $_[0]->{CDD_atts}{$_[1]} }
 
 =method attExists $name, %options
- [CouchDB API "HEAD /{db}/{docid}/{attname}", UNTESTED]
+  [CouchDB API "HEAD /{db}/{docid}/{attname}", UNTESTED]
 The response is empty, but contains some useful headers.
 =cut
 
@@ -562,7 +576,7 @@ sub attExists($%)
 }
 
 =method attLoad $name, %options
- [CouchDB API "GET /{db}/{docid}/{attname}", UNTESTED]
+  [CouchDB API "GET /{db}/{docid}/{attname}", UNTESTED]
 
 Load the data of the attachment into this Document.
 
@@ -581,7 +595,7 @@ sub __attLoad($$)
 
 sub attLoad($%)
 {	my ($self, $name, %args) = @_;
-	my %query = ( rev => delete $args{rev} || $self->rev );
+	my %query = (rev => delete $args{rev} || $self->rev);
 
 	$self->couch->call(GET => $self->_pathToDoc($name),
 		query => \%query,
@@ -592,7 +606,7 @@ sub attLoad($%)
 }
 
 =method attSave $name, $data, %options
- [CouchDB API "PUT /{db}/{docid}/{attname}", UNTESTED]
+  [CouchDB API "PUT /{db}/{docid}/{attname}", UNTESTED]
 
 The data is bytes.
 
@@ -618,7 +632,7 @@ sub attSave($$%)
 }
 
 =method attDelete $name, %options
- [CouchDB API "DELETE /{db}/{docid}/{attname}", UNTESTED]
+  [CouchDB API "DELETE /{db}/{docid}/{attname}", UNTESTED]
 
 Deletes an attachment of this document.
 =cut

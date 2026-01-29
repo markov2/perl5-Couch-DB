@@ -1,3 +1,10 @@
+#oodist: *** DO NOT USE THIS VERSION FOR PRODUCTION ***
+#oodist: This file contains OODoc-style documentation which will get stripped
+#oodist: during its release in the distribution.  You can use this file for
+#oodist: testing, however the code of this development version may be broken!
+#oorestyle: no "use strict"
+#oorestyle: no "use warnings"
+
 # SPDX-FileCopyrightText: 2024 Mark Overmeer <mark@overmeer.net>
 # SPDX-License-Identifier: Artistic-2.0
 
@@ -6,30 +13,31 @@ use parent 'Couch::DB';
 use feature 'state';
 
 use Log::Report 'couch-db';
-use Couch::DB::Util qw(flat);
+use Couch::DB::Util qw/flat/;
 
-use Scalar::Util     qw(blessed);
+use Scalar::Util     qw/blessed/;
 use Mojo::URL        ();
 use Mojo::UserAgent  ();
-use Mojo::JSON       qw(decode_json);
-use HTTP::Status     qw(HTTP_OK);
+use Mojo::JSON       qw/decode_json/;
+use HTTP::Status     qw/HTTP_OK/;
 
+#--------------------
 =chapter NAME
 
 Couch::DB::Mojolicious - CouchDB backend for Mojolicious
 
 =chapter SYNOPSIS
 
-   use Couch::DB::Mojolicious ();
-   my $couch = Couch::DB::Mojolicious->new;
+  use Couch::DB::Mojolicious ();
+  my $couch = Couch::DB::Mojolicious->new;
 
-   # From here on: see the Couch::DB base class
-   my $db    = $couch->db('my-db');
+  # From here on: see the Couch::DB base class
+  my $db    = $couch->db('my-db');
 
 =chapter DESCRIPTION
 
-This is the M<Couch::DB> implementation based on the M<Mojolicious> (=Mojo) event
-framework.  It uses many Mojo specific modules, like M<Mojo::URL> and M<Mojo::UserAgent>.
+This is the Couch::DB implementation based on the M<Mojolicious> (=Mojo) event
+framework.  It uses many Mojo specific modules, like Mojo::URL and Mojo::UserAgent.
 
 =chapter METHODS
 
@@ -41,23 +49,23 @@ framework.  It uses many Mojo specific modules, like M<Mojo::URL> and M<Mojo::Us
 sub init($)
 {	my ($self, $args) = @_;
 
-	$args->{to_perl} =
-	 +{	abs_uri => sub { Mojo::URL->new($_[2]) },
-	  };
+	$args->{to_perl}  	 = +{
+		abs_uri => sub { Mojo::URL->new($_[2]) },
+	};
 
 	$self->SUPER::init($args);
 }
 
-#-------------
+#--------------------
 =section Accessors
 
 =cut
 
-#-------------
+#--------------------
 =section Server connections
 
-The C<server> is a M<Mojo::URL>, or will be transformed into one.
-The C<user_agent> is a M<Mojo::UserAgent>.
+The C<server> is a Mojo::URL, or will be transformed into one.
+The C<user_agent> is a Mojo::UserAgent.
 =cut
 
 sub createClient(%)
@@ -93,9 +101,9 @@ sub _callClient($$%)
 	$url->query($query) if $query;
 
 	my @body
-	  = ! defined $send ? ()
-	  : $headers{'Content-Type'} eq 'application/json' ? (json => $send)
-	  :                   $send;
+	= ! defined $send ? ()
+	: $headers{'Content-Type'} eq 'application/json' ? (json => $send)
+	:    $send;
 
 	# $tx is a Mojo::Transaction::HTTP
 	my $tx   = $ua->build_tx($method => $url, \%headers, @body);
@@ -125,8 +133,9 @@ sub _callClient($$%)
 sub _extractAnswer($)
 {	my ($self, $response) = @_;
 	my $content = $response->content;
-	return $response->json
-		unless $response->content->is_multipart;
+
+	$response->content->is_multipart
+		or return $response->json;
 
 	my $part = $response->content->parts->[0];
 	decode_json $part->asset->slurp;

@@ -1,14 +1,20 @@
-# SPDX-FileCopyrightText: 2024 Mark Overmeer <mark@overmeer.net>
-# SPDX-License-Identifier: Artistic-2.0
+#oodist: *** DO NOT USE THIS VERSION FOR PRODUCTION ***
+#oodist: This file contains OODoc-style documentation which will get stripped
+#oodist: during its release in the distribution.  You can use this file for
+#oodist: testing, however the code of this development version may be broken!
 
 package Couch::DB::Node;
 
+use warnings;
+use strict;
+
 use Couch::DB::Util;
 
-use Log::Report 'couch-db';
+use Log::Report    'couch-db';
 
 use Scalar::Util   qw/weaken/;
 
+#--------------------
 =chapter NAME
 
 Couch::DB::Node - represent a node in the cluster
@@ -34,7 +40,6 @@ it may very well be that there is no knowledge about the node yet.
 
 =requires name STRING
 =requires couch C<Couch::DB>-object
-
 =cut
 
 sub new(@) { my ($class, %args) = @_; (bless {}, $class)->init(\%args) }
@@ -49,7 +54,7 @@ sub init($)
 	$self;
 }
 
-#-------------
+#--------------------
 =section Accessors
 
 =method name
@@ -59,7 +64,7 @@ sub init($)
 sub name()  { $_[0]->{CDN_name} }
 sub couch() { $_[0]->{CDN_couch} }
 
-#-------------
+#--------------------
 =section Node information
 
 B<All CouchDB API calls> documented below, support %options like C<_delay>
@@ -71,7 +76,7 @@ and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 # M<stats()> and M<server()> calls.
 
 =method stats %options
- [CouchDB API "GET /_node/{node-name}/_stats", UNTESTED]
+  [CouchDB API "GET /_node/{node-name}/_stats", UNTESTED]
 
 Collect node statistics.
 =cut
@@ -89,7 +94,7 @@ sub stats(%)
 }
 
 =method server %options
- [CouchDB API "GET /_node/{node-name}/_system", UNTESTED]
+  [CouchDB API "GET /_node/{node-name}/_system", UNTESTED]
 
 Presents information about the system of the server where the node
 runs on.
@@ -109,7 +114,7 @@ sub server(%)
 }
 
 =method restart %options
- [CouchDB API "POST /_node/{node-name}/_restart", UNTESTED]
+  [CouchDB API "POST /_node/{node-name}/_restart", UNTESTED]
 
 This may help you in a test environment, but should not be used in
 production, according to the API documentation.
@@ -125,7 +130,7 @@ sub restart(%)
 }
 
 =method software %options
- [CouchDB API "GET /_node/{node-name}/_versions", UNTESTED]
+  [CouchDB API "GET /_node/{node-name}/_versions", UNTESTED]
 
 Get details of some software running the node.
 =cut
@@ -134,16 +139,16 @@ sub software(%)
 {	my ($self, %args) = @_;
 
 	#XXX No idea which data transformations can be done.
-    #XXX Some versions would match Perl's version object, but that's uncertain.
+	#XXX Some versions would match Perl's version object, but that's uncertain.
 	$self->couch->call(GET => $self->_pathToNode('_versions'),
 		$self->couch->_resultsConfig(\%args),
 	);
 }
 
 =method config %options
- [CouchDB API "GET /_node/{node-name}/_config", UNTESTED]
- [CouchDB API "GET /_node/{node-name}/_config/{section}", UNTESTED]
- [CouchDB API "GET /_node/{node-name}/_config/{section}/{key}", UNTESTED]
+  [CouchDB API "GET /_node/{node-name}/_config", UNTESTED]
+  [CouchDB API "GET /_node/{node-name}/_config/{section}", UNTESTED]
+  [CouchDB API "GET /_node/{node-name}/_config/{section}/{key}", UNTESTED]
 
 Returns the node configuration.
 
@@ -151,11 +156,11 @@ At least according to the example in the spec, all values are strings.
 So, a boolean will be string "true" or "false".  The API notes that the
 actual type of values is unpredictable.
 
-=option  section STRING
-=default section C<undef>
+=option  section $name
+=default section undef
 
-=option  key     STRING
-=default key     C<undef>
+=option  key     $key
+=default key     undef
 (Requires a section to be specified)
 
 =examples of config
@@ -182,7 +187,7 @@ sub config(%)
 }
 
 =method configChange $section, $key, $value, %options
- [CouchDB API "PUT /_node/{node-name}/_config/{section}/{key}", UNTESTED]>
+  [CouchDB API "PUT /_node/{node-name}/_config/{section}/{key}", UNTESTED]>
 
 Change one value in the configuration.  Probably, it should be followed by
 a M<configReload()>: changes may not be commited without reload.
@@ -201,7 +206,7 @@ sub configChange($$$%)
 
 
 =method configDelete $section, $key, %options
- [CouchDB API "DELETE /_node/{node-name}/_config/{section}/{key}", UNTESTED]>
+  [CouchDB API "DELETE /_node/{node-name}/_config/{section}/{key}", UNTESTED]>
 
 Remove one value in the configuration.  Probably, it should be followed by
 a M<configReload()>: changes may not be commited without reload.
@@ -216,7 +221,7 @@ sub configDelete($$%)
 }
 
 =method configReload %options
- [CouchDB API "POST /_node/{node-name}/_config/_reload", UNTESTED]>
+  [CouchDB API "POST /_node/{node-name}/_config/_reload", UNTESTED]>
 
 Re-apply the configuration to the node.  This has as side-effect that the
 (changed) configuration of the node will be saved.

@@ -1,5 +1,7 @@
-# SPDX-FileCopyrightText: 2024 Mark Overmeer <mark@overmeer.net>
-# SPDX-License-Identifier: Artistic-2.0
+#oodist: *** DO NOT USE THIS VERSION FOR PRODUCTION ***
+#oodist: This file contains OODoc-style documentation which will get stripped
+#oodist: during its release in the distribution.  You can use this file for
+#oodist: testing, however the code of this development version may be broken!
 
 package Couch::DB::Util;
 use parent 'Exporter';
@@ -7,9 +9,9 @@ use parent 'Exporter';
 use warnings;
 use strict;
 
-use Log::Report 'couch-db';
-use Data::Dumper ();
-use Scalar::Util qw(blessed);
+use Log::Report    'couch-db';
+use Data::Dumper   ();
+use Scalar::Util   qw/blessed/;
 
 our @EXPORT_OK   = qw/flat pile apply_tree simplified/;
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
@@ -20,14 +22,15 @@ sub import
 	$class->export_to_level(1, undef, @_);
 }
 
+#--------------------
 =chapter NAME
 
 Couch::DB::Util - utility functions
 
 =chapter SYNOPSIS
 
-   use Couch::DB::Util;           # obligatory!
-   use Couch::DB::Util  qw(flat); # alternative
+  use Couch::DB::Util;           # obligatory!
+  use Couch::DB::Util  qw(flat); # alternative
 
 =chapter DESCRIPTION
 
@@ -59,15 +62,15 @@ Apply the CODE to all elements in the $tree.  Returns a new tree.
 sub apply_tree($$);
 sub apply_tree($$)
 {	my ($tree, $code) = @_;
-	    ! ref $tree          ? $code->($tree)
-	  : ref $tree eq 'ARRAY' ? +[ map apply_tree($_, $code), @$tree ]
-	  : ref $tree eq 'HASH'  ? +{ map +($_ => apply_tree($tree->{$_}, $code)), keys %$tree }
-	  : ref $tree eq 'CODE'  ? "$tree"
-	  :                        $code->($tree);
+	  ! ref $tree          ? $code->($tree)
+	: ref $tree eq 'ARRAY' ? +[ map apply_tree($_, $code), @$tree ]
+	: ref $tree eq 'HASH'  ? +{ map +($_ => apply_tree($tree->{$_}, $code)), keys %$tree }
+	: ref $tree eq 'CODE'  ? "$tree"
+	:    $code->($tree);
 }
 
 =function simplified $name, $data
-Returns a M<Data::Dumper> output, which is a simplified version of the $data.
+Returns a Data::Dumper output, which is a simplified version of the $data.
 A normal dump would show internals of objects which make the output very verbose,
 hence harder to interpret.
 =cut
@@ -77,15 +80,15 @@ sub simplified($$)
 
 	my $v = apply_tree $data, sub ($) {
 		my $e = shift;
-		    ! blessed $e         ? $e
-		  : $e->isa('DateTime')  ? "DATETIME($e)"
-		  : $e->isa('Couch::DB::Document') ? 'DOCUMENT('.$e->id.')'
-		  : $e->isa('JSON::PP::Boolean')   ? ($e ? 'BOOL(true)' : 'BOOL(false)')
-		  : $e->isa('version')   ? "VERSION($e)"
-		  : 'OBJECT('.(ref $e).')';
+		  ! blessed $e         ? $e
+		: $e->isa('DateTime')  ? "DATETIME($e)"
+		: $e->isa('Couch::DB::Document') ? 'DOCUMENT('.$e->id.')'
+		: $e->isa('JSON::PP::Boolean')   ? ($e ? 'BOOL(true)' : 'BOOL(false)')
+		: $e->isa('version')   ? "VERSION($e)"
+		:    'OBJECT('.(ref $e).')';
 	};
 
-	Data::Dumper->new([$v], [$name])->Indent(1) ->Quotekeys(0)->Sortkeys(1)->Dump;
+	Data::Dumper->new([$v], [$name])->Indent(1)->Quotekeys(0)->Sortkeys(1)->Dump;
 }
 
 1;
