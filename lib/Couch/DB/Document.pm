@@ -247,8 +247,6 @@ sub rev() { ($_[0]->revisions)[0] }
 =section Document details
 These methods usually require a M<get()> with sufficient parameters to
 be useable (they die on unsuffient details).
-
-=info no info yet.
 =cut
 
 sub _info() { $_[0]->{CDD_info} or panic "no info yet." }

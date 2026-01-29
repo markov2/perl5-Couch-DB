@@ -14,6 +14,7 @@ version 0.201:
 	- adapt to minor documentation changes in API calls.
 	- convert publication process to OODoc 3.06.
 	- restyle the code and docs to OODoc 3 style.
+	- export docs to interactive documentation browsing.
 
 version 0.200: Wed 18 Jun 12:26:20 CEST 2025
 

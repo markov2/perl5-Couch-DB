@@ -38,21 +38,19 @@ my %oodist   = (
 		publish        => "$publish/raw",
 	},
 
-	generate => [
-	  {
+	generate => [ {
 		# Add real pod to the releases
 		format         => 'pod3',
 		podtail        => undef,
-	  },
-	  {	format         => 'html',
-		webpages       => "$webpages/couch-db/html",
-		publish        => "$publish/htmlpkg",
-		docroot        => "/couch-db/html",
-		templates      => "html",
-		stylesheet     => "/oodoc.css",
-	  },
-	  # You may add exporter configurations here.
-	],
+	}, {
+		export         => 'website',
+		serializer     => 'json',
+		markup         => 'html',
+		publish        => "$publish/doctree",
+		meta           => {
+			main_manual    => 'Couch::DB',
+		},
+	}, ],
 );
 
 my %requires = (  # also included in t/00use.t
