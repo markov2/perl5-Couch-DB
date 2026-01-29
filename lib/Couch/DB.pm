@@ -929,7 +929,7 @@ At the moment, the following generic C<%options> are supported everywhere:
 Do not perform and wait for the actual call, but prepare it to be used in parallel
 querying.  TO BE IMPLEMENTED/DOCUMENTED.
 
-=item * C<client> =E<gt> $client-object or -name
+=item * C<client> =E<gt> C<$client>-object or -name
 Use only the specified client (=server) to perform the call.
 
 =item * C<clients> =E<gt> ARRAY-of-clients or a role
@@ -1012,7 +1012,7 @@ See L<https://docs.couchdb.org/en/stable/ddocs/mango.html>
 Confusing? Yes it is.  There are often multiple solutions for the
 same problem.
 
-=subsection Paging
+=subsection Pagination
 
 Searches tend to give a large number of results.  The CouchDB server
 will refuse to return too many answers at a time (typically 25).
@@ -1074,7 +1074,7 @@ B<Be warned:> use as C<%option>, not as search parameter.
 If you accidentally know the bookmark for the search.  Usually, this is
 automatically picked-up via C<succeed>.
 
-=item * C<stop> =E<gt> CODE|'EMPTY'|'SMALLER'|'UPTO($nr)'
+=item * C<stop> =E<gt> CODE|'EMPTY'|'SMALLER'|'UPTO(<nr>)'
 When do we stop asking the server for more pages?  When the call returned
 no rows, then we always stop.  C<EMPTY> reflects the same.
 
@@ -1085,7 +1085,7 @@ server returns, but probably always the same until the source runs out.
 When C<UPTO> is used with some value (for instance C<UPTO(5)>) then no new
 call is made when less or equal to that number of rows is returned.
 
-=item * C<succeed> =E<gt> $result or $result->paging
+=item * C<succeed> =E<gt> C<$result> or C<< $result->paging >>
 Make this query as successor of a previous query.  Some requests support
 paging (via bookmarks).  See examples in a section below.
 
@@ -1134,7 +1134,6 @@ through pages (see examples)
 The start of the page counter, for display purposes.
 
 =back
-
 
 =example paging through result
 Get page by page, where you may use the C<limit> parameter to request

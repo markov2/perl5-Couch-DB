@@ -67,7 +67,7 @@ sub couch() { $_[0]->{CDN_couch} }
 #--------------------
 =section Node information
 
-B<All CouchDB API calls> documented below, support %options like C<_delay>
+B<All CouchDB API calls> documented below, support C<%options> like C<_delay>
 and C<on_error>.  See L<Couch::DB/Using the CouchDB API>.
 =cut
 
