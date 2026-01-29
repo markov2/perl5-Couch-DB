@@ -56,7 +56,7 @@ For all of the writes which support it, use batch (no wait) writing.  Of course,
 this may cause data to be lost when technical or logical issues emerge while the
 actual writing is done, but is much faster.
 
-=option   db   Couch::DB::Database-object
+=option   db   M<Couch::DB::Database>-object
 =default  db   undef
 If this document is database related.
 
@@ -71,7 +71,7 @@ attachments.
 Create a new document, with the first revision of the content.  Once saved,
 it will get a revision.
 
-=option   row  Couch::DB::Row-object
+=option   row  M<Couch::DB::Row>-object
 =default  row  undef
 =cut
 
@@ -195,7 +195,8 @@ sub row(;$)
 B<Warning:> Where Perl does not support the same data-types as JSON, you need to
 be very careful when addressing fields from this structure.  B<Much better> is
 it to use the provided abstraction methods, which hide those differences.  Those
-also hide changes in the server software, over time.
+also hide changes in the server software, over time.  See M<Couch::DB::toPerl()>
+and M<Couch::DB::toJSON()>
 
 =method isLocal
 This documents does not get replicated over nodes.

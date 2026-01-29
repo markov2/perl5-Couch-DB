@@ -618,9 +618,10 @@ sub _pageRequest($$$$)
 Convert all fields with @keys in the %data HASH into object
 of $type.  Fields which do not exist are ignored.
 
-As default JSON to Perl translations are currently defined:
-C<abs_uri>, C<epoch>, C<isotime>, C<mailtime>, C<version>, and
-C<node>.
+As default JSON to Perl translations are currently defined for $type
+being C<abs_uri>, C<epoch>, C<isotime>, C<mailtime>, C<version>,
+and C<node>.  Other values for $type will not trigger any action.
+
 =cut
 
 my %default_toperl = (  # sub ($couch, $name, $datum) returns value/object
@@ -661,6 +662,10 @@ sub listToPerl
 =method toJSON \%data, $type, @keys
 Convert the named fields in the %data into a JSON compatible format.
 Fields which do not exist are left alone.
+
+At the moment, special treatment is implemented when $type is
+C<bool>, C<uri>, C<node> or C<int>.  When this method is called
+with other types, the data is untouched.
 =cut
 
 my %default_tojson = (  # sub ($couch, $name, $datum) returns JSON
@@ -696,6 +701,9 @@ sub toJSON($@)
 =method toQuery \%data, $type, @keys
 Convert the named fields in the %data HASH into a Query compatible
 format.  Fields which do not exist are left alone.
+
+At the moment, special treatment is implemented when $type is
+C<bool> or C<json>.
 =cut
 
 # Extend/override the list of toJSON converters
