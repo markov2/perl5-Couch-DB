@@ -2,7 +2,6 @@
 #oodist: This file contains OODoc-style documentation which will get stripped
 #oodist: during its release in the distribution.  You can use this file for
 #oodist: testing, however the code of this development version may be broken!
-#oorestyle: not found P for method saveBulk(%details)
 
 package Couch::DB::Database;
 
@@ -11,7 +10,7 @@ use strict;
 
 use Log::Report 'couch-db';
 
-use Couch::DB::Util   qw/flat/;
+use Couch::DB::Util     qw/flat/;
 use Couch::DB::Document ();
 use Couch::DB::Design   ();
 
@@ -683,13 +682,11 @@ sub __bulk($$$$)
 		}
 	}
 
-	$issues->($result, $saves{$_},
-		+{ error => 'missing', reason => "The server did not report back on saving $_." }
-	) for keys %saves;
+	$issues->($result, $saves{$_}, +{ error => 'missing', reason => "The server did not report back on saving $_." })
+		for keys %saves;
 
-	$issues->($result, $deletes{$_},
-		+{ error => 'missing', reason => "The server did not report back on deleting $_.", delete => 1 }
-	) for keys %deletes;
+	$issues->($result, $deletes{$_}, +{ error => 'missing', reason => "The server did not report back on deleting $_.", delete => 1 })
+		for keys %deletes;
 }
 
 sub saveBulk($%)
@@ -723,6 +720,33 @@ sub saveBulk($%)
 		$couch->_resultsConfig(\%args,
 			on_final => sub { $self->__bulk($_[0], $docs, \@deletes, $issues) },
 		),
+	);
+}
+
+=method deleteBulk \@docs|\@docids, %options
+  [CouchDB API "POST /{db}/_index/_bulk_delete", UNTESTED]
+
+Remove all revisions of a set of documents.
+
+=option  write_quorum INTEGER
+=default write_quorum 2
+=cut
+
+sub deleteBulk($%)
+{	my ($self, $docs, %args) = @_;
+
+	my %send = (
+		docids => [ map +(blessed $_ ? $_->id : $_), flat $docs ],
+	);
+
+	if(my $w = delete $args{write_quorum})
+	{	$send{w} = $w;
+	}
+
+	my $couch = $self->couch;
+	$couch->call(POST => $self->_pathToDB('_index/_bulk_delete'),
+		send => \%send,
+		$couch->_resultsConfig(\%args),
 	);
 }
 

@@ -37,7 +37,7 @@
       <td class="count">4</td>
       <td>Minimally tested, not completely implemented.</td></tr>
   <tr><td>UNTESTED</td>
-      <td class="count">76</td>
+      <td class="count">77</td>
       <td>Implemented but never tried.</td></tr>
   <tr><td>TODO</td>
       <td class="count">2</td>
@@ -184,8 +184,8 @@
       <td>&nbsp;</td></tr>
   <tr class="first">
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#get--_node-node-name-_smoosh-status">GET /_node/{node-name}/_smoosh/status</a></td>
-      <td class="status">MISSING</td>
-      <td class="use"></td></tr>
+      <td class="status">UNTESTED</td>
+      <td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Node.pod#%24obj-%3EcompactStatus%28%29">$node-&gt;compactStatus()</a></td></tr>
   <tr><td class="descr"><p>Returns metrics of the CouchDB's auto-compaction daemon</p></td>
       <td>&nbsp;</td>
       <td>&nbsp;</td></tr>
@@ -1360,6 +1360,9 @@
   <tr><td>&nbsp;</td>
       <td class="status">DONE</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/local.html#put--db-_local-docid">PUT /{db}/_local/{docid}</a></td></tr>
+  <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Node.pod#%24obj-%3EcompactStatus%28%29">$node-&gt;compactStatus()</a></td>
+      <td class="status">UNTESTED</td>
+      <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/common.html#get--_node-node-name-_smoosh-status">GET /_node/{node-name}/_smoosh/status</a></td></tr>
   <tr><td class="use"><a href="https://metacpan.org/dist/Couch-DB/view/lib/Couch/DB/Node.pod#%24obj-%3Econfig%28%25options%29">$node-&gt;config(%options)</a></td>
       <td class="status">UNTESTED</td>
       <td class="api"><a href="https://docs.couchdb.org/en/stable/api/server/configuration.html#get--_node-node-name-_config">GET /_node/{node-name}/_config</a></td></tr>

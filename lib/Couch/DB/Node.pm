@@ -205,7 +205,6 @@ sub configChange($$$%)
 	);
 }
 
-
 =method configDelete $section, $key, %options
   [CouchDB API "DELETE /_node/{node-name}/_config/{section}/{key}", UNTESTED]
 
@@ -245,7 +244,7 @@ space in the cluster.  The internal CouchDB component to manage these processes
 in called 'Smoosh'.
 =cut
 
-sub configReload(%)
+sub compactStatus(%)
 {	my ($self, %args) = @_;
 
 	$self->couch->call(GET => self->_pathToNode("_smoosh/status"),
