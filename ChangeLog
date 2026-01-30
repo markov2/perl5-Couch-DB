@@ -3,7 +3,9 @@
 	  All code was made by Mark Overmeer.
 	  Attributes refer to people who made contributions in ideas and bug-reports.
 
-version 0.201:
+version 0.202:
+
+version 0.201: Fri 30 Jan 11:33:38 CET 2026
 
 	Changes:
 	- changed parameters of ::searchAnalyze().

@@ -3,7 +3,7 @@ use ExtUtils::MakeMaker;
 require 5.026;
 
 # Use command 'oodist' to produce your whole software release.
-my $version = '0.201';
+my $version = '0.202';
 my $webpages = "../public_html";
 my $git      = "https://github.com/perl-Couch-DB";
 my $publish  = "../public_html/couch-db";
