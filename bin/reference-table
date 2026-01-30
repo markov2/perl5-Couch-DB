@@ -17,6 +17,9 @@ my $couchdb_index = "$couchdb_api/http-routingtable.html";
 my $couchdb_cache = '/tmp/couch-cache';
 my $metacpan      = 'https://metacpan.org/dist/Couch-DB/view/';
 
+# CouchDB website uses UserAgent protection by CloudFlare
+my $user_agent    = 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0';
+
 GetOptions
 	'refresh|r!' => \(my $refresh = 0),
 	;
@@ -36,18 +39,22 @@ sub fill_index()
 {
 	my $routing;
 	if($refresh || ! -r $couchdb_cache || -M $couchdb_cache > 14)
-	{	print "Loading new routing table from couchdb.org\n";
+	{	warn "Loading new routing table from $couchdb_index\n";
 		my $ua = LWP::UserAgent->new;
+		$ua->agent($user_agent);    # fake to be a real browser
+
 		my $overview = $ua->get($couchdb_index);
+#use Data::Dumper;
+#warn Dumper $overview;
+warn $overview->code;
 		$routing     = $overview->decoded_content;
 		write_text $couchdb_cache, $routing;
 	}
 	else
 	{	$routing     = read_text $couchdb_cache;
 	}
-	
+
 	my $tree = HTML::TreeBuilder->new_from_content($routing);
-	#my $table = $tree->elementify->find('table');
 	foreach my $tr ($tree->elementify->find('table')->find('tr'))
 	{	my (undef, $which, $what) = $tr->find('td');
 		my ($a)  = $which->find('a') or next;

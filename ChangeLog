@@ -5,6 +5,9 @@
 
 version 0.202:
 
+	Improvements:
+	- added $node->compactStatus (smoosh)
+
 version 0.201: Fri 30 Jan 11:33:38 CET 2026
 
 	Changes:

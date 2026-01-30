@@ -125,6 +125,7 @@ sub restart(%)
 
 	#XXX No idea which data transformations can be done
 	$self->couch->call(POST => $self->_pathToNode('_restart'),
+		send => +{},
 		$self->couch->_resultsConfig(\%args),
 	);
 }
@@ -187,7 +188,7 @@ sub config(%)
 }
 
 =method configChange $section, $key, $value, %options
-  [CouchDB API "PUT /_node/{node-name}/_config/{section}/{key}", UNTESTED]>
+  [CouchDB API "PUT /_node/{node-name}/_config/{section}/{key}", UNTESTED]
 
 Change one value in the configuration.  Probably, it should be followed by
 a M<configReload()>: changes may not be commited without reload.
@@ -206,7 +207,7 @@ sub configChange($$$%)
 
 
 =method configDelete $section, $key, %options
-  [CouchDB API "DELETE /_node/{node-name}/_config/{section}/{key}", UNTESTED]>
+  [CouchDB API "DELETE /_node/{node-name}/_config/{section}/{key}", UNTESTED]
 
 Remove one value in the configuration.  Probably, it should be followed by
 a M<configReload()>: changes may not be commited without reload.
@@ -221,7 +222,7 @@ sub configDelete($$%)
 }
 
 =method configReload %options
-  [CouchDB API "POST /_node/{node-name}/_config/_reload", UNTESTED]>
+  [CouchDB API "POST /_node/{node-name}/_config/_reload", UNTESTED]
 
 Re-apply the configuration to the node.  This has as side-effect that the
 (changed) configuration of the node will be saved.
@@ -231,6 +232,24 @@ sub configReload(%)
 {	my ($self, %args) = @_;
 
 	$self->couch->call(POST => self->_pathToNode("_config/_reload"),
+		send => +{},
+		$self->couch->_resultsConfig(\%args),
+	);
+}
+
+=method compactStatus
+  [CouchDB API "GET /_node/{node-name}/_smoosh/status", since 3.4, UNTESTED]
+
+[0.202] Report the status of compacting processes which run to reclaim storage
+space in the cluster.  The internal CouchDB component to manage these processes
+in called 'Smoosh'.
+=cut
+
+sub configReload(%)
+{	my ($self, %args) = @_;
+
+	$self->couch->call(GET => self->_pathToNode("_smoosh/status"),
+		introduced => '3.4.0',
 		$self->couch->_resultsConfig(\%args),
 	);
 }
