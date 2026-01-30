@@ -335,6 +335,7 @@ sub compactViews(%)
 {	my ($self, %args) = @_;
 
 	$self->couch->call(POST => $self->_pathToDB('_compact/', uri_escape($self->baseId)),
+		send => +{},
 		$self->couch->_resultsConfig(\%args),
 	);
 }

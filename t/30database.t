@@ -30,7 +30,7 @@ ok ! $db->exists, '... exists, not yet';
 
 _result create           => $db->create;
 _result details          => $db->details;
-_result compact          => $db->compact;
+_result compact          => $db->compactViews;
 _result userRoles        => $db->userRoles;
 _result ensureFullCommit => $db->ensureFullCommit;
 

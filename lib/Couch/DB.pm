@@ -90,7 +90,7 @@ This server will be named C<_local>.
 
 You can add more servers using M<addClient()>.  In such case, you probably
 do not want this default client to be created as well.  To achieve this,
-explicitly set C<server =E<gt> undef>.
+explicitly set C<<server => undef >>.
 
 =option  auth 'BASIC'|'COOKIE'
 =default auth 'BASIC'

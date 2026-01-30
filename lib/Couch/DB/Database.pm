@@ -285,6 +285,7 @@ compacted on unexpected moments.
 sub compactViews(%)
 {	my ($self, %args) = @_;
 	$self->couch->call(POST => $self->_pathToDB('_compact'),
+		send => +{},
 		$self->couch->_resultsConfig(\%args),
 	);
 }
